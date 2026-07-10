@@ -1,0 +1,106 @@
+<c-container breakpoint="lg" class="py-4">
+  <!-- Alerts -->
+  @if (errorMessage()) {
+    <c-alert color="danger" dismissible class="mb-4">
+      {{ errorMessage() }}
+    </c-alert>
+  }
+  @if (successMessage()) {
+    <c-alert color="success" dismissible class="mb-4">
+      {{ successMessage() }}
+    </c-alert>
+  }
+
+  <div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+      <h2 class="fw-bold text-dark mb-1">Team Management</h2>
+      <p class="text-body-secondary mb-0">Invite your team, update security roles, or deactivate access logs</p>
+    </div>
+    @if (authService.hasRole(['Admin'])) {
+      <button cButton color="primary" class="d-flex align-items-center py-2 px-3 shadow-sm border-0" (click)="openInviteModal()">
+        <svg cIcon name="cilPlus" class="me-2"></svg>
+        Invite Member
+      </button>
+    }
+  </div>
+
+  <c-card class="shadow-sm border-0 mb-4">
+    <c-card-body class="p-0">
+      @if (isLoading() && users().length === 0) {
+        <div class="py-5 text-center">
+          <c-spinner color="primary" class="mb-3"></c-spinner>
+          <p class="text-body-secondary mb-0">Loading team directory...</p>
+        </div>
+      } @else if (users().length === 0) {
+        <!-- Empty State -->
+        <div class="py-5 text-center px-4">
+          <svg cIcon name="cilPeople" size="xl" class="text-body-secondary mb-3" style="width: 48px; height: 48px;"></svg>
+          <h4 class="fw-bold text-dark">No team members</h4>
+          <p class="text-body-secondary mt-1">Start by inviting colleagues to access your company dashboard.</p>
+        </div>
+      } @else {
+        <!-- Users Table -->
+        <div class="table-responsive">
+          <table cTable hover align="middle" class="mb-0 border-0">
+            <thead class="table-light text-uppercase font-size-xs fw-bold text-secondary">
+              <tr>
+                <th scope="col" class="ps-4">User ID</th>
+                <th scope="col">Name</th>
+                <th scope="col">Email</th>
+                <th scope="col">Role</th>
+                <th scope="col" class="text-center">Status</th>
+                <th scope="col" class="text-center pe-4" style="width: 180px;">Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (u of users(); track u.id) {
+                <tr>
+                  <td class="ps-4 font-monospace small">#{{ u.id }}</td>
+                  <td>
+                    <div class="fw-semibold text-dark">{{ u.firstName || '-' }} {{ u.lastName || '' }}</div>
+                    <div class="text-body-secondary small">Username: {{ u.userName || 'Not set' }}</div>
+                  </td>
+                  <td>{{ u.email }}</td>
+                  <td>
+                    @if (authService.hasRole(['Admin']) && u.id !== authService.currentUser()?.id) {
+                      <select cSelect size="sm" class="form-select-sm" (change)="changeUserRole(u, $event)">
+                        <option value="Admin" [selected]="u.role === 'Admin'">Admin</option>
+                        <option value="Manager" [selected]="u.role === 'Manager'">Manager</option>
+                        <option value="Employee" [selected]="u.role === 'Employee'">Employee</option>
+                      </select>
+                    } @else {
+                      <span class="badge bg-light text-dark border">{{ u.role }}</span>
+                    }
+                  </td>
+                  <td class="text-center">
+                    <span [ngClass]="u.active ? 'badge bg-success-subtle text-success border border-success' : 'badge bg-danger-subtle text-danger border border-danger'">
+                      {{ u.active ? 'Active' : 'Inactive' }}
+                    </span>
+                  </td>
+                  <td class="text-center pe-4">
+                    <div class="d-flex justify-content-center gap-1">
+                      @if (authService.hasRole(['Admin']) && u.id !== authService.currentUser()?.id) {
+                        <button cButton [color]="u.active ? 'danger' : 'success'" size="sm" class="py-1 px-3 border-0 text-white" (click)="toggleDeactivation(u)">
+                          {{ u.active ? 'Deactivate' : 'Reactivate' }}
+                        </button>
+                      } @else {
+                        <span class="text-muted small">-</span>
+                      }
+                    </div>
+                  </td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+      }
+    </c-card-body>
+  </c-card>
+</c-container>
+
+<!-- Custom Decoupled Invite Modal component -->
+<app-invite-modal
+  #inviteModal
+  [(visible)]="isModalOpen"
+  (saved)="loadUsers()">
+</app-invite-modal>

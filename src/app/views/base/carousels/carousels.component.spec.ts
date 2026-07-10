@@ -1,0 +1,46 @@
+import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { NoopAnimationsModule } from '@angular/platform-browser/animations';
+import { provideRouter } from '@angular/router';
+
+import { CardModule, CarouselModule, GridModule } from '@coreui/angular';
+import { IconModule, IconSetService } from '@coreui/icons-angular';
+import { iconSubset } from '../../../icons/icon-subset';
+import { CarouselsComponent } from './carousels.component';
+
+beforeAll(() => {
+  globalThis.IntersectionObserver = class IntersectionObserver {
+    constructor() {}
+    disconnect() {}
+    observe() {}
+    takeRecords() {
+      return [];
+    }
+    unobserve() {}
+  } as any;
+});
+
+describe('CarouselsComponent', () => {
+  let component: CarouselsComponent;
+  let fixture: ComponentFixture<CarouselsComponent>;
+  let iconSetService: IconSetService;
+
+  beforeEach(async () => {
+    TestBed.configureTestingModule({
+      imports: [CarouselModule, NoopAnimationsModule, CardModule, GridModule, IconModule, CarouselsComponent],
+      providers: [IconSetService, provideRouter([])]
+    }).compileComponents();
+  });
+
+  beforeEach(() => {
+    iconSetService = TestBed.inject(IconSetService);
+    iconSetService.icons = { ...iconSubset };
+
+    fixture = TestBed.createComponent(CarouselsComponent);
+    component = fixture.componentInstance;
+    fixture.detectChanges();
+  });
+
+  it('should create', () => {
+    expect(component).toBeTruthy();
+  });
+});

@@ -1,0 +1,146 @@
+<div class="bg-light dark:bg-transparent min-vh-100 d-flex flex-row align-items-center">
+  <c-container breakpoint="md">
+    <c-row class="justify-content-center">
+      <c-col lg="8" md="10">
+        <c-card class="mx-4 shadow-sm border-0">
+          <c-card-body class="p-4">
+            <form cForm [formGroup]="registerForm" (ngSubmit)="onSubmit()">
+              <h1 class="fw-bold text-dark">Register</h1>
+              <p class="text-body-secondary mb-4">Create your SaaS admin account</p>
+
+              <!-- Notifications -->
+              @if (errorMessage()) {
+                <c-alert color="danger" class="py-2 mb-4 d-flex align-items-center">
+                  <svg cIcon name="cilWarning" class="me-2"></svg>
+                  <span>{{ errorMessage() }}</span>
+                </c-alert>
+              }
+
+              @if (successMessage()) {
+                <c-alert color="success" class="py-2 mb-4 d-flex align-items-center">
+                  <svg cIcon name="cilCheckCircle" class="me-2"></svg>
+                  <span>{{ successMessage() }}</span>
+                </c-alert>
+              }
+
+              <c-row>
+                <!-- First Name -->
+                <c-col md="6" class="mb-3">
+                  <c-input-group>
+                    <span cInputGroupText><svg cIcon name="cilUser"></svg></span>
+                    <input formControlName="firstName" cFormControl placeholder="First Name" />
+                  </c-input-group>
+                </c-col>
+
+                <!-- Last Name -->
+                <c-col md="6" class="mb-3">
+                  <c-input-group>
+                    <span cInputGroupText><svg cIcon name="cilUser"></svg></span>
+                    <input formControlName="lastName" cFormControl placeholder="Last Name" />
+                  </c-input-group>
+                </c-col>
+              </c-row>
+
+              <c-row>
+                <!-- Username -->
+                <c-col md="6" class="mb-3">
+                  <c-input-group>
+                    <span cInputGroupText><svg cIcon name="cilUserFollow"></svg></span>
+                    <input formControlName="userName" cFormControl placeholder="Username" />
+                  </c-input-group>
+                </c-col>
+
+                <!-- Email -->
+                <c-col md="6" class="mb-3">
+                  <c-input-group>
+                    <span cInputGroupText>&#64;</span>
+                    <input
+                      formControlName="email"
+                      autoComplete="email"
+                      cFormControl
+                      placeholder="Email"
+                      [valid]="registerForm.get('email')?.touched ? registerForm.get('email')?.valid : undefined"
+                    />
+                  </c-input-group>
+                  @if (registerForm.get('email')?.touched && registerForm.get('email')?.errors?.['required']) {
+                    <div class="text-danger small mt-1">Email is required.</div>
+                  }
+                  @if (registerForm.get('email')?.touched && registerForm.get('email')?.errors?.['email']) {
+                    <div class="text-danger small mt-1">Please enter a valid email address.</div>
+                  }
+                </c-col>
+              </c-row>
+
+              <c-row>
+                <!-- Password -->
+                <c-col md="6" class="mb-3">
+                  <c-input-group>
+                    <span cInputGroupText><svg cIcon name="cilLockLocked"></svg></span>
+                    <input
+                      formControlName="password"
+                      autoComplete="new-password"
+                      cFormControl
+                      placeholder="Password"
+                      type="password"
+                      [valid]="registerForm.get('password')?.touched ? registerForm.get('password')?.valid : undefined"
+                    />
+                  </c-input-group>
+                  @if (registerForm.get('password')?.touched && registerForm.get('password')?.errors?.['required']) {
+                    <div class="text-danger small mt-1">Password is required.</div>
+                  }
+                  @if (registerForm.get('password')?.touched && registerForm.get('password')?.errors?.['minlength']) {
+                    <div class="text-danger small mt-1">Password must be at least 6 characters.</div>
+                  }
+                </c-col>
+
+                <!-- Repeat Password -->
+                <c-col md="6" class="mb-3">
+                  <c-input-group>
+                    <span cInputGroupText><svg cIcon name="cilLockLocked"></svg></span>
+                    <input
+                      formControlName="repeatPassword"
+                      autoComplete="new-password"
+                      cFormControl
+                      placeholder="Repeat password"
+                      type="password"
+                      [valid]="registerForm.get('repeatPassword')?.touched ? !registerForm.errors?.['mismatch'] : undefined"
+                    />
+                  </c-input-group>
+                  @if (registerForm.get('repeatPassword')?.touched && registerForm.errors?.['mismatch']) {
+                    <div class="text-danger small mt-1">Passwords do not match.</div>
+                  }
+                </c-col>
+              </c-row>
+
+              <!-- Create Company Optional Field -->
+              <div class="mb-4">
+                <hr class="my-4" />
+                <h5 class="fw-bold text-secondary mb-2">Create a New Company (SaaS Tenant)</h5>
+                <p class="text-body-secondary small mb-3">Optional: If provided, a new company will be created and you will be assigned as its administrator.</p>
+                <c-input-group>
+                  <span cInputGroupText><svg cIcon name="cilBuilding"></svg></span>
+                  <input formControlName="createCompanyName" cFormControl placeholder="Company Name (e.g. My Business SRL)" />
+                </c-input-group>
+              </div>
+
+              <div class="d-grid gap-2">
+                <button cButton color="success" class="py-2 d-flex align-items-center justify-content-center text-white" type="submit" [disabled]="isLoading()">
+                  @if (isLoading()) {
+                    <c-spinner size="sm" class="me-2"></c-spinner>
+                    Creating account...
+                  } @else {
+                    Create Account
+                  }
+                </button>
+                <div class="text-center mt-3">
+                  <span class="text-body-secondary">Already have an account? </span>
+                  <a routerLink="/login" class="text-decoration-none fw-bold">Sign In</a>
+                </div>
+              </div>
+            </form>
+          </c-card-body>
+        </c-card>
+      </c-col>
+    </c-row>
+  </c-container>
+</div>

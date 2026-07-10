@@ -1,0 +1,102 @@
+<div class="bg-light dark:bg-transparent min-vh-100 d-flex flex-row align-items-center">
+  <c-container breakpoint="md">
+    <c-row class="justify-content-center">
+      <c-col lg="10" xl="8">
+        <c-card-group>
+          <c-card class="p-4 shadow-sm border-0">
+            <c-card-body>
+              <form cForm [formGroup]="loginForm" (ngSubmit)="onSubmit()">
+                <h1 class="fw-bold text-dark">Sign In</h1>
+                <p class="text-body-secondary mb-4">Enter your credentials to access your SaaS account</p>
+
+                <!-- Global Error Message Banner -->
+                @if (errorMessage()) {
+                  <c-alert color="danger" class="py-2 mb-4 d-flex align-items-center">
+                    <svg cIcon name="cilWarning" class="me-2"></svg>
+                    <span>{{ errorMessage() }}</span>
+                  </c-alert>
+                }
+
+                <!-- Email Input -->
+                <div class="mb-3">
+                  <c-input-group>
+                    <span cInputGroupText>
+                      <svg cIcon name="cilEnvelopeOpen"></svg>
+                    </span>
+                    <input
+                      formControlName="email"
+                      autoComplete="email"
+                      cFormControl
+                      placeholder="Email Address"
+                      [valid]="loginForm.get('email')?.touched ? loginForm.get('email')?.valid : undefined"
+                    />
+                  </c-input-group>
+                  @if (loginForm.get('email')?.touched && loginForm.get('email')?.errors?.['required']) {
+                    <div class="text-danger small mt-1">Email is required.</div>
+                  }
+                  @if (loginForm.get('email')?.touched && loginForm.get('email')?.errors?.['email']) {
+                    <div class="text-danger small mt-1">Please enter a valid email address.</div>
+                  }
+                </div>
+
+                <!-- Password Input -->
+                <div class="mb-4">
+                  <c-input-group>
+                    <span cInputGroupText>
+                      <svg cIcon name="cilLockLocked"></svg>
+                    </span>
+                    <input
+                      formControlName="password"
+                      autoComplete="current-password"
+                      cFormControl
+                      placeholder="Password"
+                      type="password"
+                      [valid]="loginForm.get('password')?.touched ? loginForm.get('password')?.valid : undefined"
+                    />
+                  </c-input-group>
+                  @if (loginForm.get('password')?.touched && loginForm.get('password')?.errors?.['required']) {
+                    <div class="text-danger small mt-1">Password is required.</div>
+                  }
+                  @if (loginForm.get('password')?.touched && loginForm.get('password')?.errors?.['minlength']) {
+                    <div class="text-danger small mt-1">Password must be at least 6 characters.</div>
+                  }
+                </div>
+
+                <c-row class="align-items-center">
+                  <c-col xs="6">
+                    <button cButton class="px-4 py-2 w-100 d-flex align-items-center justify-content-center" color="primary" type="submit" [disabled]="isLoading()">
+                      @if (isLoading()) {
+                        <c-spinner size="sm" class="me-2"></c-spinner>
+                        Signing in...
+                      } @else {
+                        Login
+                      }
+                    </button>
+                  </c-col>
+                  <c-col class="text-end" xs="6">
+                    <button cButton class="px-0 text-decoration-none" color="link" type="button">
+                      Forgot password?
+                    </button>
+                  </c-col>
+                </c-row>
+              </form>
+            </c-card-body>
+          </c-card>
+          <c-card [style.minWidth.%]="44" class="text-white bg-primary py-5 border-0 shadow-sm d-flex align-items-center justify-content-center">
+            <c-card-body class="text-center w-100 px-4">
+              <div>
+                <h2 class="fw-bold">New Here?</h2>
+                <p class="mt-3 opacity-75">
+                  Register your account and start managing your company products, warehouse, and stock inventory with ease.
+                </p>
+                <button [active]="true" cButton class="mt-4 px-4 py-2 btn-light-custom" color="light" routerLink="/register">
+                  Register Now!
+                </button>
+              </div>
+            </c-card-body>
+          </c-card>
+        </c-card-group>
+      </c-col>
+    </c-row>
+  </c-container>
+</div>

@@ -1,0 +1,125 @@
+<div class="bg-light dark:bg-transparent min-vh-100 d-flex flex-row align-items-center">
+  <c-container breakpoint="md">
+    <c-row class="justify-content-center">
+      <c-col lg="8" md="10">
+        <c-card class="mx-4 shadow-sm border-0">
+          <c-card-body class="p-4">
+            @if (!token) {
+              <div class="text-center py-4">
+                <svg cIcon name="cilWarning" size="xl" class="text-danger mb-3" style="width: 48px; height: 48px;"></svg>
+                <h2 class="fw-bold text-dark">Invalid Invitation Link</h2>
+                <p class="text-body-secondary mt-2">{{ errorMessage() }}</p>
+                <button cButton color="primary" class="mt-4 px-4 py-2" routerLink="/login">Back to Login</button>
+              </div>
+            } @else {
+              <form cForm [formGroup]="acceptForm" (ngSubmit)="onSubmit()">
+                <h1 class="fw-bold text-dark">Join the Team</h1>
+                <p class="text-body-secondary mb-4">Complete your user profile to accept the team invitation</p>
+
+                <!-- Notifications -->
+                @if (errorMessage()) {
+                  <c-alert color="danger" class="py-2 mb-4 d-flex align-items-center">
+                    <svg cIcon name="cilWarning" class="me-2"></svg>
+                    <span>{{ errorMessage() }}</span>
+                  </c-alert>
+                }
+
+                @if (successMessage()) {
+                  <c-alert color="success" class="py-2 mb-4 d-flex align-items-center">
+                    <svg cIcon name="cilCheckCircle" class="me-2"></svg>
+                    <span>{{ successMessage() }}</span>
+                  </c-alert>
+                }
+
+                <c-row>
+                  <!-- First Name -->
+                  <c-col md="6" class="mb-3">
+                    <c-input-group>
+                      <span cInputGroupText><svg cIcon name="cilUser"></svg></span>
+                      <input formControlName="firstName" cFormControl placeholder="First Name" />
+                    </c-input-group>
+                    @if (acceptForm.get('firstName')?.touched && acceptForm.get('firstName')?.errors?.['required']) {
+                      <div class="text-danger small mt-1">First name is required.</div>
+                    }
+                  </c-col>
+
+                  <!-- Last Name -->
+                  <c-col md="6" class="mb-3">
+                    <c-input-group>
+                      <span cInputGroupText><svg cIcon name="cilUser"></svg></span>
+                      <input formControlName="lastName" cFormControl placeholder="Last Name" />
+                    </c-input-group>
+                    @if (acceptForm.get('lastName')?.touched && acceptForm.get('lastName')?.errors?.['required']) {
+                      <div class="text-danger small mt-1">Last name is required.</div>
+                    }
+                  </c-col>
+                </c-row>
+
+                <!-- Username -->
+                <div class="mb-3">
+                  <c-input-group>
+                    <span cInputGroupText><svg cIcon name="cilUserFollow"></svg></span>
+                    <input formControlName="userName" cFormControl placeholder="Username" />
+                  </c-input-group>
+                  @if (acceptForm.get('userName')?.touched && acceptForm.get('userName')?.errors?.['required']) {
+                    <div class="text-danger small mt-1">Username is required.</div>
+                  }
+                </div>
+
+                <c-row>
+                  <!-- Password -->
+                  <c-col md="6" class="mb-3">
+                    <c-input-group>
+                      <span cInputGroupText><svg cIcon name="cilLockLocked"></svg></span>
+                      <input
+                        formControlName="password"
+                        cFormControl
+                        placeholder="Choose Password"
+                        type="password"
+                        [valid]="acceptForm.get('password')?.touched ? acceptForm.get('password')?.valid : undefined"
+                      />
+                    </c-input-group>
+                    @if (acceptForm.get('password')?.touched && acceptForm.get('password')?.errors?.['required']) {
+                      <div class="text-danger small mt-1">Password is required.</div>
+                    }
+                    @if (acceptForm.get('password')?.touched && acceptForm.get('password')?.errors?.['minlength']) {
+                      <div class="text-danger small mt-1">Password must be at least 6 characters.</div>
+                    }
+                  </c-col>
+
+                  <!-- Repeat Password -->
+                  <c-col md="6" class="mb-3">
+                    <c-input-group>
+                      <span cInputGroupText><svg cIcon name="cilLockLocked"></svg></span>
+                      <input
+                        formControlName="repeatPassword"
+                        cFormControl
+                        placeholder="Repeat Password"
+                        type="password"
+                        [valid]="acceptForm.get('repeatPassword')?.touched ? !acceptForm.errors?.['mismatch'] : undefined"
+                      />
+                    </c-input-group>
+                    @if (acceptForm.get('repeatPassword')?.touched && acceptForm.errors?.['mismatch']) {
+                      <div class="text-danger small mt-1">Passwords do not match.</div>
+                    }
+                  </c-col>
+                </c-row>
+
+                <div class="d-grid gap-2 mt-4">
+                  <button cButton color="primary" class="py-2 d-flex align-items-center justify-content-center" type="submit" [disabled]="isLoading()">
+                    @if (isLoading()) {
+                      <c-spinner size="sm" class="me-2"></c-spinner>
+                      Joining Team...
+                    } @else {
+                      Accept Invitation & Create Profile
+                    }
+                  </button>
+                </div>
+              </form>
+            }
+          </c-card-body>
+        </c-card>
+      </c-col>
+    </c-row>
+  </c-container>
+</div>

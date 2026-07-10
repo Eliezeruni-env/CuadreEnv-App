@@ -1,0 +1,406 @@
+// Modern SaaS Design System styles (Stripe / Notion / Linear style)
+
+// Primary Color Enhancements (Tailored Indigo/Violet)
+$saas-primary: #4f46e5;
+$saas-primary-hover: #4338ca;
+$saas-success: #10b981;
+$saas-danger: #ef4444;
+$saas-warning: #f59e0b;
+$saas-border-color: #f3f4f6;
+$saas-bg-light: #f9fafb;
+
+// Animations
+@keyframes pulse-skeleton {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: .4;
+  }
+}
+
+@keyframes bounce-subtle {
+  0%, 100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-4px);
+  }
+}
+
+.animate-bounce {
+  animation: bounce-subtle 2s infinite ease-in-out;
+}
+
+// Global visual enhancements
+body {
+  font-family: 'Outfit', 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+// Button overrides
+.btn-primary {
+  background-color: $saas-primary !important;
+  border-color: $saas-primary !important;
+  font-weight: 500;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  border-radius: 6px;
+
+  &:hover, &:focus, &:active {
+    background-color: $saas-primary-hover !important;
+    border-color: $saas-primary-hover !important;
+    box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.25) !important;
+  }
+}
+
+.btn-light-custom {
+  background-color: rgba(255, 255, 255, 0.15) !important;
+  border-color: transparent !important;
+  color: #ffffff !important;
+  backdrop-filter: blur(8px);
+  transition: all 0.2s;
+
+  &:hover {
+    background-color: #ffffff !important;
+    color: $saas-primary !important;
+  }
+}
+
+// Form fields focus states
+.form-control, .form-select {
+  border-color: #e5e7eb !important;
+  border-radius: 6px !important;
+  padding: 0.6rem 0.8rem;
+  transition: all 0.15s ease-in-out;
+
+  &:focus {
+    border-color: $saas-primary !important;
+    box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.15) !important;
+  }
+}
+
+// Tables modern styling
+.table {
+  border-collapse: separate;
+  border-spacing: 0;
+
+  thead th {
+    background-color: #f9fafb !important;
+    border-bottom: 1px solid #f3f4f6 !important;
+    color: #4b5563 !important;
+    font-size: 0.75rem !important;
+    letter-spacing: 0.05em;
+    padding: 12px 16px !important;
+  }
+
+  tbody tr {
+    transition: background-color 0.15s;
+
+    &:hover {
+      background-color: #fafafa !important;
+    }
+
+    td {
+      padding: 14px 16px !important;
+      border-bottom: 1px solid #f3f4f6 !important;
+      color: #374151;
+    }
+  }
+}
+
+// Cards styling
+.card {
+  border: 1px solid #f3f4f6 !important;
+  border-radius: 8px !important;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+
+  &.shadow-xs {
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05) !important;
+  }
+  
+  &.border-top-primary {
+    border-top: 3px solid $saas-primary !important;
+  }
+  &.border-top-success {
+    border-top: 3px solid $saas-success !important;
+  }
+  &.border-top-danger {
+    border-top: 3px solid $saas-danger !important;
+  }
+  &.border-top-info {
+    border-top: 3px solid #06b6d4 !important;
+  }
+}
+
+// Badges
+.badge {
+  font-weight: 500;
+  padding: 0.4em 0.6em;
+  border-radius: 4px;
+}
+
+// Skeleton loaders
+.skeleton-row {
+  height: 20px;
+  background-color: #f3f4f6;
+  border-radius: 4px;
+  margin-bottom: 8px;
+  animation: pulse-skeleton 1.5s infinite ease-in-out;
+
+  &.short { width: 40%; }
+  &.medium { width: 70%; }
+  &.long { width: 90%; }
+}
+
+// Custom select copy-paste support
+.select-all {
+  user-select: all;
+  -webkit-user-select: all;
+}
+
+// Navigation sidebar tweaks
+.sidebar {
+  background-color: #0f172a !important; // Dark premium slate
+}
+
+// ------------------------------------------------------------
+// Activity Timeline Styles
+// ------------------------------------------------------------
+.saas-timeline {
+  position: relative;
+  padding-left: 42px;
+  
+  &::before {
+    content: '';
+    position: absolute;
+    top: 8px;
+    bottom: 8px;
+    left: 15px;
+    width: 2px;
+    background-color: #e5e7eb;
+  }
+}
+
+.saas-timeline-item {
+  position: relative;
+  margin-bottom: 24px;
+  
+  &:last-child {
+    margin-bottom: 0;
+  }
+}
+
+.saas-timeline-badge {
+  position: absolute;
+  left: -42px;
+  top: 2px;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1;
+  background-color: #ffffff;
+  border: 1px solid #e5e7eb;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+  transition: transform 0.2s ease-in-out;
+
+  &:hover {
+    transform: scale(1.1);
+  }
+}
+
+.saas-timeline-content {
+  padding-top: 4px;
+}
+
+// ------------------------------------------------------------
+// Premium Dark Mode Customizations
+// ------------------------------------------------------------
+[data-coreui-theme="dark"] {
+  // Backgrounds & Typography
+  body {
+    background-color: #090d16 !important;
+    color: #f1f5f9 !important;
+  }
+
+  .wrapper {
+    background-color: #090d16 !important;
+  }
+
+  .header {
+    background-color: #0d1527 !important;
+    border-bottom: 1px solid #1e293b !important;
+  }
+
+  // Cards
+  .card {
+    background-color: #0f172a !important;
+    border: 1px solid #1e293b !important;
+    
+    .text-dark {
+      color: #f1f5f9 !important;
+    }
+  }
+
+  .bg-light {
+    background-color: #1e293b !important;
+  }
+
+  // Forms
+  .form-control, .form-select {
+    background-color: #0f172a !important;
+    border-color: #1e293b !important;
+    color: #f1f5f9 !important;
+
+    &:focus {
+      border-color: $saas-primary !important;
+      background-color: #0f172a !important;
+      box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.25) !important;
+    }
+  }
+
+  // Tables
+  .table {
+    thead th {
+      background-color: #1e293b !important;
+      border-bottom: 1px solid #334155 !important;
+      color: #94a3b8 !important;
+    }
+
+    tbody tr {
+      &:hover {
+        background-color: #1e293b !important;
+      }
+
+      td {
+        border-bottom: 1px solid #1e293b !important;
+        color: #cbd5e1 !important;
+      }
+    }
+  }
+
+  // Timeline
+  .saas-timeline {
+    &::before {
+      background-color: #334155;
+    }
+  }
+
+  .saas-timeline-badge {
+    background-color: #0f172a;
+    border-color: #334155;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+  }
+
+  // General borders & lines
+  .border-bottom, .border-top, .border-left, .border-right, hr {
+    border-color: #1e293b !important;
+  }
+
+  .text-body-secondary {
+    color: #94a3b8 !important;
+  }
+
+  // Custom colors subtles
+  .bg-success-subtle { background-color: rgba(16, 185, 129, 0.15) !important; }
+  .bg-danger-subtle { background-color: rgba(239, 68, 68, 0.15) !important; }
+  .bg-primary-subtle { background-color: rgba(79, 70, 229, 0.15) !important; }
+  .bg-info-subtle { background-color: rgba(6, 182, 212, 0.15) !important; }
+
+  // Custom select element defaults
+  select option {
+    background-color: #0f172a !important;
+    color: #f1f5f9 !important;
+  }
+}
+
+// ------------------------------------------------------------
+// Custom Standalone Modal System (Decoupled from CoreUI)
+// ------------------------------------------------------------
+.custom-modal-backdrop {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  background-color: rgba(0, 0, 0, 0.5);
+  z-index: 1050;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  backdrop-filter: blur(4px);
+  transition: opacity 0.2s ease-in-out;
+}
+
+.custom-modal-content {
+  background-color: #ffffff;
+  border-radius: 8px;
+  width: 90%;
+  max-width: 550px;
+  max-height: 85vh;
+  overflow-y: auto;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.15);
+  display: flex;
+  flex-direction: column;
+  animation: modal-slide-in 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  border: 1px solid #e5e7eb;
+
+  &.modal-lg {
+    max-width: 750px;
+  }
+}
+
+[data-coreui-theme="dark"] .custom-modal-content {
+  background-color: #0f172a !important;
+  border-color: #1e293b !important;
+  color: #f1f5f9 !important;
+}
+
+@keyframes modal-slide-in {
+  from {
+    transform: translateY(15px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+.custom-modal-header {
+  padding: 16px 20px;
+  border-bottom: 1px solid #f3f4f6;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+
+  h5 {
+    margin: 0;
+    font-weight: 700;
+  }
+}
+
+[data-coreui-theme="dark"] .custom-modal-header {
+  border-bottom-color: #1e293b !important;
+}
+
+.custom-modal-body {
+  padding: 20px;
+  overflow-y: auto;
+}
+
+.custom-modal-footer {
+  padding: 16px 20px;
+  border-top: 1px solid #f3f4f6;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 12px;
+}
+
+[data-coreui-theme="dark"] .custom-modal-footer {
+  border-top-color: #1e293b !important;
+}
+
