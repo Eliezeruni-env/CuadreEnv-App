@@ -1,0 +1,32 @@
+@use "sass:map";
+@use "variables";
+
+// Mobile-first media query mixin. Usage: @include respond-to(md) { ... }
+@mixin respond-to($breakpoint) {
+    $val: map.get(variables.$breakpoints, $breakpoint);
+
+    @if $val ==null {
+        @warn "Unknown breakpoint `#{$breakpoint}`.";
+        @content;
+    }
+
+    @else if $val ==0 {
+        @content;
+    }
+
+    @else {
+        @media (min-width: $val) {
+            @content;
+        }
+    }
+}
+
+// Utility: visually hidden
+@mixin visually-hidden {
+    position: absolute !important;
+    height: 1px;
+    width: 1px;
+    overflow: hidden;
+    clip: rect(1px, 1px, 1px, 1px);
+    white-space: nowrap;
+}

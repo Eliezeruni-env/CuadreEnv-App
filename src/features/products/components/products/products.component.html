@@ -1,0 +1,154 @@
+<c-container breakpoint="lg" class="py-4">
+  @if (errorMessage()) {
+  <c-alert color="danger" dismissible class="mb-4">
+    {{ errorMessage() }}
+  </c-alert>
+  }
+
+  <div class="module-shell">
+    <section class="hero-panel">
+      <div class="d-flex flex-column flex-lg-row justify-content-between gap-3">
+        <div>
+          <div class="d-flex align-items-center gap-2 mb-2">
+            <span class="stat-pill">
+              <svg cIcon name="cilStorage" size="sm"></svg>
+              Catalogo
+            </span>
+          </div>
+          <h2 class="hero-title fw-bold text-dark mb-2">{{ translationService.t('products.title') }}</h2>
+          <p class="hero-copy mb-0">{{ translationService.t('products.subtitle') }}</p>
+        </div>
+        <div class="hero-actions">
+          @if (authService.hasRole(['Admin', 'Manager', 'Employee'])) {
+          <button cButton color="primary" class="d-flex align-items-center py-2 px-3 shadow-sm border-0"
+            (click)="openCreateModal()">
+            <svg cIcon name="cilPlus" class="me-2"></svg>
+            {{ translationService.t('products.new') }}
+          </button>
+          }
+        </div>
+      </div>
+
+      <div class="hero-stats-row mt-3">
+        <div class="stat-card accent">
+          <div class="stat-card-title">{{ translationService.t('header.products') }}</div>
+          <div class="stat-card-value">{{ totalItems() }}</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-card-title">{{ translationService.t('common.filter') }}</div>
+          <div class="stat-card-value">{{ getFilteredProducts().length }}</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-card-title">{{ translationService.t('products.filterLowStock') }}</div>
+          <div class="stat-card-value">{{ products().filter(p => getStockState(p) !== 'healthy').length }}</div>
+        </div>
+      </div>
+    </section>
+
+    <app-filter-panel [title]="translationService.t('products.filterTitle')" [config]="filterConfig"
+      [values]="filters()" (filtersChange)="onFiltersChange($event)"></app-filter-panel>
+
+    <c-card class="shadow-sm border-0 table-shell">
+      <c-card-body class="p-0">
+        @if (isLoading() && products().length === 0) {
+        <div class="py-5 text-center">
+          <c-spinner color="primary" class="mb-3"></c-spinner>
+          <p class="text-body-secondary mb-0">{{ translationService.t('common.loading') }}</p>
+        </div>
+        } @else if (products().length === 0) {
+        <div class="py-5 text-center px-4">
+          <svg cIcon name="cilStorage" size="xl" class="text-body-secondary mb-3"
+            style="width: 48px; height: 48px;"></svg>
+          <h4 class="fw-bold text-dark">{{ translationService.t('products.emptyTitle') }}</h4>
+          <p class="text-body-secondary mt-1 max-width-320 mx-auto">{{ translationService.t('products.emptyBody') }}</p>
+          <button cButton color="primary" class="mt-3 px-4" (click)="openCreateModal()">
+            {{ translationService.t('products.first') }}
+          </button>
+        </div>
+        } @else {
+        <app-table [columns]="columns" [rows]="getFilteredProducts()" [loading]="isLoading()"
+          [emptyMessage]="translationService.t('products.emptyBody')" [rowTemplate]="productRowTpl">
+        </app-table>
+
+        <ng-template #productRowTpl let-p>
+          <tr>
+            <td class="ps-4">
+              <div class="d-flex align-items-center gap-3">
+                <div class="table-row-icon">
+                  <svg cIcon name="cilStorage" size="sm"></svg>
+                </div>
+                <div>
+                  <div class="fw-semibold text-dark">{{ p.description }}</div>
+                  @if (p.shortDescription) {
+                  <div class="text-body-secondary small">{{ p.shortDescription }}</div>
+                  }
+                </div>
+              </div>
+            </td>
+            <td>{{ p.reference || '-' }}</td>
+            <td><span class="font-monospace small">{{ p.barcode || '-' }}</span></td>
+            <td class="text-end fw-bold text-dark">\${{ p.cost | number:'1.2-2' }}</td>
+            <td class="text-end fw-semibold">
+              <span class="stock-badge" [ngClass]="{
+                    'stock-badge--healthy': getStockState(p) === 'healthy',
+                    'stock-badge--low': getStockState(p) === 'low',
+                    'stock-badge--critical': getStockState(p) === 'critical'
+                  }">
+                {{ p.stock }} u.
+              </span>
+            </td>
+            <td class="text-center pe-4 action-cell">
+              <div class="desktop-actions d-flex justify-content-center gap-1">
+                @if (authService.hasRole(['Admin', 'Manager', 'Employee'])) {
+                <button cButton color="light" size="sm" class="border" title="Editar" (click)="openEditModal(p)">
+                  <svg cIcon name="cilPencil" size="sm"></svg>
+                </button>
+                } @else {
+                <span class="text-muted small">-</span>
+                }
+              </div>
+
+              <details class="mobile-actions">
+                <summary class="btn btn-light btn-sm">⋯</summary>
+                <div class="mobile-actions-menu">
+                  @if (authService.hasRole(['Admin', 'Manager', 'Employee'])) {
+                  <button cButton color="light" size="sm" class="border mb-1 w-100" title="Editar"
+                    (click)="openEditModal(p)">
+                    <svg cIcon name="cilPencil" size="sm"></svg> Edit
+                  </button>
+                  } @else {
+                  <div class="text-muted small p-2">-</div>
+                  }
+                </div>
+              </details>
+            </td>
+          </tr>
+        </ng-template>
+
+        @if (totalItems() > pageSize) {
+        <div class="p-3 border-top d-flex justify-content-between align-items-center flex-wrap gap-2">
+          <div class="text-body-secondary small">
+            {{ translationService.t('common.page') }} {{ currentPage() }} · {{ totalItems() }} {{
+            translationService.t('common.items') }}
+          </div>
+          <c-pagination class="mb-0">
+            <li cPageItem [disabled]="currentPage() === 1">
+              <a cPageLink (click)="onPageChange(currentPage() - 1)" style="cursor: pointer;">{{
+                translationService.t('common.previous') }}</a>
+            </li>
+            <li cPageItem [disabled]="currentPage() * pageSize >= totalItems()">
+              <a cPageLink (click)="onPageChange(currentPage() + 1)" style="cursor: pointer;">{{
+                translationService.t('common.next') }}</a>
+            </li>
+          </c-pagination>
+        </div>
+        }
+        }
+      </c-card-body>
+    </c-card>
+  </div>
+</c-container>
+
+<!-- Custom Decoupled Product Modal component -->
+<app-product-modal #productModal [(visible)]="isModalOpen" (saved)="loadProducts()">
+</app-product-modal>

@@ -1,0 +1,102 @@
+<c-container breakpoint="lg" class="py-4">
+  <!-- Alerts -->
+  @if (errorMessage()) {
+  <c-alert color="danger" dismissible class="mb-4">
+    {{ errorMessage() }}
+  </c-alert>
+  }
+
+  <div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+      <h2 class="fw-bold text-dark mb-1">{{ translationService.t('sales.title') }}</h2>
+      <p class="text-body-secondary mb-0">{{ translationService.t('sales.subtitle') }}</p>
+    </div>
+    @if (authService.hasRole(['Admin', 'Manager', 'Employee'])) {
+    <button cButton color="primary" class="d-flex align-items-center py-2 px-3 shadow-sm border-0"
+      (click)="openCreateModal()">
+      <svg cIcon name="cilPlus" class="me-2"></svg>
+      {{ translationService.t('sales.new') }}
+    </button>
+    }
+  </div>
+
+  <app-filter-panel [title]="translationService.t('sales.filterTitle')" [config]="filterConfig" [values]="filters()"
+    (filtersChange)="onFiltersChange($event)"></app-filter-panel>
+
+  <c-card class="shadow-sm border-0 mb-4">
+    <c-card-body class="p-0">
+      @if (isLoading() && sales().length === 0) {
+      <div class="py-5 text-center">
+        <c-spinner color="primary" class="mb-3"></c-spinner>
+        <p class="text-body-secondary mb-0">{{ translationService.t('common.loading') }}</p>
+      </div>
+      } @else if (sales().length === 0) {
+      <!-- Empty State -->
+      <div class="py-5 text-center px-4">
+        <svg cIcon name="cilCart" size="xl" class="text-body-secondary mb-3" style="width: 48px; height: 48px;"></svg>
+        <h4 class="fw-bold text-dark">{{ translationService.t('sales.emptyTitle') }}</h4>
+        <p class="text-body-secondary mt-1 max-width-320 mx-auto">{{ translationService.t('sales.emptyBody') }}</p>
+        <button cButton color="primary" class="mt-3 px-4" (click)="openCreateModal()">
+          {{ translationService.t('sales.first') }}
+        </button>
+      </div>
+      } @else {
+      <app-table [columns]="[
+          { field: 'id', label: translationService.t('sales.table.saleId') },
+          { field: 'date', label: translationService.t('sales.table.date') },
+          { field: 'customer', label: translationService.t('sales.table.customer') },
+          { field: 'total', label: translationService.t('sales.table.total') },
+          { field: 'paid', label: translationService.t('sales.table.paid') },
+          { field: 'status', label: translationService.t('sales.table.status') },
+          { field: 'actions', label: translationService.t('common.actions') }
+        ]" [rows]="getFilteredSales()" [loading]="isLoading()" [emptyMessage]="translationService.t('sales.emptyBody')"
+        [rowTemplate]="saleRowTpl">
+      </app-table>
+
+      <ng-template #saleRowTpl let-sale>
+        <tr>
+          <td class="ps-4 font-monospace small">#{{ sale.id }}</td>
+          <td>{{ sale.creationDate | date:'short' }}</td>
+          <td class="fw-semibold text-dark">{{ getCustomerName(sale.customerId) }}</td>
+          <td class="text-end fw-bold text-dark">\${{ sale.total | number:'1.2-2' }}</td>
+          <td class="text-end text-success fw-semibold">\${{ sale.paidAmount | number:'1.2-2' }}</td>
+          <td class="text-center">
+            <span
+              [ngClass]="sale.isCancelled ? 'badge bg-danger-subtle text-danger border border-danger' : 'badge bg-success-subtle text-success border border-success'">
+              {{ sale.isCancelled ? 'Cancelled' : 'Processed' }}
+            </span>
+          </td>
+          <td class="text-center pe-4 action-cell">
+            <div class="desktop-actions d-flex justify-content-center gap-1">
+              <button cButton color="light" size="sm" class="border" (click)="viewSaleDetail(sale)">
+                <svg cIcon name="cilZoom" size="sm"></svg>
+              </button>
+            </div>
+
+            <details class="mobile-actions">
+              <summary class="btn btn-light btn-sm">⋯</summary>
+              <div class="mobile-actions-menu">
+                <button cButton color="light" size="sm" class="border w-100" (click)="viewSaleDetail(sale)">
+                  <svg cIcon name="cilZoom" size="sm"></svg> View
+                </button>
+              </div>
+            </details>
+          </td>
+        </tr>
+      </ng-template>
+      }
+    </c-card-body>
+  </c-card>
+
+  @if (!isLoading() && getFilteredSalesCount() > 0) {
+  <app-list-pagination [currentPage]="currentPage()" [totalItems]="getFilteredSalesCount()" [pageSize]="pageSize"
+    [label]="'ventas'" (pageChange)="onPageChange($event)"></app-list-pagination>
+  }
+</c-container>
+
+<!-- Decoupled Child Modals -->
+<app-create-sale-modal #createSaleModal [(visible)]="isCreateModalOpen" (saved)="loadData()">
+</app-create-sale-modal>
+
+<app-sale-detail-modal [(visible)]="isDetailModalOpen" [sale]="selectedSale" (cancelled)="loadData()">
+</app-sale-detail-modal>

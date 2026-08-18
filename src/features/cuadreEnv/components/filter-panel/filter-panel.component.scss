@@ -1,0 +1,46 @@
+.filter-panel-card {
+    border: 1px solid rgba(13, 110, 253, 0.12);
+    background: linear-gradient(135deg, rgba(255, 255, 255, 0.98), rgba(248, 250, 255, 0.97));
+    transition: all 0.2s ease;
+}
+
+.filter-panel-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 2.2rem;
+    height: 2.2rem;
+    border-radius: 0.75rem;
+    background: linear-gradient(135deg, #0d6efd, #4f46e5);
+    color: white;
+    box-shadow: 0 8px 20px rgba(13, 110, 253, 0.2);
+}
+
+.filter-pill {
+    display: inline-flex;
+    align-items: center;
+    border-radius: 999px;
+    padding: 0.35rem 0.7rem;
+    background: rgba(13, 110, 253, 0.1);
+    color: #0d6efd;
+    font-size: 0.8rem;
+    font-weight: 600;
+}
+
+.filter-panel-grid {
+    display: grid;
+    gap: 1rem;
+    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+}
+
+.filter-field {
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
+}
+
+@media (max-width: 767.8px) {
+    .filter-panel-grid {
+        grid-template-columns: 1fr;
+    }
+}

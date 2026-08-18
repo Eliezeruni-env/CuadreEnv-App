@@ -1,0 +1,106 @@
+<c-container breakpoint="lg" class="py-4">
+  <!-- Alerts -->
+  @if (errorMessage()) {
+  <c-alert color="danger" dismissible class="mb-4">
+    {{ errorMessage() }}
+  </c-alert>
+  }
+
+  <div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+      <h2 class="fw-bold text-dark mb-1">{{ translationService.t('payments.title') }}</h2>
+      <p class="text-body-secondary mb-0">{{ translationService.t('payments.subtitle') }}</p>
+    </div>
+    @if (authService.hasRole(['Admin', 'Manager'])) {
+    <button cButton color="primary" class="d-flex align-items-center py-2 px-3 shadow-sm border-0"
+      (click)="openCreateModal()">
+      <svg cIcon name="cilPlus" class="me-2"></svg>
+      {{ translationService.t('payments.new') }}
+    </button>
+    }
+  </div>
+
+  <app-filter-panel [title]="translationService.t('payments.filterTitle')" [config]="filterConfig" [values]="filters()"
+    (filtersChange)="onFiltersChange($event)"></app-filter-panel>
+
+  <c-card class="shadow-sm border-0 mb-4">
+    <c-card-body class="p-0">
+      @if (isLoading() && payments().length === 0) {
+      <div class="py-5 text-center">
+        <c-spinner color="primary" class="mb-3"></c-spinner>
+        <p class="text-body-secondary mb-0">{{ translationService.t('common.loading') }}</p>
+      </div>
+      } @else if (payments().length === 0) {
+      <!-- Empty State -->
+      <div class="py-5 text-center px-4">
+        <svg cIcon name="cilCreditCard" size="xl" class="text-body-secondary mb-3"
+          style="width: 48px; height: 48px;"></svg>
+        <h4 class="fw-bold text-dark">{{ translationService.t('payments.emptyTitle') }}</h4>
+        <p class="text-body-secondary mt-1 max-width-320 mx-auto">{{ translationService.t('payments.emptyBody') }}</p>
+        <button cButton color="primary" class="mt-3 px-4" (click)="openCreateModal()">
+          {{ translationService.t('payments.first') }}
+        </button>
+      </div>
+      } @else {
+      <app-table [columns]="columns" [rows]="getFilteredPayments()" [loading]="isLoading()"
+        [emptyMessage]="translationService.t('payments.emptyBody')" [rowTemplate]="paymentRowTpl">
+      </app-table>
+
+      <ng-template #paymentRowTpl let-p>
+        <tr>
+          <td class="ps-4 font-monospace small">#{{ p.id }}</td>
+          <td>{{ p.creationDate | date:'short' }}</td>
+          <td>
+            @if (p.saleId) {
+            <span class="text-primary fw-semibold">Sale #{{ p.saleId }}</span>
+            } @else if (p.purchaseId) {
+            <span class="text-info fw-semibold">Purchase #{{ p.purchaseId }}</span>
+            } @else {
+            <span class="text-muted">-</span>
+            }
+          </td>
+          <td>
+            <span class="badge bg-light text-dark border">{{ p.method }}</span>
+          </td>
+          <td>{{ p.reference || '-' }}</td>
+          <td class="text-end fw-bold text-dark">\${{ p.amount | number:'1.2-2' }}</td>
+          <td class="text-center pe-4 action-cell">
+            <div class="desktop-actions">
+              @if (authService.hasRole(['Admin'])) {
+              <button cButton color="danger" size="sm" variant="ghost" title="Delete" (click)="deletePayment(p.id!)">
+                <svg cIcon name="cilTrash" size="sm"></svg>
+              </button>
+              } @else {
+              <span class="text-muted small">-</span>
+              }
+            </div>
+
+            <details class="mobile-actions">
+              <summary class="btn btn-light btn-sm">⋯</summary>
+              <div class="mobile-actions-menu">
+                @if (authService.hasRole(['Admin'])) {
+                <button cButton color="danger" size="sm" variant="ghost" class="w-100" title="Delete"
+                  (click)="deletePayment(p.id!)">
+                  <svg cIcon name="cilTrash" size="sm"></svg> Delete
+                </button>
+                } @else {
+                <div class="text-muted small p-2">-</div>
+                }
+              </div>
+            </details>
+          </td>
+        </tr>
+      </ng-template>
+      }
+    </c-card-body>
+  </c-card>
+
+  @if (!isLoading() && getFilteredPaymentsCount() > 0) {
+  <app-list-pagination [currentPage]="currentPage()" [totalItems]="getFilteredPaymentsCount()" [pageSize]="pageSize"
+    [label]="'pagos'" (pageChange)="onPageChange($event)"></app-list-pagination>
+  }
+</c-container>
+
+<!-- Decoupled Payment Modal Component -->
+<app-payment-modal #paymentModal [(visible)]="isModalOpen" (saved)="loadData()">
+</app-payment-modal>

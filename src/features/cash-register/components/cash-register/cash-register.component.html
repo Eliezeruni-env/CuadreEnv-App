@@ -1,0 +1,151 @@
+<c-container breakpoint="lg" class="py-4">
+  @if (errorMessage()) {
+  <c-alert color="danger" dismissible class="mb-4">
+    {{ errorMessage() }}
+  </c-alert>
+  }
+
+  <div
+    class="d-flex flex-column flex-lg-row justify-content-between align-items-start align-items-lg-center gap-3 mb-4">
+    <div>
+      <h2 class="fw-bold text-dark mb-1">{{ translationService.t('cashRegister.title') }}</h2>
+      <p class="text-body-secondary mb-0">{{ translationService.t('cashRegister.subtitle') }}</p>
+    </div>
+    <div class="d-flex gap-2">
+      @if (activeTab() === 'registers' && authService.hasRole(['Admin'])) {
+      <button cButton color="primary" class="d-flex align-items-center py-2 px-3 shadow-sm border-0"
+        (click)="openRegisterModal()">
+        <svg cIcon name="cilPlus" class="me-2"></svg>
+        {{ translationService.t('cashRegister.openSession') }}
+      </button>
+      }
+      @if (activeTab() === 'movements' && authService.hasRole(['Admin', 'Manager'])) {
+      <button cButton color="primary" class="d-flex align-items-center py-2 px-3 shadow-sm border-0"
+        (click)="openMovementModal()">
+        <svg cIcon name="cilTransfer" class="me-2"></svg>
+        {{ translationService.t('cashRegister.registerEntry') }}
+      </button>
+      }
+    </div>
+  </div>
+
+  <app-section-nav [items]="sectionItems" [activeValue]="activeTab()" ariaLabel="Cash register section navigation"
+    (selectionChange)="setTab($event)"></app-section-nav>
+
+  <!-- TAB CONTENTS -->
+  <div>
+    <!-- 1. Registers Tab -->
+    @if (activeTab() === 'registers') {
+    <c-card class="shadow-sm border-0 mb-4">
+      <c-card-body class="p-0">
+        @if (isLoading() && registers().length === 0) {
+        <div class="py-5 text-center">
+          <c-spinner color="primary" class="mb-3"></c-spinner>
+          <p class="text-body-secondary mb-0">Loading registers list...</p>
+        </div>
+        } @else if (registers().length === 0) {
+        <div class="py-5 text-center px-4">
+          <svg cIcon name="cilCalculator" size="xl" class="text-body-secondary mb-3"
+            style="width: 48px; height: 48px;"></svg>
+          <h4 class="fw-bold text-dark">No cash registers</h4>
+          <p class="text-body-secondary mt-1">Start by opening your first cash register box.</p>
+        </div>
+        } @else {
+        <app-table [columns]="[
+            { field: 'id', label: 'Register ID' },
+            { field: 'name', label: 'Name' },
+            { field: 'status', label: 'Status' },
+            { field: 'balance', label: 'Balance' },
+            { field: 'actions', label: 'Actions' }
+          ]" [rows]="registers()" [loading]="isLoading()" [emptyMessage]="'No cash registers'"
+          [rowTemplate]="registerRowTpl">
+        </app-table>
+
+        <ng-template #registerRowTpl let-r>
+          <tr>
+            <td class="ps-4 font-monospace small">#{{ r.id }}</td>
+            <td class="fw-semibold text-dark">{{ r.name }}</td>
+            <td>
+              <span
+                [ngClass]="r.isOpen ? 'badge bg-success-subtle text-success border border-success' : 'badge bg-secondary-subtle text-secondary border border-secondary'">
+                {{ r.isOpen ? 'OPEN' : 'CLOSED' }}
+              </span>
+            </td>
+            <td class="text-end fw-bold text-dark">\${{ r.balance | number:'1.2-2' }}</td>
+            <td class="text-center pe-4 action-cell">
+              <div class="desktop-actions d-flex justify-content-center gap-1">
+                @if (r.isOpen && authService.hasRole(['Admin', 'Manager'])) {
+                <button cButton color="danger" size="sm" class="border py-1 px-3" (click)="openCloseModal(r)">
+                  Close Register
+                </button>
+                } @else {
+                <span class="text-muted small">-</span>
+                }
+              </div>
+
+              <details class="mobile-actions">
+                <summary class="btn btn-light btn-sm">⋯</summary>
+                <div class="mobile-actions-menu">
+                  @if (r.isOpen && authService.hasRole(['Admin', 'Manager'])) {
+                  <button cButton color="danger" size="sm" class="border w-100" (click)="openCloseModal(r)">
+                    Close Register
+                  </button>
+                  } @else {
+                  <div class="text-muted small p-2">-</div>
+                  }
+                </div>
+              </details>
+            </td>
+          </tr>
+        </ng-template>
+        }
+      </c-card-body>
+    </c-card>
+    }
+
+    <!-- 2. Movements Tab -->
+    @if (activeTab() === 'movements') {
+    <c-card class="shadow-sm border-0 mb-4">
+      <c-card-body class="p-0">
+        @if (isLoading() && movements().length === 0) {
+        <div class="py-5 text-center">
+          <c-spinner color="primary" class="mb-3"></c-spinner>
+          <p class="text-body-secondary mb-0">Loading movements list...</p>
+        </div>
+        } @else if (movements().length === 0) {
+        <div class="py-5 text-center px-4">
+          <svg cIcon name="cilList" size="xl" class="text-body-secondary mb-3" style="width: 48px; height: 48px;"></svg>
+          <h4 class="fw-bold text-dark">No cash movements logged</h4>
+          <p class="text-body-secondary mt-1">Manual cash adjustments, additions, and exits will be displayed here.</p>
+        </div>
+        } @else {
+        <div class="table-responsive">
+          <app-table
+            [columns]="[{ field: 'id', label: 'Movement ID' }, { field: 'date', label: 'Date' }, { field: 'register', label: 'Register' }, { field: 'description', label: 'Description' }, { field: 'amount', label: 'Amount' }, { field: 'type', label: 'Type' }]"
+            [rows]="movements()" [rowTemplate]="movementRowTpl"></app-table>
+
+          <ng-template #movementRowTpl let-m>
+            <tr>
+              <td class="ps-4 font-monospace small">#{{ m.id }}</td>
+              <td>{{ m.creationDate | date:'short' }}</td>
+              <td class="fw-semibold text-dark">{{ getRegisterName(m.cashRegisterId) }}</td>
+              <td>{{ m.description || '-' }}</td>
+              <td class="text-end fw-bold text-dark">\${{ m.amount | number:'1.2-2' }}</td>
+              <td class="text-center pe-4">
+                <span
+                  [ngClass]="m.type === 'In' ? 'badge bg-success-subtle text-success border border-success' : 'badge bg-danger-subtle text-danger border border-danger'">{{
+                  m.type === 'In' ? 'CASH IN' : 'CASH OUT' }}</span>
+              </td>
+            </tr>
+          </ng-template>
+        </div>
+        }
+      </c-card-body>
+    </c-card>
+    }
+  </div>
+</c-container>
+
+<!-- Decoupled Cash Register Modal Component -->
+<app-cash-register-modal #registerModal [(visible)]="isModalOpen" (saved)="loadData()">
+</app-cash-register-modal>

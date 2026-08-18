@@ -1,0 +1,115 @@
+<c-container breakpoint="lg" class="py-4">
+  <!-- Alerts -->
+  @if (errorMessage()) {
+  <c-alert color="danger" dismissible class="mb-4">
+    {{ errorMessage() }}
+  </c-alert>
+  }
+  @if (successMessage()) {
+  <c-alert color="success" dismissible class="mb-4">
+    {{ successMessage() }}
+  </c-alert>
+  }
+
+  <div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+      <h2 class="fw-bold text-dark mb-1">{{ translationService.t('users.title') }}</h2>
+      <p class="text-body-secondary mb-0">{{ translationService.t('users.subtitle') }}</p>
+    </div>
+    @if (authService.hasRole(['Admin'])) {
+    <button cButton color="primary" class="d-flex align-items-center py-2 px-3 shadow-sm border-0"
+      (click)="openInviteModal()">
+      <svg cIcon name="cilPlus" class="me-2"></svg>
+      {{ translationService.t('users.new') }}
+    </button>
+    }
+  </div>
+
+  <app-filter-panel [title]="translationService.t('users.filterTitle')" [config]="filterConfig" [values]="filters()"
+    (filtersChange)="onFiltersChange($event)"></app-filter-panel>
+
+  <c-card class="shadow-sm border-0 mb-4">
+    <c-card-body class="p-0">
+      @if (isLoading() && users().length === 0) {
+      <div class="py-5 text-center">
+        <c-spinner color="primary" class="mb-3"></c-spinner>
+        <p class="text-body-secondary mb-0">{{ translationService.t('common.loading') }}</p>
+      </div>
+      } @else if (users().length === 0) {
+      <!-- Empty State -->
+      <div class="py-5 text-center px-4">
+        <svg cIcon name="cilPeople" size="xl" class="text-body-secondary mb-3" style="width: 48px; height: 48px;"></svg>
+        <h4 class="fw-bold text-dark">{{ translationService.t('users.emptyTitle') }}</h4>
+        <p class="text-body-secondary mt-1">{{ translationService.t('users.emptyBody') }}</p>
+      </div>
+      } @else {
+      <app-table [columns]="columns" [rows]="getFilteredUsers()" [loading]="isLoading()"
+        [emptyMessage]="translationService.t('users.emptyBody')" [rowTemplate]="userRowTpl">
+      </app-table>
+
+      <ng-template #userRowTpl let-u>
+        <tr>
+          <td class="ps-4 font-monospace small">#{{ u.id }}</td>
+          <td>
+            <div class="fw-semibold text-dark">{{ u.firstName || '-' }} {{ u.lastName || '' }}</div>
+            <div class="text-body-secondary small">Username: {{ u.userName || 'Not set' }}</div>
+          </td>
+          <td>{{ u.email }}</td>
+          <td>
+            @if (authService.hasRole(['Admin']) && u.id !== authService.currentUser()?.id) {
+            <select cSelect size="sm" class="form-select-sm" (change)="changeUserRole(u, $event)">
+              <option value="Admin" [selected]="u.role === 'Admin'">Admin</option>
+              <option value="Manager" [selected]="u.role === 'Manager'">Manager</option>
+              <option value="Employee" [selected]="u.role === 'Employee'">Employee</option>
+            </select>
+            } @else {
+            <span class="badge bg-light text-dark border">{{ u.role }}</span>
+            }
+          </td>
+          <td class="text-center">
+            <span
+              [ngClass]="u.active ? 'badge bg-success-subtle text-success border border-success' : 'badge bg-danger-subtle text-danger border border-danger'">
+              {{ u.active ? 'Active' : 'Inactive' }}
+            </span>
+          </td>
+          <td class="text-center pe-4 action-cell">
+            <div class="desktop-actions d-flex justify-content-center gap-1">
+              @if (authService.hasRole(['Admin']) && u.id !== authService.currentUser()?.id) {
+              <button cButton [color]="u.active ? 'danger' : 'success'" size="sm" class="py-1 px-3 border-0 text-white"
+                (click)="toggleDeactivation(u)">
+                {{ u.active ? 'Deactivate' : 'Reactivate' }}
+              </button>
+              } @else {
+              <span class="text-muted small">-</span>
+              }
+            </div>
+
+            <details class="mobile-actions">
+              <summary class="btn btn-light btn-sm">⋯</summary>
+              <div class="mobile-actions-menu">
+                @if (authService.hasRole(['Admin']) && u.id !== authService.currentUser()?.id) {
+                <button cButton [color]="u.active ? 'danger' : 'success'" size="sm"
+                  class="py-1 px-3 mb-1 w-100 text-white" (click)="toggleDeactivation(u)">
+                  {{ u.active ? 'Deactivate' : 'Reactivate' }}
+                </button>
+                } @else {
+                <div class="text-muted small p-2">-</div>
+                }
+              </div>
+            </details>
+          </td>
+        </tr>
+      </ng-template>
+      }
+    </c-card-body>
+  </c-card>
+
+  @if (!isLoading() && getFilteredUsersCount() > 0) {
+  <app-list-pagination [currentPage]="currentPage()" [totalItems]="getFilteredUsersCount()" [pageSize]="pageSize"
+    [label]="'usuarios'" (pageChange)="onPageChange($event)"></app-list-pagination>
+  }
+</c-container>
+
+<!-- Custom Decoupled Invite Modal component -->
+<app-invite-modal #inviteModal [(visible)]="isModalOpen" (saved)="loadUsers()">
+</app-invite-modal>

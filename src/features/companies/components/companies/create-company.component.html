@@ -1,0 +1,72 @@
+<div class="bg-light dark:bg-transparent min-vh-100 d-flex flex-row align-items-center">
+  <c-container breakpoint="md">
+    <c-row class="justify-content-center">
+      <c-col lg="8" md="10">
+        <c-card class="mx-4 shadow-sm border-0">
+          <c-card-body class="p-4">
+            <form cForm [formGroup]="companyForm" (ngSubmit)="onSubmit()">
+              <div class="text-center mb-4">
+                <div class="p-3 rounded-circle bg-primary-subtle text-primary d-inline-block mb-3">
+                  <svg cIcon name="cilBuilding" style="width: 36px; height: 36px;"></svg>
+                </div>
+                <h2 class="fw-bold text-dark">{{ translationService.t('company.createTitle') }}</h2>
+                <p class="text-body-secondary mt-2">
+                  {{ translationService.t('company.createSubtitle') }}
+                </p>
+              </div>
+
+              <!-- Notifications -->
+              @if (errorMessage()) {
+                <c-alert color="danger" class="py-2 mb-4 d-flex align-items-center">
+                  <svg cIcon name="cilWarning" class="me-2"></svg>
+                  <span>{{ errorMessage() }}</span>
+                </c-alert>
+              }
+
+              <!-- Name -->
+              <div class="mb-3">
+                <label cLabel class="small fw-semibold text-secondary mb-1">{{ translationService.t('company.nameLabel') }} *</label>
+                <c-input-group>
+                  <span cInputGroupText><svg cIcon name="cilBuilding"></svg></span>
+                  <input formControlName="name" cFormControl [placeholder]="translationService.t('company.nameLabel')" />
+                </c-input-group>
+              </div>
+
+              <!-- Address -->
+              <div class="mb-3">
+                <label cLabel class="small fw-semibold text-secondary mb-1">{{ translationService.t('company.addressLabel') }}</label>
+                <c-input-group>
+                  <span cInputGroupText><svg cIcon name="cilLocationPin"></svg></span>
+                  <input formControlName="address" cFormControl [placeholder]="translationService.t('company.addressLabel')" />
+                </c-input-group>
+              </div>
+
+              <!-- Phone -->
+              <div class="mb-4">
+                <label cLabel class="small fw-semibold text-secondary mb-1">{{ translationService.t('company.phoneLabel') }}</label>
+                <c-input-group>
+                  <span cInputGroupText><svg cIcon name="cilPhone"></svg></span>
+                  <input formControlName="phone" cFormControl [placeholder]="translationService.t('company.phoneLabel')" />
+                </c-input-group>
+              </div>
+
+              <div class="d-grid gap-2">
+                <button cButton color="primary" class="py-2 d-flex align-items-center justify-content-center" type="submit" [disabled]="isLoading() || companyForm.invalid">
+                  @if (isLoading()) {
+                    <c-spinner size="sm" class="me-2"></c-spinner>
+                    {{ translationService.t('common.loading') }}
+                  } @else {
+                    {{ translationService.t('company.createBtn') }}
+                  }
+                </button>
+                <button cButton color="link" class="text-decoration-none mt-2 small text-secondary" (click)="logout()" type="button">
+                  {{ translationService.t('header.logout') }}
+                </button>
+              </div>
+            </form>
+          </c-card-body>
+        </c-card>
+      </c-col>
+    </c-row>
+  </c-container>
+</div>

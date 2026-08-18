@@ -1,0 +1,98 @@
+<c-card class="filter-panel-card shadow-sm border-0 mb-4">
+    <c-card-body class="p-3 p-md-4">
+        <div
+            class="d-flex flex-column flex-md-row align-items-start align-items-md-center justify-content-between gap-3 mb-3">
+            <div>
+                <div class="d-flex align-items-center gap-2 mb-1">
+                    <div class="filter-panel-icon">
+                        <svg cIcon name="cilFilter" size="sm"></svg>
+                    </div>
+                    <h5 class="fw-semibold mb-0">{{ title }}</h5>
+                </div>
+                <p class="text-body-secondary small mb-0">{{ translationService.t('filterPanel.description') }}</p>
+            </div>
+            <div class="d-flex align-items-center gap-2">
+                @if (getActiveFiltersCount() > 0) {
+                <span class="filter-pill">{{ translationService.t('filterPanel.activeFilters', { count:
+                    getActiveFiltersCount() }) }}</span>
+                }
+                <button cButton color="light" size="sm" class="border-0" (click)="togglePanel()">
+                    <svg cIcon [name]="isExpanded() ? 'cilChevronTop' : 'cilChevronBottom'" size="sm"></svg>
+                </button>
+            </div>
+        </div>
+
+        @if (isExpanded()) {
+        <div class="filter-panel-grid">
+            @for (field of config; track field.key) {
+            <div class="filter-field">
+                @if (field.type === 'text') {
+                <label class="form-label small fw-semibold text-body-secondary">{{ field.label }}</label>
+                <c-input-group>
+                    <span cInputGroupText>
+                        <svg cIcon name="cilSearch" size="sm"></svg>
+                    </span>
+                    <input cFormControl [ngModel]="getValue(field.key)" (ngModelChange)="onTextInput(field.key, $event)"
+                        [placeholder]="field.placeholder || translationService.t('filterPanel.searchPlaceholder')" />
+                </c-input-group>
+                }
+
+                @if (field.type === 'select') {
+                <label class="form-label small fw-semibold text-body-secondary">{{ field.label }}</label>
+                <select cSelect class="form-select" [ngModel]="getValue(field.key)"
+                    (ngModelChange)="updateValue(field.key, $event)">
+                    @for (option of field.options; track option.value) {
+                    <option [value]="option.value">{{ option.label }}</option>
+                    }
+                </select>
+                }
+
+                @if (field.type === 'date') {
+                <label class="form-label small fw-semibold text-body-secondary">{{ field.label }}</label>
+                <input cFormControl type="date" [ngModel]="getValue(field.key)"
+                    (ngModelChange)="updateValue(field.key, $event)" />
+                }
+
+                @if (field.type === 'dateRange') {
+                <label class="form-label small fw-semibold text-body-secondary">{{ field.label }}</label>
+                <div class="d-flex gap-2">
+                    <input cFormControl type="date" [ngModel]="getRangeValue(field.key, 'from')"
+                        (ngModelChange)="onDateRangeChange(field.key, 'from', $event)" />
+                    <input cFormControl type="date" [ngModel]="getRangeValue(field.key, 'to')"
+                        (ngModelChange)="onDateRangeChange(field.key, 'to', $event)" />
+                </div>
+                }
+
+                @if (field.type === 'number') {
+                <label class="form-label small fw-semibold text-body-secondary">{{ field.label }}</label>
+                <input cFormControl type="number" [ngModel]="getValue(field.key)"
+                    (ngModelChange)="updateValue(field.key, $event)" [placeholder]="field.placeholder || ''" />
+                }
+
+                @if (field.type === 'numberRange') {
+                <label class="form-label small fw-semibold text-body-secondary">{{ field.label }}</label>
+                <div class="d-flex gap-2">
+                    <input cFormControl type="number" [ngModel]="getRangeValue(field.key, 'from')"
+                        (ngModelChange)="onNumberRangeChange(field.key, 'from', $event)"
+                        [placeholder]="field.placeholder || translationService.t('filterPanel.from')" />
+                    <input cFormControl type="number" [ngModel]="getRangeValue(field.key, 'to')"
+                        (ngModelChange)="onNumberRangeChange(field.key, 'to', $event)"
+                        [placeholder]="field.placeholder || translationService.t('filterPanel.to')" />
+                </div>
+                }
+            </div>
+            }
+        </div>
+
+        @if (config.length) {
+        <div class="d-flex justify-content-between align-items-center mt-3 pt-3 border-top">
+            <span class="text-body-secondary small">{{ translationService.t('filterPanel.activeFiltersLabel', { count:
+                getActiveFiltersCount() }) }}</span>
+            <button cButton color="secondary" variant="outline" size="sm" (click)="clearFilters()">
+                {{ translationService.t('filterPanel.clear') }}
+            </button>
+        </div>
+        }
+        }
+    </c-card-body>
+</c-card>

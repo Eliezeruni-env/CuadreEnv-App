@@ -1,0 +1,19 @@
+@if (totalItems > 0) {
+<div class="list-pagination">
+    <div class="list-pagination__meta">
+        <span class="text-body-secondary small">{{ translationService.t('common.page') }} {{ currentPage }} {{ translationService.t('common.of') }} {{ totalPages }}</span>
+        <span class="text-body-secondary small">{{ totalItems }} {{ label }}</span>
+    </div>
+
+    <c-pagination class="mb-0">
+        <li cPageItem [disabled]="currentPage === 1">
+            <a cPageLink (click)="onPageChange(currentPage - 1)" style="cursor: pointer;">{{
+                translationService.t('common.previous') }}</a>
+        </li>
+        <li cPageItem [disabled]="currentPage >= totalPages">
+            <a cPageLink (click)="onPageChange(currentPage + 1)" style="cursor: pointer;">{{
+                translationService.t('common.next') }}</a>
+        </li>
+    </c-pagination>
+</div>
+}

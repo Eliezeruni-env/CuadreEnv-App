@@ -1,0 +1,13 @@
+{
+    "/auth": {
+        "target": "https://localhost:44324",
+        "secure": false,
+        "changeOrigin": true,
+        "logLevel": "debug"
+    },
+    "/hc": {
+        "target": "https://localhost:44324",
+        "secure": false,
+        "changeOrigin": true
+    }
+}

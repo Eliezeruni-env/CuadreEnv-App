@@ -1,0 +1,13 @@
+<nav class="section-nav" [attr.aria-label]="ariaLabel">
+    <div class="section-nav__list" role="tablist" aria-label="Section navigation">
+        @for (item of items; track item.value) {
+        <button type="button" class="section-nav__item" role="tab" [attr.aria-selected]="item.value === activeValue"
+            [class.is-active]="item.value === activeValue" (click)="onSelect(item.value)">
+            @if (item.icon) {
+            <svg cIcon [name]="item.icon" size="sm" class="section-nav__icon"></svg>
+            }
+            <span>{{ item.label }}</span>
+        </button>
+        }
+    </div>
+</nav>

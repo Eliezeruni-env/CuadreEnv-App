@@ -1,12 +1,14 @@
 /* You can add global styles to this file, and also import other style files */
 
 // Import styles with default layout.
-@use "@coreui/coreui/scss/coreui" as * with (
-  $enable-deprecation-messages: false
-);
+@use "@coreui/coreui/scss/coreui" as * with ($enable-deprecation-messages: false);
 
 // Import Chart.js custom tooltips styles
 @use "@coreui/chartjs/scss/coreui-chartjs";
+
+// Project abstracts: variables and mixins (mobile-first helpers)
+@use "abstracts/variables";
+@use "abstracts/mixins";
 
 // Custom styles for this theme
 @use "theme";
@@ -21,6 +23,75 @@
 // We use those styles to show code examples, you should remove them in your application.
 @use "examples";
 
-// Premium SaaS styling tokens and overrides
 @use "saas";
 
+// Global table action cell helpers
+:root {
+  --table-action-menu-z: 1200;
+}
+
+.table-responsive {
+  width: 100%;
+}
+
+.table-responsive table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.table-responsive td.action-cell,
+.table-responsive th.action-cell {
+  position: relative;
+}
+
+.table-responsive .desktop-actions {
+  display: inline-flex;
+  align-items: center;
+}
+
+.table-responsive .mobile-actions {
+  display: none;
+}
+
+@media (max-width: 767.98px) {
+  .table-responsive .desktop-actions {
+    display: none !important;
+  }
+
+  .table-responsive .mobile-actions {
+    display: inline-block !important;
+    position: relative;
+  }
+
+  .table-responsive .mobile-actions summary {
+    list-style: none;
+    cursor: pointer;
+    border: none;
+    background: transparent;
+    padding: 6px;
+    border-radius: 6px;
+  }
+
+  .table-responsive .mobile-actions .mobile-actions-menu {
+    display: none;
+    position: absolute;
+    right: 0;
+    top: 100%;
+    min-width: 180px;
+    background: white;
+    border: 1px solid #e5e7eb;
+    border-radius: 6px;
+    padding: 8px;
+    box-shadow: 0 6px 18px rgba(0, 0, 0, 0.08);
+    z-index: var(--table-action-menu-z);
+  }
+
+  .table-responsive .mobile-actions[open] .mobile-actions-menu {
+    display: block;
+  }
+
+  .table-responsive .mobile-actions .mobile-actions-menu button {
+    width: 100%;
+    text-align: left;
+  }
+}

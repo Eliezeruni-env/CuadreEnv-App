@@ -1,0 +1,58 @@
+<!--sidebar-->
+<c-sidebar #sidebar1="cSidebar" class="d-print-none sidebar sidebar-fixed border-end" colorScheme="dark" id="sidebar1"
+  visible>
+  <c-sidebar-header class="border-bottom">
+    <c-sidebar-brand [routerLink]="[]">
+      <img src="assets/brand/cuadreEnv-logo.png" alt="CuadreEnv" class="sidebar-brand-full"
+        style="height: 64px; width: auto;" />
+      <img src="assets/brand/cuadreEnv-logo.png" alt="CuadreEnv" class="sidebar-brand-narrow"
+        style="height: 64px; width: auto;" />
+    </c-sidebar-brand>
+  </c-sidebar-header>
+
+  <ng-scrollbar pointerEventsMethod="scrollbar" visibility="hover">
+    <c-sidebar-nav [navItems]="navItems" dropdownMode="close" compact />
+  </ng-scrollbar>
+
+  @if (!sidebar1.narrow) {
+  <c-sidebar-footer cSidebarToggle="sidebar1" class="border-top d-none d-lg-flex" toggle="unfoldable"
+    style="cursor: pointer;">
+    <button cSidebarToggler aria-label="Toggle sidebar fold"></button>
+  </c-sidebar-footer>
+  }
+</c-sidebar>
+
+<!--main-->
+<div class="wrapper d-flex flex-column min-vh-100">
+  <!--app-header-->
+  <app-default-header [cShadowOnScroll]="'sm'" class="mb-4 d-print-none header header-sticky p-0 shadow-sm"
+    position="sticky" sidebarId="sidebar1" />
+  <!--app-body-->
+  <div class="body flex-grow-1">
+    <c-container breakpoint="lg" class="h-auto px-4">
+      <router-outlet />
+    </c-container>
+  </div>
+  <!--app footer-->
+  <app-default-footer />
+</div>
+
+<!-- Global SaaS Toaster -->
+<c-toaster class="p-3" position="fixed" placement="top-end" style="z-index: 1060;">
+  @for (toast of notificationService.toasts(); track toast.id) {
+  <c-toast [fade]="true" [visible]="toast.visible" [color]="toast.color" class="border-0 shadow-lg mb-2">
+    <c-toast-header [closeButton]="false"
+      class="d-flex align-items-center justify-content-between text-white border-0 bg-transparent opacity-85">
+      <div class="d-flex align-items-center">
+        <svg cIcon name="cilBell" class="me-2 text-white" style="width: 16px; height: 16px;"></svg>
+        <strong class="me-auto text-white">{{ toast.title }}</strong>
+      </div>
+      <button type="button" class="btn-close btn-close-white ms-2" (click)="notificationService.remove(toast.id)"
+        aria-label="Close"></button>
+    </c-toast-header>
+    <c-toast-body class="text-white opacity-90 py-2">
+      {{ toast.message }}
+    </c-toast-body>
+  </c-toast>
+  }
+</c-toaster>

@@ -1,0 +1,59 @@
+.section-nav {
+    margin-bottom: 1.25rem;
+}
+
+.section-nav__list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.6rem;
+    padding: 0.35rem;
+    border: 1px solid rgba(15, 23, 42, 0.08);
+    border-radius: 999px;
+    background: linear-gradient(135deg, rgba(255, 255, 255, 0.95), rgba(248, 250, 255, 0.95));
+    box-shadow: 0 8px 24px rgba(15, 23, 42, 0.04);
+}
+
+.section-nav__item {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.45rem;
+    border: 0;
+    border-radius: 999px;
+    padding: 0.65rem 0.95rem;
+    background: transparent;
+    color: #475569;
+    font-weight: 600;
+    transition: all 0.2s ease;
+    flex-shrink: 0; // avoid items collapsing unexpectedly
+}
+
+.section-nav__item:hover {
+    background: rgba(13, 110, 253, 0.08);
+    color: #0d6efd;
+    transform: translateY(-1px);
+}
+
+.section-nav__item.is-active {
+    background: linear-gradient(135deg, #0d6efd, #4f46e5);
+    color: white;
+    box-shadow: 0 10px 20px rgba(13, 110, 253, 0.2);
+}
+
+.section-nav__icon {
+    flex-shrink: 0;
+}
+
+@media (max-width: 767.8px) {
+    .section-nav__list {
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+        border-radius: 1rem;
+        padding: 0.4rem;
+    }
+
+    /* allow horizontal scroll but don't force nowrap on items; let long labels wrap if needed */
+    .section-nav__item {
+        white-space: normal;
+        min-width: 0;
+    }
+}
