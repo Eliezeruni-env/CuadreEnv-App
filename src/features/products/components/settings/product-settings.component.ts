@@ -1,0 +1,307 @@
+import { Component, OnInit, inject, signal } from '@angular/core';
+import { CommonModule } from '@angular/common';
+import { FormBuilder, FormGroup, Validators, ReactiveFormsModule } from '@angular/forms';
+import { CategoryService } from '../../services/category.service';
+import { ProductTypeService } from '../../services/product-type.service';
+import { TranslationService } from '../../../cuadreEnv/services/translation.service';
+import { NotificationService } from '../../../cuadreEnv/services/notification.service';
+import { ConfirmDialogService } from '../../../cuadreEnv/services/confirm-dialog.service';
+import { AuthService } from '../../../cuadreEnv/services/auth.service';
+import { applyFieldErrorsToForm } from '../../../cuadreEnv/utils/api-error-mapper';
+import {
+  CardComponent,
+  CardBodyComponent,
+  ContainerComponent,
+  ButtonDirective,
+  FormControlDirective,
+  FormDirective,
+  SpinnerComponent,
+  AlertComponent,
+  TableDirective
+} from '@coreui/angular';
+import { IconDirective } from '@coreui/icons-angular';
+import { ListPaginationComponent } from '../../../cuadreEnv/components/list-pagination/list-pagination.component';
+
+@Component({
+  selector: 'app-product-settings',
+  templateUrl: './product-settings.component.html',
+  standalone: true,
+  imports: [
+    CommonModule,
+    ReactiveFormsModule,
+    ContainerComponent,
+    CardComponent,
+    CardBodyComponent,
+    ButtonDirective,
+    FormControlDirective,
+    FormDirective,
+    SpinnerComponent,
+    AlertComponent,
+    TableDirective,
+    IconDirective,
+    ListPaginationComponent
+  ]
+})
+export class ProductSettingsComponent implements OnInit {
+  readonly translationService = inject(TranslationService);
+  private categoryService = inject(CategoryService);
+  private productTypeService = inject(ProductTypeService);
+  private notificationService = inject(NotificationService);
+  private confirmService = inject(ConfirmDialogService);
+  private authService = inject(AuthService);
+  private fb = inject(FormBuilder);
+
+  activeTab = signal<string>('categories');
+  isLoading = signal<boolean>(false);
+  errorMessage = signal<string | null>(null);
+
+  // Categories Data & Pagination
+  categories = signal<any[]>([]);
+  categoriesPage = signal<number>(1);
+  categoriesPageSize = 10;
+  categoriesTotal = signal<number>(0);
+
+  // Product Types Data & Pagination
+  productTypes = signal<any[]>([]);
+  productTypesPage = signal<number>(1);
+  productTypesPageSize = 10;
+  productTypesTotal = signal<number>(0);
+
+  // Modals visibility and models
+  isCategoryModalVisible = false;
+  categoryForm: FormGroup;
+  editingCategory: any = null;
+
+  isTypeModalVisible = false;
+  typeForm: FormGroup;
+  editingType: any = null;
+
+  constructor() {
+    this.categoryForm = this.fb.group({
+      description: ['', [Validators.required, Validators.maxLength(100)]]
+    });
+
+    this.typeForm = this.fb.group({
+      description: ['', [Validators.required, Validators.maxLength(100)]]
+    });
+  }
+
+  ngOnInit(): void {
+    this.loadData();
+  }
+
+  setTab(tabName: string) {
+    this.activeTab.set(tabName);
+    this.errorMessage.set(null);
+  }
+
+  async loadData() {
+    this.isLoading.set(true);
+    this.errorMessage.set(null);
+    try {
+      await Promise.all([
+        this.loadCategories(),
+        this.loadProductTypes()
+      ]);
+    } catch (e: any) {
+      const mapped = this.notificationService.showApiError(e);
+      this.errorMessage.set(mapped.message);
+    } finally {
+      this.isLoading.set(false);
+    }
+  }
+
+  async loadCategories() {
+    try {
+      const res = await this.categoryService.getCategories();
+      if (res.success && res.data) {
+        const arr = res.data || [];
+        this.categories.set(arr);
+        this.categoriesTotal.set(arr.length);
+      }
+    } catch (e: any) {
+      console.error('Error loading categories:', e);
+    }
+  }
+
+  get paginatedCategories(): any[] {
+    const start = (this.categoriesPage() - 1) * this.categoriesPageSize;
+    return this.categories().slice(start, start + this.categoriesPageSize);
+  }
+
+  onCategoriesPageChange(page: number) {
+    this.categoriesPage.set(page);
+  }
+
+  async loadProductTypes() {
+    try {
+      const res = await this.productTypeService.getPagedProductTypes(
+        this.productTypesPage(),
+        this.productTypesPageSize
+      );
+      if (res.success && res.data) {
+        const pagedData = res.data as any;
+        if (pagedData.items) {
+          this.productTypes.set(pagedData.items);
+          this.productTypesTotal.set(pagedData.totalItemCount || pagedData.total || pagedData.items.length);
+        } else {
+          const arr = Array.isArray(res.data) ? res.data : [];
+          this.productTypes.set(arr);
+          this.productTypesTotal.set(arr.length);
+        }
+      }
+    } catch (e: any) {
+      console.error('Error loading product types:', e);
+    }
+  }
+
+  onProductTypesPageChange(page: number) {
+    this.productTypesPage.set(page);
+    this.loadProductTypes();
+  }
+
+  // Category Modal actions
+  openCreateCategory() {
+    this.editingCategory = null;
+    this.categoryForm.reset({ description: '' });
+    this.isCategoryModalVisible = true;
+  }
+
+  closeCategoryModal() {
+    this.isCategoryModalVisible = false;
+    this.editingCategory = null;
+  }
+
+  async saveCategory() {
+    if (this.categoryForm.invalid) {
+      this.categoryForm.markAllAsTouched();
+      return;
+    }
+
+    this.isLoading.set(true);
+    const formVal = this.categoryForm.value;
+    const description = String(formVal.description || '').trim();
+
+    try {
+      // Create category
+      const res = await this.categoryService.createCategory({ description });
+      if (res.success) {
+        this.notificationService.success('Categoría creada exitosamente.');
+        await this.loadCategories();
+        this.closeCategoryModal();
+      }
+    } catch (e: any) {
+      const mapped = this.notificationService.showApiError(e);
+      if (mapped.fieldErrors) {
+        applyFieldErrorsToForm(this.categoryForm, mapped.fieldErrors);
+      }
+    } finally {
+      this.isLoading.set(false);
+    }
+  }
+
+  async deleteCategory(cat: any) {
+    const confirmed = await this.confirmService.confirm({
+      title: '¿Eliminar categoría?',
+      message: '¿Estás seguro de que deseas eliminar esta categoría? Los productos asociados podrían verse afectados.',
+      itemName: cat.description || `Categoría #${cat.id}`,
+      itemType: 'Categoría',
+      confirmText: 'Eliminar',
+      variant: 'danger',
+    });
+    if (!confirmed) return;
+
+    this.isLoading.set(true);
+    try {
+      await this.categoryService.deleteCategory(cat.id);
+      this.notificationService.success('Categoría eliminada exitosamente.');
+      await this.loadCategories();
+    } catch (e: any) {
+      this.notificationService.showApiError(e);
+    } finally {
+      this.isLoading.set(false);
+    }
+  }
+
+  // Product Type Modal actions
+  openCreateType() {
+    this.editingType = null;
+    this.typeForm.reset({ description: '' });
+    this.isTypeModalVisible = true;
+  }
+
+  openEditType(type: any) {
+    this.editingType = type;
+    this.typeForm.patchValue({ description: type.description || '' });
+    this.isTypeModalVisible = true;
+  }
+
+  closeTypeModal() {
+    this.isTypeModalVisible = false;
+    this.editingType = null;
+  }
+
+  async saveType() {
+    if (this.typeForm.invalid) {
+      this.typeForm.markAllAsTouched();
+      return;
+    }
+
+    this.isLoading.set(true);
+    const formVal = this.typeForm.value;
+    const description = String(formVal.description || '').trim();
+    const companyId = this.authService.companyId() || 0;
+
+    try {
+      if (this.editingType) {
+        // Edit type
+        const res = await this.productTypeService.updateProductType({
+          id: this.editingType.id,
+          description,
+          companyId
+        });
+        this.notificationService.success('Tipo de producto actualizado exitosamente.');
+      } else {
+        // Create type
+        const res = await this.productTypeService.createProductType({
+          description,
+          companyId
+        });
+        this.notificationService.success('Tipo de producto creado exitosamente.');
+      }
+      await this.loadProductTypes();
+      this.closeTypeModal();
+    } catch (e: any) {
+      const mapped = this.notificationService.showApiError(e);
+      if (mapped.fieldErrors) {
+        applyFieldErrorsToForm(this.typeForm, mapped.fieldErrors);
+      }
+    } finally {
+      this.isLoading.set(false);
+    }
+  }
+
+  async deleteType(type: any) {
+    const confirmed = await this.confirmService.confirm({
+      title: '¿Eliminar tipo de producto?',
+      message: '¿Estás seguro de que deseas eliminar este tipo de producto? Esta acción no se puede deshacer.',
+      itemName: type.description || `Tipo #${type.id}`,
+      itemType: 'Tipo de Producto',
+      confirmText: 'Eliminar',
+      variant: 'danger',
+    });
+    if (!confirmed) return;
+
+    this.isLoading.set(true);
+    try {
+      await this.productTypeService.deleteProductType(type.id);
+      this.notificationService.success('Tipo de producto eliminado exitosamente.');
+      await this.loadProductTypes();
+    } catch (e: any) {
+      this.notificationService.showApiError(e);
+    } finally {
+      this.isLoading.set(false);
+    }
+  }
+}
+

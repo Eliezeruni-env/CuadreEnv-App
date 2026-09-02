@@ -1,0 +1,353 @@
+.cash-register-page {
+  font-family: inherit;
+}
+
+// 1. Header Styles
+.page-title {
+  font-size: 1.75rem;
+  font-weight: 800;
+  color: var(--cui-body-color, #1e293b);
+  letter-spacing: -0.02em;
+}
+
+.date-badge {
+  background: var(--cui-tertiary-bg, #f8fafc);
+  border: 1.5px solid var(--cui-border-color, #e2e8f0);
+  border-radius: 10px;
+  padding: 0.5rem 0.9rem;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--cui-body-color, #334155);
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.btn-cerrar-caja {
+  background: #3b36db !important;
+  border-color: #3b36db !important;
+  color: #ffffff !important;
+  font-weight: 600;
+  border-radius: 10px;
+  padding: 0.55rem 1.25rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  transition: all 0.2s ease-in-out;
+  box-shadow: 0 2px 4px rgba(59, 54, 219, 0.2);
+
+  &:hover {
+    background: #2e29b8 !important;
+    border-color: #2e29b8 !important;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 8px rgba(59, 54, 219, 0.25);
+  }
+}
+
+// 2. Stat Cards Grid (4 in a row)
+.stat-card {
+  background: var(--cui-card-bg, #ffffff);
+  border: 1px solid var(--cui-border-color, #f1f5f9);
+  border-radius: 16px;
+  padding: 1.2rem 1.3rem;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  transition: all 0.2s ease;
+
+  &:hover {
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.06);
+    transform: translateY(-2px);
+  }
+
+  .stat-icon-wrapper {
+    width: 48px;
+    height: 48px;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+
+    &.icon-blue {
+      background: #eff6ff;
+      color: #3b82f6;
+    }
+
+    &.icon-green {
+      background: #f0fdf4;
+      color: #22c55e;
+    }
+
+    &.icon-red {
+      background: #fef2f2;
+      color: #ef4444;
+    }
+
+    &.icon-amber {
+      background: #fffbeb;
+      color: #f59e0b;
+    }
+  }
+
+  .stat-info {
+    display: flex;
+    flex-direction: column;
+
+    .stat-label {
+      font-size: 0.8rem;
+      font-weight: 500;
+      color: var(--cui-secondary-color, #64748b);
+      margin-bottom: 0.15rem;
+    }
+
+    .stat-value {
+      font-size: 1.25rem;
+      font-weight: 800;
+      color: var(--cui-body-color, #0f172a);
+      letter-spacing: -0.01em;
+    }
+  }
+}
+
+// 3. Sub-Navigation Tabs & Actions
+.caja-nav-toolbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-bottom: 1.5px solid var(--cui-border-color, #f1f5f9);
+  margin-bottom: 1.25rem;
+  padding-bottom: 0.2rem;
+  flex-wrap: wrap;
+  gap: 1rem;
+}
+
+.caja-tabs {
+  display: flex;
+  gap: 1.75rem;
+}
+
+.caja-tab-btn {
+  background: none;
+  border: none;
+  padding: 0.6rem 0.2rem 0.8rem 0.2rem;
+  font-size: 0.92rem;
+  font-weight: 600;
+  color: var(--cui-secondary-color, #64748b);
+  border-bottom: 2.5px solid transparent;
+  cursor: pointer;
+  transition: all 0.2s ease;
+
+  &:hover {
+    color: var(--cui-body-color, #1e293b);
+  }
+
+  &.active {
+    color: #4338ca;
+    border-bottom-color: #4338ca;
+    font-weight: 700;
+  }
+}
+
+.btn-nuevo-movimiento {
+  background: #3b36db !important;
+  border-color: #3b36db !important;
+  color: #ffffff !important;
+  font-weight: 600;
+  border-radius: 10px;
+  padding: 0.5rem 1.15rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  box-shadow: 0 2px 4px rgba(59, 54, 219, 0.2);
+
+  &:hover {
+    background: #2e29b8 !important;
+    border-color: #2e29b8 !important;
+  }
+}
+
+.custom-movement-dropdown-menu {
+  position: absolute;
+  top: 100%;
+  right: 0;
+  z-index: 1050;
+  background: var(--cui-card-bg, #ffffff);
+  border: 1px solid var(--cui-border-color, #e2e8f0);
+  border-radius: 12px;
+  padding: 0.5rem 0;
+  min-width: 240px;
+  margin-top: 0.35rem;
+
+  .dropdown-item {
+    font-size: 0.88rem;
+    font-weight: 600;
+    padding: 0.6rem 1.1rem;
+    cursor: pointer;
+    border: none;
+    background: transparent;
+    width: 100%;
+    text-align: left;
+    display: block;
+    color: var(--cui-body-color, #1e293b);
+    transition: background 0.15s ease;
+
+    &:hover {
+      background: var(--cui-tertiary-bg, #f8fafc);
+    }
+  }
+}
+
+// 4. Movements Table Box
+.movements-table-card {
+  background: var(--cui-card-bg, #ffffff);
+  border: 1px solid var(--cui-border-color, #f1f5f9);
+  border-radius: 16px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+  overflow: hidden;
+  margin-bottom: 1.5rem;
+
+  .table {
+    margin-bottom: 0;
+
+    thead th {
+      background: #fafbfc;
+      font-size: 0.76rem;
+      font-weight: 600;
+      color: var(--cui-secondary-color, #64748b);
+      border-bottom: 1px solid var(--cui-border-color, #e2e8f0);
+      padding: 0.85rem 1rem;
+      text-transform: capitalize;
+    }
+
+    tbody td {
+      padding: 0.85rem 1rem;
+      font-size: 0.86rem;
+      vertical-align: middle;
+      border-bottom: 1px solid var(--cui-border-color, #f1f5f9);
+    }
+  }
+}
+
+// Badges for Types
+.badge-saldo-inicial {
+  background: #f0fdf4;
+  color: #16a34a;
+  border: 1px solid #dcfce7;
+  border-radius: 20px;
+  padding: 0.3rem 0.75rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.badge-entrada {
+  background: #f0fdf4;
+  color: #16a34a;
+  border: 1px solid #dcfce7;
+  border-radius: 20px;
+  padding: 0.3rem 0.75rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.badge-salida {
+  background: #fef2f2;
+  color: #dc2626;
+  border: 1px solid #fee2e2;
+  border-radius: 20px;
+  padding: 0.3rem 0.75rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+// 5. Bottom Summary Bar (3 columns in a rounded soft card)
+.bottom-summary-box {
+  background: #f8fafc;
+  border: 1px solid var(--cui-border-color, #e2e8f0);
+  border-radius: 16px;
+  padding: 1.25rem 1.5rem;
+
+  .summary-col {
+    padding: 0 1rem;
+
+    .summary-title {
+      font-size: 0.82rem;
+      color: var(--cui-secondary-color, #64748b);
+      margin-bottom: 0.2rem;
+      font-weight: 500;
+    }
+
+    .summary-val {
+      font-size: 1.35rem;
+      font-weight: 800;
+      margin-bottom: 0;
+
+      &.text-green {
+        color: #16a34a;
+      }
+
+      &.text-red {
+        color: #dc2626;
+      }
+
+      &.text-indigo {
+        color: #4338ca;
+      }
+    }
+  }
+
+  .border-divider {
+    border-right: 1px solid var(--cui-border-color, #e2e8f0);
+  }
+
+  @media (max-width: 767px) {
+    .border-divider {
+      border-right: none;
+      border-bottom: 1px solid var(--cui-border-color, #e2e8f0);
+      padding-bottom: 0.75rem;
+      margin-bottom: 0.75rem;
+    }
+  }
+}
+
+// 6. Closed State / Open Session Hero Screen
+.caja-closed-hero-card {
+  background: var(--cui-card-bg, #ffffff);
+  border: 1px solid var(--cui-border-color, #e2e8f0);
+  border-radius: 20px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05);
+  max-width: 640px;
+  margin: 2rem auto;
+  padding: 2.5rem 2rem;
+}
+
+.caja-closed-icon-bubble {
+  width: 72px;
+  height: 72px;
+  border-radius: 50%;
+  background: #ede9fe;
+  color: #4f46e5;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 auto 1.25rem auto;
+}
+
+.btn-aperturar-grande {
+  background: #4338ca !important;
+  border-color: #4338ca !important;
+  color: #ffffff !important;
+  font-weight: 700;
+  border-radius: 10px;
+  padding: 0.75rem 2rem;
+  font-size: 1rem;
+  box-shadow: 0 4px 12px rgba(67, 56, 202, 0.3);
+  transition: all 0.2s ease-in-out;
+
+  &:hover {
+    background: #3730a3 !important;
+    transform: translateY(-2px);
+    box-shadow: 0 6px 16px rgba(67, 56, 202, 0.4);
+  }
+}

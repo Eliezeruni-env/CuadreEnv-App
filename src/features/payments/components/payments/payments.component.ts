@@ -1,8 +1,9 @@
-import { Component, inject, OnInit, signal, ViewChild } from '@angular/core';
+import { Component, computed, inject, OnInit, signal, ViewChild } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { PaymentService } from '../../services/payment.service';
 import { AuthService } from '../../../cuadreEnv/services/auth.service';
 import { NotificationService } from '../../../cuadreEnv/services/notification.service';
+import { ConfirmDialogService } from '../../../cuadreEnv/services/confirm-dialog.service';
 import { TranslationService } from '../../../cuadreEnv/services/translation.service';
 import type { PaymentDto } from '../../../cuadreEnv/types/api';
 import { IconDirective } from '@coreui/icons-angular';
@@ -46,6 +47,7 @@ export class PaymentsComponent implements OnInit {
   @ViewChild('paymentModal') paymentModal!: PaymentModalComponent;
 
   readonly translationService = inject(TranslationService);
+  private confirmService = inject(ConfirmDialogService);
 
   payments = signal<PaymentDto[]>([]);
   isLoading = signal<boolean>(false);
@@ -55,32 +57,30 @@ export class PaymentsComponent implements OnInit {
   pageSize = 10;
   totalItems = signal<number>(0);
 
-  get filterConfig(): FilterConfig[] {
-    return [
-      {
-        key: 'search',
-        label: this.translationService.t('payments.filterSearch'),
-        type: 'text',
-        placeholder: this.translationService.t('payments.filterSearch'),
-      },
-      {
-        key: 'type',
-        label: this.translationService.t('payments.filterType'),
-        type: 'select',
-        options: [
-          { label: this.translationService.t('payments.filterAll'), value: '' },
-          {
-            label: this.translationService.t('payments.filterSale'),
-            value: 'sale',
-          },
-          {
-            label: this.translationService.t('payments.filterPurchase'),
-            value: 'purchase',
-          },
-        ],
-      },
-    ];
-  }
+  readonly filterConfig = computed<FilterConfig[]>(() => [
+    {
+      key: 'search',
+      label: this.translationService.t('payments.filterSearch'),
+      type: 'text',
+      placeholder: this.translationService.t('payments.filterSearch'),
+    },
+    {
+      key: 'type',
+      label: this.translationService.t('payments.filterType'),
+      type: 'select',
+      options: [
+        { label: this.translationService.t('payments.filterAll'), value: '' },
+        {
+          label: this.translationService.t('payments.filterSale'),
+          value: 'sale',
+        },
+        {
+          label: this.translationService.t('payments.filterPurchase'),
+          value: 'purchase',
+        },
+      ],
+    },
+  ]);
 
   isModalOpen = false;
 
@@ -131,9 +131,8 @@ export class PaymentsComponent implements OnInit {
         this.totalItems.set(this.getFilteredPaymentsCount());
       }
     } catch (e: any) {
-      this.errorMessage.set(
-        e?.response?.data?.message || e?.message || 'Error loading payments.',
-      );
+      const mapped = this.notificationService.showApiError(e);
+      this.errorMessage.set(mapped.message);
     } finally {
       this.isLoading.set(false);
     }
@@ -149,7 +148,7 @@ export class PaymentsComponent implements OnInit {
     this.currentPage.set(page);
   }
 
-  private getFilteredPaymentsBase(): PaymentDto[] {
+  readonly filteredPaymentsBase = computed(() => {
     const activeFilters = this.filters();
     const search = String((activeFilters['search'] as string | undefined) || '')
       .trim()
@@ -160,12 +159,11 @@ export class PaymentsComponent implements OnInit {
 
     return this.payments().filter((payment) => {
       const haystack = [
-        payment.method,
-        payment.reference,
-        payment.saleId?.toString(),
-        payment.purchaseId?.toString(),
+        payment.id?.toString() || '',
+        payment.saleId ? `sale #${payment.saleId}` : '',
+        payment.purchaseId ? `purchase #${payment.purchaseId}` : '',
+        payment.reference || '',
       ]
-        .filter(Boolean)
         .join(' ')
         .toLowerCase();
       const matchesSearch = !search || haystack.includes(search);
@@ -176,17 +174,23 @@ export class PaymentsComponent implements OnInit {
 
       return matchesSearch && matchesType;
     });
-  }
+  });
 
-  getFilteredPaymentsCount(): number {
-    return this.getFilteredPaymentsBase().length;
-  }
+  readonly filteredPaymentsCount = computed(() => this.filteredPaymentsBase().length);
 
-  getFilteredPayments(): PaymentDto[] {
-    return this.getFilteredPaymentsBase().slice(
+  readonly pagedPayments = computed(() => {
+    return this.filteredPaymentsBase().slice(
       (this.currentPage() - 1) * this.pageSize,
       this.currentPage() * this.pageSize,
     );
+  });
+
+  getFilteredPaymentsCount(): number {
+    return this.filteredPaymentsCount();
+  }
+
+  getFilteredPayments(): PaymentDto[] {
+    return this.pagedPayments();
   }
 
   openCreateModal() {
@@ -197,21 +201,27 @@ export class PaymentsComponent implements OnInit {
   }
 
   async deletePayment(id: number) {
-    if (!confirm('Are you sure you want to delete this payment?')) return;
+    const payment = this.payments().find((p) => p.id === id);
+    const confirmed = await this.confirmService.confirm({
+      title: '¿Eliminar registro de pago?',
+      message: '¿Estás seguro de que deseas eliminar esta transacción de pago? Los balances relacionados se recalcularán.',
+      itemName: payment?.reference ? `Pago #${id} (Ref: ${payment.reference})` : `Pago #${id} - \$${payment?.amount || 0}`,
+      itemType: 'Transacción de Pago',
+      confirmText: 'Eliminar',
+      variant: 'danger',
+    });
+    if (!confirmed) return;
 
     this.isLoading.set(true);
     try {
       await this.paymentService.deletePayment(id);
-      this.notificationService.success(
-        'Payment transaction deleted successfully.',
-      );
+      this.notificationService.success('Transacción de pago eliminada exitosamente.');
       this.loadData();
     } catch (e: any) {
-      this.notificationService.error(
-        e?.response?.data?.message || e?.message || 'Error deleting payment.',
-      );
+      this.notificationService.showApiError(e);
     } finally {
       this.isLoading.set(false);
     }
   }
 }
+

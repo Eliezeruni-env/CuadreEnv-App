@@ -3,6 +3,7 @@ import { CommonModule } from '@angular/common';
 import { FormBuilder, FormGroup, Validators, ReactiveFormsModule } from '@angular/forms';
 import { CustomerService } from '../../services/customer.service';
 import { NotificationService } from '../../../cuadreEnv/services/notification.service';
+import { applyFieldErrorsToForm } from '../../../cuadreEnv/utils/api-error-mapper';
 import type { CustomerDto } from '../../../cuadreEnv/types/api';
 import { TranslationService } from '../../../cuadreEnv/services/translation.service';
 import {
@@ -149,17 +150,21 @@ export class CustomerModalComponent {
       if (this.isEditMode) {
         payload.id = this.selectedCustomerId!;
         await this.customerService.updateCustomer(payload);
-        this.notificationService.success('Customer profile updated successfully!');
+        this.notificationService.success('Perfil de cliente actualizado exitosamente.');
       } else {
         await this.customerService.createCustomer(payload);
-        this.notificationService.success('Customer registered successfully!');
+        this.notificationService.success('Cliente registrado exitosamente.');
       }
       this.saved.emit();
       this.close();
     } catch (e: any) {
-      this.notificationService.error(e?.response?.data?.message || e?.message || 'Error saving customer.');
+      const mapped = this.notificationService.showApiError(e);
+      if (mapped.fieldErrors) {
+        applyFieldErrorsToForm(this.customerForm, mapped.fieldErrors);
+      }
     } finally {
       this.isLoading.set(false);
     }
   }
 }
+

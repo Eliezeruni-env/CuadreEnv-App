@@ -1,218 +1,322 @@
-import axios from "axios";
-import type { TokenResponseDto } from "../types/api";
-import { environment } from "../../../environments/environment";
+import {
+  HttpClient,
+  HttpErrorResponse,
+  HttpParams,
+} from '@angular/common/http';
+import { Injectable, inject } from '@angular/core';
+import { firstValueFrom } from 'rxjs';
+import type { TokenResponseDto } from '../types/api';
+import { environment } from '../../../environments/environment';
+import { NotificationService } from './notification.service';
+import { mapApiErrorToUserMessage, MappedApiError } from '../utils/api-error-mapper';
 
-// Environment-based configuration
-const BASE_URL = 
-  (typeof window !== "undefined" && (window as any).API_BASE_URL) || 
-  environment.apiUrl;
+export const API_BASE_URL = environment.API_BASE_URL;
 
-// Debug logging helper
+export type TelemetryErrorCallback = (errorData: {
+  method: string;
+  url: string;
+  statusCode: number;
+  errorCode?: string;
+  requestId?: string;
+  timestamp: string;
+  rawError: any;
+}) => void;
+
+let customTelemetryHandler: TelemetryErrorCallback | null = null;
+
+export function registerTelemetryHandler(handler: TelemetryErrorCallback) {
+  customTelemetryHandler = handler;
+}
+
 function debugLog(message: string, ...params: any[]) {
-  if (typeof window !== 'undefined' && localStorage.getItem('debugMode') === 'true') {
+  if (
+    typeof window !== 'undefined' &&
+    localStorage.getItem('debugMode') === 'true'
+  ) {
     console.log(`[SaaS-API] ${message}`, ...params);
   }
 }
 
-const api = axios.create({
-  baseURL: BASE_URL,
-  headers: { "Content-Type": "application/json" },
-  timeout: 10000 // 10s request timeout for resilience
-});
+function generateCorrelationId(): string {
+  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+    return crypto.randomUUID();
+  }
+  return 'fe-' + Math.random().toString(36).substring(2, 11) + '-' + Date.now().toString(36);
+}
 
 let accessToken: string | null = null;
-export function setAccessToken(token: string | null) { 
-  accessToken = token; 
-  debugLog("Access token updated in memory");
-}
-export function getAccessToken() { return accessToken; }
+let isRefreshing = false;
+let refreshPromise: Promise<TokenResponseDto> | null = null;
 
-export function getRefreshToken() {
-  if (typeof window !== "undefined") {
-    return localStorage.getItem("refreshToken");
+export function setAccessToken(token: string | null) {
+  accessToken = token;
+  if (typeof window !== 'undefined') {
+    if (token) localStorage.setItem('accessToken', token);
+    else localStorage.removeItem('accessToken');
   }
-  return null;
 }
-export function setRefreshToken(rt?: string | null) {
-  if (typeof window !== "undefined") {
-    if (!rt) {
-      localStorage.removeItem("refreshToken");
-      debugLog("Refresh token removed from storage");
-    } else {
-      localStorage.setItem("refreshToken", rt);
-      debugLog("Refresh token saved to storage");
+
+export function getAccessToken(): string | null {
+  if (accessToken) return accessToken;
+  return typeof window !== 'undefined'
+    ? localStorage.getItem('accessToken')
+    : null;
+}
+
+export function getRefreshToken(): string | null {
+  return typeof window !== 'undefined'
+    ? localStorage.getItem('refreshToken')
+    : null;
+}
+
+export function setRefreshToken(token?: string | null) {
+  if (typeof window !== 'undefined') {
+    if (token) localStorage.setItem('refreshToken', token);
+    else localStorage.removeItem('refreshToken');
+  }
+}
+
+export function unwrap<T = any>(body: any): T {
+  if (body && typeof body === 'object' && 'success' in body && 'data' in body) {
+    if (body.success) return body.data as T;
+    const error: any = new Error(body.message || 'API error');
+    error.errors = body.errors;
+    throw error;
+  }
+  return body as T;
+}
+
+@Injectable({ providedIn: 'root' })
+export class ApiClientService {
+  private notificationService = inject(NotificationService, { optional: true });
+
+  constructor(private readonly http: HttpClient) {}
+
+  get<T = any, R = T>(
+    url: string,
+    options?: { params?: Record<string, any> },
+  ): Promise<R> {
+    return this.request<T, R>('GET', url, options);
+  }
+
+  post<T = any, R = T>(url: string, body?: any): Promise<R> {
+    return this.request<T, R>('POST', url, { body });
+  }
+
+  put<T = any, R = T>(url: string, body?: any): Promise<R> {
+    return this.request<T, R>('PUT', url, { body });
+  }
+
+  patch<T = any, R = T>(url: string, body?: any): Promise<R> {
+    return this.request<T, R>('PATCH', url, { body });
+  }
+
+  delete<T = any, R = T>(url: string): Promise<R> {
+    return this.request<T, R>('DELETE', url);
+  }
+
+  private async request<T, R>(
+    method: string,
+    url: string,
+    options: { body?: any; params?: Record<string, any> } = {},
+    retry = false,
+  ): Promise<R> {
+    const token = getAccessToken();
+    const correlationId = generateCorrelationId();
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/json',
+      'Accept': 'application/json',
+      'X-Correlation-ID': correlationId,
+    };
+    if (token) headers['Authorization'] = `Bearer ${token}`;
+    
+    const rawParams = options.params || {};
+    const cleanParams: Record<string, any> = {};
+    for (const [key, value] of Object.entries(rawParams)) {
+      if (value !== null && value !== undefined && value !== '' && value !== 'null') {
+        cleanParams[key] = value;
+      }
+    }
+    const params = new HttpParams({ fromObject: cleanParams });
+    debugLog(`Outgoing request: [${method}] ${url}`);
+
+    try {
+      const body = await firstValueFrom(
+        this.http.request<T>(method, `${environment.apiUrl}${url}`, {
+          body: options.body,
+          headers,
+          params,
+        }),
+      );
+      return unwrap<R>(body);
+    } catch (error: any) {
+      const mapped = mapApiErrorToUserMessage(error);
+      const statusCode = error instanceof HttpErrorResponse ? error.status : (mapped.statusCode || 0);
+
+      // Enhance error object with mapped details for calling components
+      if (error && typeof error === 'object') {
+        error.mappedError = mapped;
+        error.requestId = mapped.requestId;
+        error.fieldErrors = mapped.fieldErrors;
+      }
+
+      logRequestError(method, url, error, mapped);
+
+      // Telemetry dispatch on server errors (statusCode >= 500)
+      if (statusCode >= 500) {
+        dispatchTelemetry(method, url, statusCode, mapped, error);
+      }
+
+      if (
+        error instanceof HttpErrorResponse &&
+        error.status === 401 &&
+        !retry &&
+        !url.toLowerCase().includes('/auth/')
+      ) {
+        try {
+          await this.refreshWithLock();
+          return this.request<T, R>(method, url, options, true);
+        } catch (refreshError) {
+          logout();
+          if (
+            typeof window !== 'undefined' &&
+            !window.location.href.includes('/login')
+          ) {
+            window.location.href = '/login?expired=true';
+          }
+          throw refreshError;
+        }
+      }
+      if (error instanceof HttpErrorResponse && error.status === 403)
+        console.error('[SaaS-Security] Forbidden access (403)');
+      if (error instanceof HttpErrorResponse && error.status === 404)
+        console.warn(`[SaaS-API] Resource not found (404) on URL: ${url}`);
+      handleMissingCompanyClaim(
+        error instanceof HttpErrorResponse ? error.error : null,
+      );
+      throw error;
     }
   }
-}
 
-// Auth helper
-export async function doLogin(email: string, password: string, deviceId?: string) {
-  debugLog(`Attempting login for: ${email}`);
-  const res = await api.post<TokenResponseDto>("/auth/login", { email, password, deviceId });
-  const body = res.data;
-  setAccessToken(body.accessToken);
-  setRefreshToken(body.refreshToken);
-  return body;
-}
-
-export async function doRefresh() {
-  debugLog("Refreshing session token...");
-  const rt = getRefreshToken();
-  if (!rt) {
-    debugLog("Refresh token missing, cannot refresh session");
-    throw new Error("No refresh token");
+  private refreshWithLock(): Promise<TokenResponseDto> {
+    if (!isRefreshing) {
+      isRefreshing = true;
+      refreshPromise = doRefresh(this).finally(() => {
+        isRefreshing = false;
+        refreshPromise = null;
+      });
+    }
+    return refreshPromise!;
   }
-  const res = await api.post<TokenResponseDto>("/auth/refresh", { refreshToken: rt });
-  const body = res.data;
+}
+
+function logRequestError(method: string, url: string, error: any, mapped?: MappedApiError) {
+  const details = {
+    method,
+    url,
+    status: error?.status || mapped?.statusCode,
+    errorCode: mapped?.errorCode,
+    requestId: mapped?.requestId,
+    timestamp: mapped?.timestamp || new Date().toISOString(),
+    message: mapped?.message || error?.message,
+    body: error?.error,
+  };
+  try {
+    console.error(
+      '[SaaS-API] Request failed:',
+      JSON.stringify(details, null, 2),
+    );
+  } catch {
+    console.error('[SaaS-API] Request failed:', String(error));
+  }
+}
+
+function dispatchTelemetry(
+  method: string,
+  url: string,
+  statusCode: number,
+  mapped: MappedApiError,
+  rawError: any,
+) {
+  const telemetryData = {
+    method,
+    url,
+    statusCode,
+    errorCode: mapped.errorCode,
+    requestId: mapped.requestId,
+    timestamp: mapped.timestamp || new Date().toISOString(),
+    rawError: rawError?.error || rawError?.message,
+  };
+
+  try {
+    console.error('[SaaS-Telemetry] Error 500+ reported:', telemetryData);
+    if (customTelemetryHandler) {
+      customTelemetryHandler(telemetryData);
+    }
+  } catch (err) {
+    console.warn('[SaaS-Telemetry] Failed to dispatch telemetry event:', err);
+  }
+}
+
+function handleMissingCompanyClaim(body: any) {
+  const missing =
+    body?.errors?.includes?.('MISSING_COMPANY_CLAIM') ||
+    body?.Errors?.includes?.('MISSING_COMPANY_CLAIM') ||
+    body?.message?.includes?.('CompanyId claim missing') ||
+    body?.Message?.includes?.('CompanyId claim missing');
+  if (
+    missing &&
+    typeof window !== 'undefined' &&
+    !window.location.href.includes('/companies/create') &&
+    !window.location.href.includes('/login')
+  ) {
+    window.location.href = '/companies/create';
+  }
+}
+
+export async function doLogin(
+  client: ApiClientService,
+  email: string,
+  password: string,
+  deviceId?: string,
+) {
+  const body = await client.post<any, TokenResponseDto>('/Auth/login', {
+    email,
+    password,
+    deviceId,
+  });
   setAccessToken(body.accessToken);
   setRefreshToken(body.refreshToken);
-  debugLog("Token refreshed successfully");
   return body;
 }
 
-export function logout() {
-  debugLog("Logging out, clearing session...");
-  const rt = getRefreshToken();
+export async function doRefresh(
+  client: ApiClientService,
+): Promise<TokenResponseDto> {
+  const refreshToken = getRefreshToken();
+  if (!refreshToken) throw new Error('No refresh token');
+  const body = await client.post<any, TokenResponseDto>('/Auth/refresh', {
+    refreshToken,
+  });
+  setAccessToken(body.accessToken);
+  setRefreshToken(body.refreshToken);
+  return body;
+}
+
+export async function logout(client?: ApiClientService) {
+  const refreshToken = getRefreshToken();
   setAccessToken(null);
   setRefreshToken(null);
-  if (rt) {
-    // best-effort: revoke current refresh token
-    api.post("/auth/revoke", { refreshToken: rt }).catch(()=>{});
+  if (client && refreshToken) {
+    await client.post('/Auth/revoke', { refreshToken }).catch(() => {});
   }
 }
-
-// Request interceptor attaches Authorization header and logs requests
-api.interceptors.request.use((cfg) => {
-  debugLog(`Outgoing request: [${cfg.method?.toUpperCase()}] ${cfg.url}`);
-  if (accessToken && cfg.headers) {
-    cfg.headers.set('Authorization', `Bearer ${accessToken}`);
-  }
-  return cfg;
-});
-
-// Response interceptor: handles retries, token refresh, and global HTTP errors
-let isRefreshing = false;
-let refreshPromise: Promise<any> | null = null;
-
-api.interceptors.response.use(
-  (resp) => {
-    debugLog(`Response success: [${resp.config.method?.toUpperCase()}] ${resp.config.url} - Status ${resp.status}`);
-    
-    // Check for success === false with MISSING_COMPANY_CLAIM
-    const body = resp.data;
-    if (body && body.success === false && (
-      body.errors?.includes("MISSING_COMPANY_CLAIM") ||
-      body.Errors?.includes("MISSING_COMPANY_CLAIM") ||
-      body.message?.includes("CompanyId claim missing") ||
-      body.Message?.includes("CompanyId claim missing")
-    )) {
-      console.warn("[SaaS-Auth] Missing company claim in response body. Redirecting to company creation.");
-      if (typeof window !== "undefined" && !window.location.href.includes("/companies/create") && !window.location.href.includes("/login")) {
-        window.location.href = "/companies/create";
-      }
-    }
-    return resp;
-  },
-  async (error) => {
-    // Check for MISSING_COMPANY_CLAIM error!
-    if (error.response && error.response.data) {
-      const errorData = error.response.data;
-      if (
-        errorData.errors?.includes("MISSING_COMPANY_CLAIM") || 
-        errorData.Errors?.includes("MISSING_COMPANY_CLAIM") ||
-        errorData.message?.includes("CompanyId claim missing") ||
-        errorData.Message?.includes("CompanyId claim missing")
-      ) {
-        console.warn("[SaaS-Auth] Missing company claim. Redirecting to company creation.");
-        if (typeof window !== "undefined" && !window.location.href.includes("/companies/create") && !window.location.href.includes("/login")) {
-          window.location.href = "/companies/create";
-        }
-        return Promise.reject(error);
-      }
-    }
-
-    const originalReq = error.config;
-    if (!originalReq) {
-      return Promise.reject(error);
-    }
-
-    // 1. Session Expiry & Auto-Refresh handling on 401 Unauthorized
-    if (error.response && error.response.status === 401 && !originalReq._retry) {
-      originalReq._retry = true;
-      debugLog("401 Unauthorized detected, starting refresh flow");
-      if (!isRefreshing) {
-        isRefreshing = true;
-        refreshPromise = doRefresh().finally(() => {
-          isRefreshing = false;
-          refreshPromise = null;
-        });
-      }
-      try {
-        await refreshPromise;
-        // After refresh, retry original request
-        debugLog("Retrying original request after token refresh");
-        return api(originalReq);
-      } catch (e) {
-        debugLog("Session refresh failed. Redirecting to login");
-        logout();
-        if (typeof window !== "undefined") {
-          window.location.href = "/login?expired=true";
-        }
-        return Promise.reject(e);
-      }
-    }
-
-    // 2. Resilient Network / Timeout Retry Logic
-    // If request fails due to network error or timeout (status is undefined or timeout error)
-    const isNetworkError = !error.response;
-    const isTimeout = error.code === 'ECONNABORTED';
-    
-    if ((isNetworkError || isTimeout) && (!originalReq._retryCount || originalReq._retryCount < 2)) {
-      originalReq._retryCount = originalReq._retryCount || 0;
-      originalReq._retryCount++;
-      debugLog(`Network failure detected. Retrying request (${originalReq._retryCount}/2)...`, error.message);
-      
-      // Delay retry slightly (exponential backoff)
-      const delay = originalReq._retryCount * 1500;
-      await new Promise(resolve => setTimeout(resolve, delay));
-      return api(originalReq);
-    }
-
-    // 3. Global HTTP Error Logger / Formatter
-    if (error.response) {
-      const status = error.response.status;
-      debugLog(`Request failed with status ${status}: [${originalReq.method?.toUpperCase()}] ${originalReq.url}`);
-      
-      if (status === 403) {
-        console.error("[SaaS-Security] Forbidden access attempt blocked");
-      } else if (status === 429) {
-        console.warn("[SaaS-RateLimit] Requests are being rate limited by backend policies");
-      } else if (status >= 500) {
-        console.error(`[SaaS-ServerError] Internal Server Error on URL: ${originalReq.url}`);
-      }
-    } else {
-      debugLog("Request failed with network issue: ", error.message);
-    }
-
-    return Promise.reject(error);
-  }
-);
-
-export default api;
 
 export function extractArray<T>(resData: any): T[] {
   if (!resData) return [];
-  // Case: Wrapped ApiResponse
-  if (resData.success && resData.data !== undefined) {
+  if (resData.success && resData.data !== undefined)
     return extractArray<T>(resData.data);
-  }
-  // Case: Direct Array
-  if (Array.isArray(resData)) {
-    return resData;
-  }
-  // Case: Paginated Object
-  if (resData && Array.isArray(resData.items)) {
-    return resData.items;
-  }
+  if (Array.isArray(resData)) return resData;
+  if (Array.isArray(resData.items)) return resData.items;
   return [];
 }

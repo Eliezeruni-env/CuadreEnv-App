@@ -6,6 +6,51 @@ export interface ApiResponse<T> {
   errors?: string[] | null;
 }
 
+// PagedList<T>
+export interface PagedList<T> {
+  items: T[];
+  pageNumber: number;
+  pageSize: number;
+  totalItemCount: number;
+  pageCount?: number;
+  hasPreviousPage?: boolean;
+  hasNextPage?: boolean;
+}
+
+// ProductType Enum & Options
+export enum ProductTypeEnum {
+  Standard = 1,     // Producto Estándar
+  Service = 2,      // Servicio
+  Digital = 3,      // Producto Digital
+  Combo = 4,        // Combo / Paquete
+  RawMaterial = 5   // Materia Prima / Insumo
+}
+
+export const PRODUCT_TYPE_OPTIONS = [
+  { id: ProductTypeEnum.Standard, name: 'Producto Estándar (Físico)' },
+  { id: ProductTypeEnum.Service, name: 'Servicio / Mano de Obra' },
+  { id: ProductTypeEnum.Digital, name: 'Producto Digital / Licencia' },
+  { id: ProductTypeEnum.Combo, name: 'Combo / Kit de Productos' },
+  { id: ProductTypeEnum.RawMaterial, name: 'Materia Prima / Insumo' },
+];
+
+// Category Enum & Options
+export enum CategoryEnum {
+  General = 1,
+  Alimentos = 2,
+  Bebidas = 3,
+  Papeleria = 4,
+  Servicios = 5
+}
+
+export const CATEGORY_OPTIONS = [
+  { id: CategoryEnum.General, name: 'General' },
+  { id: CategoryEnum.Alimentos, name: 'Alimentos' },
+  { id: CategoryEnum.Bebidas, name: 'Bebidas' },
+  { id: CategoryEnum.Papeleria, name: 'Papelería' },
+  { id: CategoryEnum.Servicios, name: 'Servicios' },
+];
+
 // Auth DTOs
 export interface RegisterRequestDto {
   email: string;
@@ -238,3 +283,45 @@ export interface CashMovementDto {
   description?: string | null;
   creationDate?: string;
 }
+
+// AccountReceivable & PaymentPlan DTOs
+export interface PaymentPlanRequestDto {
+  installmentAmount: number;
+  totalInstallments: number;
+  frequency?: string;
+  startsAt?: string;
+}
+
+export interface CreateAccountReceivableRequestDto {
+  companyId?: number;
+  customerId?: number | null;
+  saleId?: number | null;
+  totalAmount: number;
+  paidAmount?: number;
+  dueDate?: string | null;
+  plan?: PaymentPlanRequestDto | null;
+}
+
+export interface InstallmentDto {
+  id: number;
+  paymentPlanId: number;
+  installmentNumber: number;
+  amount: number;
+  paidAmount: number;
+  dueDate: string;
+  isPaid: boolean;
+}
+
+export interface RegisterARPaymentRequestDto {
+  amount: number;
+  method?: string;
+  reference?: string | null;
+  cashRegisterId?: number | null;
+}
+
+export interface PayInstallmentRequestDto {
+  amount: number;
+  method?: string;
+  cashRegisterId?: number | null;
+}
+

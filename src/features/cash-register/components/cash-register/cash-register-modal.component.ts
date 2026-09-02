@@ -194,8 +194,8 @@ export class CashRegisterModalComponent implements OnInit {
       if (res.success && res.data) {
         this.registers.set(res.data);
       }
-    } catch (e) {
-      console.error(e);
+    } catch (e: any) {
+      console.error('Failed to load cash registers:', e?.message || e);
     }
   }
 
@@ -246,14 +246,14 @@ export class CashRegisterModalComponent implements OnInit {
     try {
       const res = await this.cashRegisterService.openCashRegister(name);
       if (res.success) {
-        this.notificationService.success(`Cash register "${name}" opened successfully!`);
+        this.notificationService.success(`Caja registradora "${name}" abierta exitosamente.`);
         this.saved.emit();
         this.close();
       } else {
-        this.notificationService.error(res.message || 'Failed to open register.');
+        this.notificationService.error(res.message || 'Error al abrir caja.');
       }
     } catch (e: any) {
-      this.notificationService.error(e?.response?.data?.message || e?.message || 'Error opening register.');
+      this.notificationService.showApiError(e);
     } finally {
       this.isLoading.set(false);
     }
@@ -270,11 +270,11 @@ export class CashRegisterModalComponent implements OnInit {
 
     try {
       await this.cashRegisterService.closeCashRegister(this.selectedRegister.id!, balance);
-      this.notificationService.success('Cash register closed successfully!');
+      this.notificationService.success('Caja registradora cerrada exitosamente.');
       this.saved.emit();
       this.close();
     } catch (e: any) {
-      this.notificationService.error(e?.response?.data?.message || e?.message || 'Error closing register.');
+      this.notificationService.showApiError(e);
     } finally {
       this.isLoading.set(false);
     }
@@ -296,11 +296,11 @@ export class CashRegisterModalComponent implements OnInit {
         type: val.type,
         description: val.description || null
       });
-      this.notificationService.success('Cash movement registered successfully!');
+      this.notificationService.success('Movimiento de caja registrado exitosamente.');
       this.saved.emit();
       this.close();
     } catch (e: any) {
-      this.notificationService.error(e?.response?.data?.message || e?.message || 'Error recording cash movement.');
+      this.notificationService.showApiError(e);
     } finally {
       this.isLoading.set(false);
     }

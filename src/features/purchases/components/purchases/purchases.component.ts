@@ -1,4 +1,4 @@
-import { Component, inject, OnInit, signal, ViewChild } from '@angular/core';
+import { Component, computed, inject, OnInit, signal, ViewChild } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { PurchaseService } from '../../services/purchase.service';
 import { AuthService } from '../../../cuadreEnv/services/auth.service';
@@ -54,22 +54,20 @@ export class PurchasesComponent implements OnInit {
   pageSize = 10;
   totalItems = signal<number>(0);
 
-  get filterConfig(): FilterConfig[] {
-    return [
-      {
-        key: 'search',
-        label: this.translationService.t('purchases.filterSearch'),
-        type: 'text',
-        placeholder: this.translationService.t('purchases.filterSearch'),
-      },
-      {
-        key: 'total',
-        label: this.translationService.t('purchases.filterTotal'),
-        type: 'numberRange',
-        placeholder: this.translationService.t('filterPanel.from'),
-      },
-    ];
-  }
+  readonly filterConfig = computed<FilterConfig[]>(() => [
+    {
+      key: 'search',
+      label: this.translationService.t('purchases.filterSearch'),
+      type: 'text',
+      placeholder: this.translationService.t('purchases.filterSearch'),
+    },
+    {
+      key: 'total',
+      label: this.translationService.t('purchases.filterTotal'),
+      type: 'numberRange',
+      placeholder: this.translationService.t('filterPanel.from'),
+    },
+  ]);
 
   isModalOpen = false;
   selectedPurchase: PurchaseDto | null = null;
@@ -111,7 +109,7 @@ export class PurchasesComponent implements OnInit {
     this.currentPage.set(page);
   }
 
-  private getFilteredPurchasesBase(): PurchaseDto[] {
+  readonly filteredPurchasesBase = computed(() => {
     const activeFilters = this.filters();
     const search = String((activeFilters['search'] as string | undefined) || '')
       .trim()
@@ -127,30 +125,36 @@ export class PurchasesComponent implements OnInit {
 
     return this.purchases().filter((purchase) => {
       const haystack = [
-        purchase.id?.toString(),
-        purchase.supplierId?.toString(),
+        purchase.id?.toString() || '',
+        purchase.supplierId ? `supplier #${purchase.supplierId}` : '',
       ]
-        .filter(Boolean)
         .join(' ')
         .toLowerCase();
       const matchesSearch = !search || haystack.includes(search);
       const matchesTotalFrom =
-        Number.isNaN(totalFrom) || purchase.total >= totalFrom;
-      const matchesTotalTo = Number.isNaN(totalTo) || purchase.total <= totalTo;
+        Number.isNaN(totalFrom) || (purchase.total || 0) >= totalFrom;
+      const matchesTotalTo =
+        Number.isNaN(totalTo) || (purchase.total || 0) <= totalTo;
 
       return matchesSearch && matchesTotalFrom && matchesTotalTo;
     });
-  }
+  });
 
-  getFilteredPurchasesCount(): number {
-    return this.getFilteredPurchasesBase().length;
-  }
+  readonly filteredPurchasesCount = computed(() => this.filteredPurchasesBase().length);
 
-  getFilteredPurchases(): PurchaseDto[] {
-    return this.getFilteredPurchasesBase().slice(
+  readonly pagedPurchases = computed(() => {
+    return this.filteredPurchasesBase().slice(
       (this.currentPage() - 1) * this.pageSize,
       this.currentPage() * this.pageSize,
     );
+  });
+
+  getFilteredPurchasesCount(): number {
+    return this.filteredPurchasesCount();
+  }
+
+  getFilteredPurchases(): PurchaseDto[] {
+    return this.pagedPurchases();
   }
 
   openCreateModal() {

@@ -25,6 +25,11 @@ export const routes: Routes = [
         data: { title: 'Products Catalogue' }
       },
       {
+        path: 'products/settings',
+        loadComponent: () => import('../features/products/components/settings/product-settings.component').then((m) => m.ProductSettingsComponent),
+        data: { title: 'Configuración de Productos' }
+      },
+      {
         path: 'inventory',
         loadComponent: () => import('../features/inventory/components/inventory/inventory.component').then((m) => m.InventoryComponent),
         data: { title: 'Inventory & Warehouses' }
@@ -38,6 +43,16 @@ export const routes: Routes = [
         path: 'sales',
         loadComponent: () => import('../features/sales/components/sales/sales.component').then((m) => m.SalesComponent),
         data: { title: 'Sales Register' }
+      },
+      {
+        path: 'receivables',
+        loadComponent: () => import('../features/sales/components/receivables/receivables.component').then((m) => m.ReceivablesComponent),
+        data: { title: 'Ventas por Cobrar' }
+      },
+      {
+        path: 'sales/receivables',
+        redirectTo: 'receivables',
+        pathMatch: 'full'
       },
       {
         path: 'customers',

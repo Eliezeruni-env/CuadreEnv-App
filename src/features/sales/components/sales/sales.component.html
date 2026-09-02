@@ -20,7 +20,7 @@
     }
   </div>
 
-  <app-filter-panel [title]="translationService.t('sales.filterTitle')" [config]="filterConfig" [values]="filters()"
+  <app-filter-panel [title]="translationService.t('sales.filterTitle')" [config]="filterConfig()" [values]="filters()"
     (filtersChange)="onFiltersChange($event)"></app-filter-panel>
 
   <c-card class="shadow-sm border-0 mb-4">
@@ -45,11 +45,11 @@
           { field: 'id', label: translationService.t('sales.table.saleId') },
           { field: 'date', label: translationService.t('sales.table.date') },
           { field: 'customer', label: translationService.t('sales.table.customer') },
-          { field: 'total', label: translationService.t('sales.table.total') },
-          { field: 'paid', label: translationService.t('sales.table.paid') },
-          { field: 'status', label: translationService.t('sales.table.status') },
-          { field: 'actions', label: translationService.t('common.actions') }
-        ]" [rows]="getFilteredSales()" [loading]="isLoading()" [emptyMessage]="translationService.t('sales.emptyBody')"
+          { field: 'total', label: translationService.t('sales.table.total'), align: 'end' },
+          { field: 'paid', label: translationService.t('sales.table.paid'), align: 'end' },
+          { field: 'status', label: translationService.t('sales.table.status'), align: 'center' },
+          { field: 'actions', label: translationService.t('common.actions'), align: 'center' }
+        ]" [rows]="pagedSales()" [loading]="isLoading()" [emptyMessage]="translationService.t('sales.emptyBody')"
         [rowTemplate]="saleRowTpl">
       </app-table>
 
@@ -58,29 +58,28 @@
           <td class="ps-4 font-monospace small">#{{ sale.id }}</td>
           <td>{{ sale.creationDate | date:'short' }}</td>
           <td class="fw-semibold text-dark">{{ getCustomerName(sale.customerId) }}</td>
-          <td class="text-end fw-bold text-dark">\${{ sale.total | number:'1.2-2' }}</td>
-          <td class="text-end text-success fw-semibold">\${{ sale.paidAmount | number:'1.2-2' }}</td>
+          <td class="text-end">RD$ {{ sale.total | number:'1.2-2' }}</td>
+          <td class="text-end text-success fw-semibold">RD$ {{ sale.paidAmount | number:'1.2-2' }}</td>
           <td class="text-center">
-            <span
-              [ngClass]="sale.isCancelled ? 'badge bg-danger-subtle text-danger border border-danger' : 'badge bg-success-subtle text-success border border-success'">
-              {{ sale.isCancelled ? 'Cancelled' : 'Processed' }}
+            @if (sale.paidAmount >= sale.total) {
+            <span class="badge bg-success-subtle text-success border border-success-subtle px-2 py-1 rounded-pill">
+              {{ translationService.t('sales.status.paid') }}
             </span>
+            } @else if (sale.paidAmount > 0) {
+            <span class="badge bg-warning-subtle text-warning-emphasis border border-warning-subtle px-2 py-1 rounded-pill">
+              {{ translationService.t('sales.status.partial') }}
+            </span>
+            } @else {
+            <span class="badge bg-danger-subtle text-danger border border-danger-subtle px-2 py-1 rounded-pill">
+              {{ translationService.t('sales.status.pending') }}
+            </span>
+            }
           </td>
-          <td class="text-center pe-4 action-cell">
-            <div class="desktop-actions d-flex justify-content-center gap-1">
-              <button cButton color="light" size="sm" class="border" (click)="viewSaleDetail(sale)">
-                <svg cIcon name="cilZoom" size="sm"></svg>
-              </button>
-            </div>
-
-            <details class="mobile-actions">
-              <summary class="btn btn-light btn-sm">⋯</summary>
-              <div class="mobile-actions-menu">
-                <button cButton color="light" size="sm" class="border w-100" (click)="viewSaleDetail(sale)">
-                  <svg cIcon name="cilZoom" size="sm"></svg> View
-                </button>
-              </div>
-            </details>
+          <td class="text-center pe-4">
+            <button cButton color="light" size="sm" class="border shadow-sm text-secondary"
+              (click)="openDetailModal(sale)" [title]="translationService.t('sales.viewDetails')">
+              <svg cIcon name="cilZoom" size="sm"></svg>
+            </button>
           </td>
         </tr>
       </ng-template>
@@ -88,15 +87,36 @@
     </c-card-body>
   </c-card>
 
-  @if (!isLoading() && getFilteredSalesCount() > 0) {
-  <app-list-pagination [currentPage]="currentPage()" [totalItems]="getFilteredSalesCount()" [pageSize]="pageSize"
-    [label]="'ventas'" (pageChange)="onPageChange($event)"></app-list-pagination>
+  @if (getFilteredSalesCount() > pageSize) {
+  <app-list-pagination [totalItems]="getFilteredSalesCount()" [pageSize]="pageSize" [currentPage]="currentPage()"
+    (pageChange)="onPageChange($event)">
+  </app-list-pagination>
   }
 </c-container>
 
-<!-- Decoupled Child Modals -->
-<app-create-sale-modal #createSaleModal [(visible)]="isCreateModalOpen" (saved)="loadData()">
-</app-create-sale-modal>
+<!-- Choice Modal for + Nueva Venta -->
+<app-new-sale-choice-modal
+  #newSaleChoiceModal
+  [(visible)]="isChoiceModalOpen"
+  (optionSelected)="onSaleOptionChosen($event)"
+></app-new-sale-choice-modal>
 
-<app-sale-detail-modal [(visible)]="isDetailModalOpen" [sale]="selectedSale" (cancelled)="loadData()">
-</app-sale-detail-modal>
+<!-- Quick Sale Modal (Contado -> Caja) -->
+<app-quick-sale-modal
+  #quickSaleModal
+  [(visible)]="isQuickSaleModalOpen"
+  (completed)="onSaleCreated()"
+></app-quick-sale-modal>
+
+<!-- Create Receivable Modal (Crédito -> Cobros) -->
+<app-create-receivable-modal
+  #createReceivableModal
+  [(visible)]="isCreateReceivableModalOpen"
+  (saved)="onSaleCreated()"
+></app-create-receivable-modal>
+
+<!-- Modals for details & legacy creation -->
+<app-create-sale-modal #createSaleModal [(visible)]="isCreateModalOpen"
+  (saleCreated)="onSaleCreated()"></app-create-sale-modal>
+<app-sale-detail-modal #saleDetailModal [(visible)]="isDetailModalOpen" [sale]="selectedSale"
+  (closed)="selectedSale = null"></app-sale-detail-modal>

@@ -1,5 +1,6 @@
 import { CommonModule } from '@angular/common';
 import {
+  ChangeDetectionStrategy,
   Component,
   EventEmitter,
   inject,
@@ -45,6 +46,7 @@ export type FilterValues = Record<string, unknown>;
   standalone: true,
   templateUrl: './filter-panel.component.html',
   styleUrl: './filter-panel.component.scss',
+  changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [
     CommonModule,
     FormsModule,

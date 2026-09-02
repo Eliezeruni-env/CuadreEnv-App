@@ -1,0 +1,227 @@
+<c-container fluid class="px-4 py-4">
+  <!-- Error Alert -->
+  @if (errorMessage()) {
+    <c-alert color="danger" dismissible class="mb-4 shadow-sm">
+      <svg cIcon name="cilWarning" class="me-2"></svg>
+      {{ errorMessage() }}
+    </c-alert>
+  }
+
+  <!-- Header Section -->
+  <div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+      <h3 class="fw-bold text-dark mb-1">Configuración de Productos</h3>
+      <p class="text-body-secondary mb-0">Gestiona las categorías y tipos de producto disponibles en el sistema.</p>
+    </div>
+  </div>
+
+  <!-- Navigation Tabs -->
+  <div class="custom-nav-tabs-wrapper mb-4">
+    <ul class="nav nav-tabs custom-nav-tabs border-0">
+      <li class="nav-item">
+        <button class="nav-link" [class.active]="activeTab() === 'categories'" (click)="setTab('categories')">
+          <svg cIcon name="cilTags" class="me-2"></svg>
+          Categorías
+        </button>
+      </li>
+      <li class="nav-item">
+        <button class="nav-link" [class.active]="activeTab() === 'types'" (click)="setTab('types')">
+          <svg cIcon name="cilStorage" class="me-2"></svg>
+          Tipos de Producto
+        </button>
+      </li>
+    </ul>
+  </div>
+
+  <!-- Content Sections -->
+  <!-- 1. Categories Tab -->
+  @if (activeTab() === 'categories') {
+    <c-card class="shadow-sm border-0 mb-4">
+      <c-card-body class="p-0">
+        <div class="p-3 bg-light border-bottom d-flex justify-content-between align-items-center">
+          <span class="fw-semibold text-secondary">Listado de Categorías</span>
+          <button cButton color="primary" size="sm" (click)="openCreateCategory()">
+            <svg cIcon name="cilPlus" class="me-1"></svg> Nueva Categoría
+          </button>
+        </div>
+
+        @if (isLoading() && categories().length === 0) {
+          <div class="text-center py-5">
+            <c-spinner color="primary"></c-spinner>
+          </div>
+        } @else if (categories().length === 0) {
+          <div class="text-center py-5 px-4">
+            <svg cIcon name="cilTags" size="xl" class="text-body-secondary mb-3" style="width: 48px; height: 48px;"></svg>
+            <h5 class="fw-bold text-dark">No hay categorías registradas</h5>
+            <p class="text-body-secondary mt-1">Crea una categoría para clasificar tus productos.</p>
+          </div>
+        } @else {
+          <div class="table-responsive">
+            <table cTable hover class="mb-0 border-0 align-middle">
+              <thead class="table-light text-uppercase font-size-xs fw-bold text-secondary">
+                <tr>
+                  <th scope="col" class="ps-4" style="width: 100px;">ID</th>
+                  <th scope="col">Descripción</th>
+                  <th scope="col" class="text-center" style="width: 120px;">Acciones</th>
+                </tr>
+              </thead>
+              <tbody>
+                @for (cat of paginatedCategories; track cat.id) {
+                  <tr>
+                    <td class="ps-4 font-monospace small">#{{ cat.id }}</td>
+                    <td class="fw-semibold text-dark">{{ cat.description }}</td>
+                    <td class="text-center">
+                      <button cButton color="danger" size="sm" class="text-white border-0" title="Eliminar" (click)="deleteCategory(cat)">
+                        <svg cIcon name="cilTrash" size="sm"></svg>
+                      </button>
+                    </td>
+                  </tr>
+                }
+              </tbody>
+            </table>
+
+            <app-list-pagination
+              [currentPage]="categoriesPage()"
+              [totalItems]="categoriesTotal()"
+              [pageSize]="categoriesPageSize"
+              [label]="'categorías'"
+              (pageChange)="onCategoriesPageChange($event)">
+            </app-list-pagination>
+          </div>
+        }
+      </c-card-body>
+    </c-card>
+  }
+
+  <!-- 2. Product Types Tab -->
+  @if (activeTab() === 'types') {
+    <c-card class="shadow-sm border-0 mb-4">
+      <c-card-body class="p-0">
+        <div class="p-3 bg-light border-bottom d-flex justify-content-between align-items-center">
+          <span class="fw-semibold text-secondary">Listado de Tipos de Producto</span>
+          <button cButton color="primary" size="sm" (click)="openCreateType()">
+            <svg cIcon name="cilPlus" class="me-1"></svg> Nuevo Tipo
+          </button>
+        </div>
+
+        @if (isLoading() && productTypes().length === 0) {
+          <div class="text-center py-5">
+            <c-spinner color="primary"></c-spinner>
+          </div>
+        } @else if (productTypes().length === 0) {
+          <div class="text-center py-5 px-4">
+            <svg cIcon name="cilStorage" size="xl" class="text-body-secondary mb-3" style="width: 48px; height: 48px;"></svg>
+            <h5 class="fw-bold text-dark">No hay tipos de producto registrados</h5>
+            <p class="text-body-secondary mt-1">Crea tipos de producto para clasificar la naturaleza de tus artículos.</p>
+          </div>
+        } @else {
+          <div class="table-responsive">
+            <table cTable hover class="mb-0 border-0 align-middle">
+              <thead class="table-light text-uppercase font-size-xs fw-bold text-secondary">
+                <tr>
+                  <th scope="col" class="ps-4" style="width: 100px;">ID</th>
+                  <th scope="col">Descripción</th>
+                  <th scope="col" class="text-center" style="width: 150px;">Acciones</th>
+                </tr>
+              </thead>
+              <tbody>
+                @for (type of productTypes(); track type.id) {
+                  <tr>
+                    <td class="ps-4 font-monospace small">#{{ type.id }}</td>
+                    <td class="fw-semibold text-dark">{{ type.description }}</td>
+                    <td class="text-center">
+                      <div class="d-flex justify-content-center gap-1">
+                        <button cButton color="light" size="sm" class="border" title="Editar" (click)="openEditType(type)">
+                          <svg cIcon name="cilPencil" size="sm"></svg>
+                        </button>
+                        <button cButton color="danger" size="sm" class="text-white border-0" title="Eliminar" (click)="deleteType(type)">
+                          <svg cIcon name="cilTrash" size="sm"></svg>
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                }
+              </tbody>
+            </table>
+
+            <app-list-pagination
+              [currentPage]="productTypesPage()"
+              [totalItems]="productTypesTotal()"
+              [pageSize]="productTypesPageSize"
+              [label]="'tipos'"
+              (pageChange)="onProductTypesPageChange($event)">
+            </app-list-pagination>
+          </div>
+        }
+      </c-card-body>
+    </c-card>
+  }
+</c-container>
+
+<!-- Modals -->
+
+<!-- 1. Category Create Modal -->
+@if (isCategoryModalVisible) {
+  <div class="custom-modal-backdrop" (click)="closeCategoryModal()">
+    <div class="custom-modal-content" (click)="$event.stopPropagation()">
+      <div class="custom-modal-header">
+        <h5 class="fw-bold">Nueva Categoría</h5>
+        <button type="button" class="btn-close" (click)="closeCategoryModal()" aria-label="Close"></button>
+      </div>
+      <div class="custom-modal-body">
+        <form cForm [formGroup]="categoryForm">
+          <div class="mb-3">
+            <label class="small fw-semibold text-secondary mb-1">Nombre/Descripción *</label>
+            <input formControlName="description" cFormControl placeholder="Ej. Alimentos, Bebidas, etc." />
+            @if (categoryForm.get('description')?.touched && categoryForm.get('description')?.invalid) {
+              <div class="text-danger small mt-1">La descripción es requerida (máx. 100 caracteres).</div>
+            }
+          </div>
+        </form>
+      </div>
+      <div class="custom-modal-footer">
+        <button cButton color="light" class="border" (click)="closeCategoryModal()">Cancelar</button>
+        <button cButton color="primary" [disabled]="isLoading() || categoryForm.invalid" (click)="saveCategory()">
+          @if (isLoading()) {
+            <c-spinner size="sm" class="me-2"></c-spinner> Guardando...
+          } @else {
+            Guardar
+          }
+        </button>
+      </div>
+    </div>
+  </div>
+}
+
+<!-- 2. Product Type Create/Edit Modal -->
+@if (isTypeModalVisible) {
+  <div class="custom-modal-backdrop" (click)="closeTypeModal()">
+    <div class="custom-modal-content" (click)="$event.stopPropagation()">
+      <div class="custom-modal-header">
+        <h5 class="fw-bold">{{ editingType ? 'Editar Tipo de Producto' : 'Nuevo Tipo de Producto' }}</h5>
+        <button type="button" class="btn-close" (click)="closeTypeModal()" aria-label="Close"></button>
+      </div>
+      <div class="custom-modal-body">
+        <form cForm [formGroup]="typeForm">
+          <div class="mb-3">
+            <label class="small fw-semibold text-secondary mb-1">Nombre/Descripción *</label>
+            <input formControlName="description" cFormControl placeholder="Ej. Servicio, Físico, Combo, etc." />
+            @if (typeForm.get('description')?.touched && typeForm.get('description')?.invalid) {
+              <div class="text-danger small mt-1">La descripción es requerida (máx. 100 caracteres).</div>
+            }
+          </div>
+        </form>
+      </div>
+      <div class="custom-modal-footer">
+        <button cButton color="light" class="border" (click)="closeTypeModal()">Cancelar</button>
+        <button cButton color="primary" [disabled]="isLoading() || typeForm.invalid" (click)="saveType()">
+          @if (isLoading()) {
+            <c-spinner size="sm" class="me-2"></c-spinner> Guardando...
+          } @else {
+            Guardar
+          }
+        </button>
+      </div>
+    </div>
+  </div>
+}

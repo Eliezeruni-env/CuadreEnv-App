@@ -36,7 +36,7 @@
         </div>
         <div class="stat-card">
           <div class="stat-card-title">{{ translationService.t('common.filter') }}</div>
-          <div class="stat-card-value">{{ getFilteredProducts().length }}</div>
+          <div class="stat-card-value">{{ filteredProducts().length }}</div>
         </div>
         <div class="stat-card">
           <div class="stat-card-title">{{ translationService.t('products.filterLowStock') }}</div>
@@ -45,8 +45,8 @@
       </div>
     </section>
 
-    <app-filter-panel [title]="translationService.t('products.filterTitle')" [config]="filterConfig"
-      [values]="filters()" (filtersChange)="onFiltersChange($event)"></app-filter-panel>
+    <app-filter-panel [title]="translationService.t('products.filterTitle')" [config]="filterConfig()" [values]="filters()"
+    (filtersChange)="onFiltersChange($event)"></app-filter-panel>
 
     <c-card class="shadow-sm border-0 table-shell">
       <c-card-body class="p-0">
@@ -66,7 +66,7 @@
           </button>
         </div>
         } @else {
-        <app-table [columns]="columns" [rows]="getFilteredProducts()" [loading]="isLoading()"
+        <app-table [columns]="columns" [rows]="filteredProducts()" [loading]="isLoading()"
           [emptyMessage]="translationService.t('products.emptyBody')" [rowTemplate]="productRowTpl">
         </app-table>
 
@@ -87,7 +87,7 @@
             </td>
             <td>{{ p.reference || '-' }}</td>
             <td><span class="font-monospace small">{{ p.barcode || '-' }}</span></td>
-            <td class="text-end fw-bold text-dark">\${{ p.cost | number:'1.2-2' }}</td>
+            <td class="text-end fw-bold text-dark">${{ p.cost | number:'1.2-2' }}</td>
             <td class="text-end fw-semibold">
               <span class="stock-badge" [ngClass]="{
                     'stock-badge--healthy': getStockState(p) === 'healthy',
@@ -103,6 +103,9 @@
                 <button cButton color="light" size="sm" class="border" title="Editar" (click)="openEditModal(p)">
                   <svg cIcon name="cilPencil" size="sm"></svg>
                 </button>
+                <button cButton color="danger" size="sm" class="text-white border-0" title="Eliminar" (click)="deleteProduct(p)">
+                  <svg cIcon name="cilTrash" size="sm"></svg>
+                </button>
                 } @else {
                 <span class="text-muted small">-</span>
                 }
@@ -116,6 +119,10 @@
                     (click)="openEditModal(p)">
                     <svg cIcon name="cilPencil" size="sm"></svg> Edit
                   </button>
+                  <button cButton color="danger" size="sm" class="text-white mb-1 w-100" title="Eliminar"
+                    (click)="deleteProduct(p)">
+                    <svg cIcon name="cilTrash" size="sm"></svg> Delete
+                  </button>
                   } @else {
                   <div class="text-muted small p-2">-</div>
                   }
@@ -125,24 +132,13 @@
           </tr>
         </ng-template>
 
-        @if (totalItems() > pageSize) {
-        <div class="p-3 border-top d-flex justify-content-between align-items-center flex-wrap gap-2">
-          <div class="text-body-secondary small">
-            {{ translationService.t('common.page') }} {{ currentPage() }} · {{ totalItems() }} {{
-            translationService.t('common.items') }}
-          </div>
-          <c-pagination class="mb-0">
-            <li cPageItem [disabled]="currentPage() === 1">
-              <a cPageLink (click)="onPageChange(currentPage() - 1)" style="cursor: pointer;">{{
-                translationService.t('common.previous') }}</a>
-            </li>
-            <li cPageItem [disabled]="currentPage() * pageSize >= totalItems()">
-              <a cPageLink (click)="onPageChange(currentPage() + 1)" style="cursor: pointer;">{{
-                translationService.t('common.next') }}</a>
-            </li>
-          </c-pagination>
-        </div>
-        }
+        <app-list-pagination
+          [currentPage]="currentPage()"
+          [totalItems]="totalItems()"
+          [pageSize]="pageSize"
+          [label]="'productos'"
+          (pageChange)="onPageChange($event)">
+        </app-list-pagination>
         }
       </c-card-body>
     </c-card>

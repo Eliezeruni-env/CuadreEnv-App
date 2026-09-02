@@ -20,7 +20,7 @@
     }
   </div>
 
-  <app-filter-panel [title]="translationService.t('purchases.filterTitle')" [config]="filterConfig" [values]="filters()"
+  <app-filter-panel [title]="translationService.t('purchases.filterTitle')" [config]="filterConfig()" [values]="filters()"
     (filtersChange)="onFiltersChange($event)"></app-filter-panel>
 
   <c-card class="shadow-sm border-0 mb-4">
@@ -47,7 +47,7 @@
           { field: 'supplier', label: translationService.t('purchases.table.supplier') },
           { field: 'total', label: translationService.t('purchases.table.total') },
           { field: 'actions', label: translationService.t('common.actions') }
-        ]" [rows]="getFilteredPurchases()" [loading]="isLoading()"
+        ]" [rows]="pagedPurchases()" [loading]="isLoading()"
         [emptyMessage]="translationService.t('purchases.emptyBody')" [rowTemplate]="purchaseRowTpl">
       </app-table>
 
@@ -55,23 +55,14 @@
         <tr>
           <td class="ps-4 font-monospace small">#{{ p.id }}</td>
           <td>{{ p.creationDate | date:'short' }}</td>
-          <td>{{ p.supplierId ? 'Supplier #' + p.supplierId : 'Unknown Supplier' }}</td>
-          <td class="text-end fw-bold text-dark">\${{ p.total | number:'1.2-2' }}</td>
+          <td>{{ p.supplierName || (p.supplierId ? 'Supplier #' + p.supplierId : 'Unknown Supplier') }}</td>
+          <td class="text-end fw-bold text-dark">${{ (p.totalAmount || p.total || 0) | number:'1.2-2' }}</td>
           <td class="text-center pe-4 action-cell">
-            <div class="desktop-actions">
+            <div class="desktop-actions d-flex justify-content-center">
               <button cButton color="light" size="sm" class="border" (click)="viewPurchaseDetail(p)">
                 <svg cIcon name="cilZoom" size="sm"></svg>
               </button>
             </div>
-
-            <details class="mobile-actions">
-              <summary class="btn btn-light btn-sm">⋯</summary>
-              <div class="mobile-actions-menu">
-                <button cButton color="light" size="sm" class="border w-100" (click)="viewPurchaseDetail(p)">
-                  <svg cIcon name="cilZoom" size="sm"></svg> View
-                </button>
-              </div>
-            </details>
           </td>
         </tr>
       </ng-template>
@@ -79,8 +70,8 @@
     </c-card-body>
   </c-card>
 
-  @if (!isLoading() && getFilteredPurchasesCount() > 0) {
-  <app-list-pagination [currentPage]="currentPage()" [totalItems]="getFilteredPurchasesCount()" [pageSize]="pageSize"
+  @if (!isLoading() && filteredPurchasesCount() > 0) {
+  <app-list-pagination [currentPage]="currentPage()" [totalItems]="filteredPurchasesCount()" [pageSize]="pageSize"
     [label]="'compras'" (pageChange)="onPageChange($event)"></app-list-pagination>
   }
 </c-container>

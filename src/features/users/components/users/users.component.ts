@@ -1,8 +1,9 @@
-import { Component, inject, OnInit, signal, ViewChild } from '@angular/core';
+import { Component, computed, inject, OnInit, signal, ViewChild } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { UserService } from '../../services/user.service';
 import { AuthService } from '../../../cuadreEnv/services/auth.service';
 import { NotificationService } from '../../../cuadreEnv/services/notification.service';
+import { ConfirmDialogService } from '../../../cuadreEnv/services/confirm-dialog.service';
 import { TranslationService } from '../../../cuadreEnv/services/translation.service';
 import type { UserDto } from '../../../cuadreEnv/types/api';
 import { IconDirective } from '@coreui/icons-angular';
@@ -48,6 +49,7 @@ export class UsersComponent implements OnInit {
   @ViewChild('inviteModal') inviteModal!: InviteModalComponent;
 
   readonly translationService = inject(TranslationService);
+  private confirmService = inject(ConfirmDialogService);
 
   users = signal<UserDto[]>([]);
   isLoading = signal<boolean>(false);
@@ -58,43 +60,41 @@ export class UsersComponent implements OnInit {
   pageSize = 10;
   totalItems = signal<number>(0);
 
-  get filterConfig(): FilterConfig[] {
-    return [
-      {
-        key: 'search',
-        label: this.translationService.t('users.filterSearch'),
-        type: 'text',
-        placeholder: this.translationService.t('users.filterSearch'),
-      },
-      {
-        key: 'role',
-        label: this.translationService.t('users.filterRole'),
-        type: 'select',
-        options: [
-          { label: this.translationService.t('users.filterAll'), value: '' },
-          { label: 'Admin', value: 'Admin' },
-          { label: 'Manager', value: 'Manager' },
-          { label: 'Employee', value: 'Employee' },
-        ],
-      },
-      {
-        key: 'status',
-        label: this.translationService.t('users.filterStatus'),
-        type: 'select',
-        options: [
-          { label: this.translationService.t('users.filterAll'), value: '' },
-          {
-            label: this.translationService.t('customers.filterActive'),
-            value: 'active',
-          },
-          {
-            label: this.translationService.t('customers.filterInactive'),
-            value: 'inactive',
-          },
-        ],
-      },
-    ];
-  }
+  readonly filterConfig = computed<FilterConfig[]>(() => [
+    {
+      key: 'search',
+      label: this.translationService.t('users.filterSearch'),
+      type: 'text',
+      placeholder: this.translationService.t('users.filterSearch'),
+    },
+    {
+      key: 'role',
+      label: this.translationService.t('users.filterRole'),
+      type: 'select',
+      options: [
+        { label: this.translationService.t('users.filterAll'), value: '' },
+        { label: 'Admin', value: 'Admin' },
+        { label: 'Manager', value: 'Manager' },
+        { label: 'Employee', value: 'Employee' },
+      ],
+    },
+    {
+      key: 'status',
+      label: this.translationService.t('users.filterStatus'),
+      type: 'select',
+      options: [
+        { label: this.translationService.t('users.filterAll'), value: '' },
+        {
+          label: this.translationService.t('customers.filterActive'),
+          value: 'active',
+        },
+        {
+          label: this.translationService.t('customers.filterInactive'),
+          value: 'inactive',
+        },
+      ],
+    },
+  ]);
 
   isModalOpen = false;
 
@@ -134,11 +134,8 @@ export class UsersComponent implements OnInit {
         this.errorMessage.set(res.message || 'Failed to load user list.');
       }
     } catch (e: any) {
-      this.errorMessage.set(
-        e?.response?.data?.message ||
-          e?.message ||
-          'Error fetching users list.',
-      );
+      const mapped = this.notificationService.showApiError(e);
+      this.errorMessage.set(mapped.message);
     } finally {
       this.isLoading.set(false);
     }
@@ -154,7 +151,7 @@ export class UsersComponent implements OnInit {
     this.currentPage.set(page);
   }
 
-  private getFilteredUsersBase(): UserDto[] {
+  readonly filteredUsersBase = computed(() => {
     const activeFilters = this.filters();
     const search = String((activeFilters['search'] as string | undefined) || '')
       .trim()
@@ -186,17 +183,23 @@ export class UsersComponent implements OnInit {
 
       return matchesSearch && matchesRole && matchesStatus;
     });
-  }
+  });
 
-  getFilteredUsersCount(): number {
-    return this.getFilteredUsersBase().length;
-  }
+  readonly filteredUsersCount = computed(() => this.filteredUsersBase().length);
 
-  getFilteredUsers(): UserDto[] {
-    return this.getFilteredUsersBase().slice(
+  readonly pagedUsers = computed(() => {
+    return this.filteredUsersBase().slice(
       (this.currentPage() - 1) * this.pageSize,
       this.currentPage() * this.pageSize,
     );
+  });
+
+  getFilteredUsersCount(): number {
+    return this.filteredUsersCount();
+  }
+
+  getFilteredUsers(): UserDto[] {
+    return this.pagedUsers();
   }
 
   openInviteModal() {
@@ -208,28 +211,38 @@ export class UsersComponent implements OnInit {
 
   async toggleDeactivation(user: UserDto) {
     if (!user.id) return;
-    const actionStr = user.active ? 'deactivate' : 'reactivate';
-    if (!confirm(`Are you sure you want to ${actionStr} this user?`)) return;
+    const isDeactivating = user.active !== false;
+    const userName = `${user.firstName || ''} ${user.lastName || ''}`.trim() || user.email || `Usuario #${user.id}`;
+
+    const confirmed = await this.confirmService.confirm({
+      title: isDeactivating ? '¿Desactivar usuario?' : '¿Reactivar usuario?',
+      message: isDeactivating
+        ? 'El usuario no podrá iniciar sesión en la plataforma hasta que su cuenta sea reactivada.'
+        : 'El usuario recuperará el acceso a la plataforma con su rol asignado.',
+      itemName: userName,
+      itemType: 'Usuario',
+      confirmText: isDeactivating ? 'Desactivar' : 'Reactivar',
+      variant: isDeactivating ? 'danger' : 'warning',
+      icon: isDeactivating ? 'cilTrash' : 'cilWarning',
+    });
+    if (!confirmed) return;
 
     this.isLoading.set(true);
     this.errorMessage.set(null);
     this.successMessage.set(null);
 
     try {
-      if (user.active) {
+      if (isDeactivating) {
         await this.userService.deactivateUser(user.id);
-        this.notificationService.success('User deactivated successfully!');
+        this.notificationService.success('Usuario desactivado exitosamente.');
       } else {
         await this.userService.reactivateUser(user.id);
-        this.notificationService.success('User reactivated successfully!');
+        this.notificationService.success('Usuario reactivado exitosamente.');
       }
       this.loadUsers();
     } catch (e: any) {
-      this.errorMessage.set(
-        e?.response?.data?.message ||
-          e?.message ||
-          `Failed to ${actionStr} user.`,
-      );
+      const mapped = this.notificationService.showApiError(e);
+      this.errorMessage.set(mapped.message);
     } finally {
       this.isLoading.set(false);
     }
@@ -245,16 +258,14 @@ export class UsersComponent implements OnInit {
 
     try {
       await this.userService.changeRole(user.id, newRole);
-      this.notificationService.success('User role updated successfully!');
+      this.notificationService.success('Rol de usuario actualizado exitosamente.');
       this.loadUsers();
     } catch (e: any) {
-      this.errorMessage.set(
-        e?.response?.data?.message ||
-          e?.message ||
-          'Failed to update user role.',
-      );
+      const mapped = this.notificationService.showApiError(e);
+      this.errorMessage.set(mapped.message);
     } finally {
       this.isLoading.set(false);
     }
   }
 }
+

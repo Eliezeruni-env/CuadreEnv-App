@@ -4,6 +4,7 @@ import { FormBuilder, FormGroup, Validators, ReactiveFormsModule } from '@angula
 import { PaymentService } from '../../services/payment.service';
 import { SaleService } from '../../../sales/services/sale.service';
 import { NotificationService } from '../../../cuadreEnv/services/notification.service';
+import { applyFieldErrorsToForm } from '../../../cuadreEnv/utils/api-error-mapper';
 import type { PaymentDto, SaleResponseDto } from '../../../cuadreEnv/types/api';
 import { TranslationService } from '../../../cuadreEnv/services/translation.service';
 import {
@@ -134,8 +135,8 @@ export class PaymentModalComponent implements OnInit {
       if (saleRes.success && saleRes.data) {
         this.sales.set(saleRes.data);
       }
-    } catch (e) {
-      console.error(e);
+    } catch (e: any) {
+      console.error('Failed to load sales list:', e?.message || e);
     }
   }
 
@@ -176,16 +177,20 @@ export class PaymentModalComponent implements OnInit {
     try {
       const res = await this.paymentService.createPayment(payload);
       if (res.success) {
-        this.notificationService.success('Payment registered successfully!');
+        this.notificationService.success('Pago registrado exitosamente.');
         this.saved.emit();
         this.close();
       } else {
-        this.notificationService.error(res.message || 'Failed to register payment.');
+        this.notificationService.error(res.message || 'Error al registrar pago.');
       }
     } catch (e: any) {
-      this.notificationService.error(e?.response?.data?.message || e?.message || 'Error saving payment.');
+      const mapped = this.notificationService.showApiError(e);
+      if (mapped.fieldErrors) {
+        applyFieldErrorsToForm(this.paymentForm, mapped.fieldErrors);
+      }
     } finally {
       this.isLoading.set(false);
     }
   }
 }
+

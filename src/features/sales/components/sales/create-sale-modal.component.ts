@@ -75,7 +75,7 @@ import {
                   </button>
                 </div>
 
-                <div class="border rounded bg-light p-2">
+                <div class="border rounded bg-light p-2" style="max-height: 375px; overflow-y: auto; overflow-x: hidden;">
                   @if (items.length === 0) {
                     <div class="text-center py-3 text-secondary small">{{ translationService.t('common.noResults') }}</div>
                   } @else {
@@ -212,7 +212,12 @@ export class CreateSaleModalComponent implements OnInit {
         this.products.set(pRes.data.items || []);
       }
 
-      const cRes = await this.customerService.getCustomers();
+      const cRes = await this.customerService.getCustomers({
+        pageNumber: 1,
+        pageSize: 1000,
+        PageNumber: 1,
+        PageSize: 1000
+      } as any);
       if (cRes.success && cRes.data) {
         this.customers.set(cRes.data);
       }
@@ -221,8 +226,8 @@ export class CreateSaleModalComponent implements OnInit {
       if (rRes.success && rRes.data) {
         this.registers.set(rRes.data);
       }
-    } catch (e) {
-      console.error('Failed to load modal metadata', e);
+    } catch (e: any) {
+      console.error('Failed to load modal metadata:', e?.message || e);
     }
   }
 
@@ -268,14 +273,14 @@ export class CreateSaleModalComponent implements OnInit {
       });
 
       if (res.success) {
-        this.notificationService.success('Sale registered successfully!');
+        this.notificationService.success('Venta registrada exitosamente.');
         this.saved.emit();
         this.close();
       } else {
-        this.notificationService.error(res.message || 'Failed to create sale.');
+        this.notificationService.error(res.message || 'Error al crear la venta.');
       }
     } catch (e: any) {
-      this.notificationService.error(e?.response?.data?.message || e?.message || 'Error saving sale.');
+      this.notificationService.showApiError(e);
     } finally {
       this.isLoading.set(false);
     }

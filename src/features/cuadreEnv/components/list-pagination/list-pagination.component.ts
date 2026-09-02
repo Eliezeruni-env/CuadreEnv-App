@@ -36,4 +36,14 @@ export class ListPaginationComponent {
     if (page < 1 || page > this.totalPages) return;
     this.pageChange.emit(page);
   }
+
+  onPageInput(event: Event): void {
+    const input = event.target as HTMLInputElement;
+    const value = parseInt(input.value, 10);
+    if (!isNaN(value) && value >= 1 && value <= this.totalPages) {
+      this.onPageChange(value);
+    } else {
+      input.value = this.currentPage.toString();
+    }
+  }
 }

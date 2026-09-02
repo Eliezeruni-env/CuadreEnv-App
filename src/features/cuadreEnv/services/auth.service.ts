@@ -1,6 +1,7 @@
-import { Injectable, signal } from '@angular/core';
+import { Injectable, signal, inject } from '@angular/core';
 import { Router } from '@angular/router';
-import api, {
+import {
+  ApiClientService,
   doLogin,
   doRefresh,
   logout as clientLogout,
@@ -31,6 +32,7 @@ interface DecodedToken {
   providedIn: 'root',
 })
 export class AuthService {
+  private readonly api = inject(ApiClientService);
   currentUser = signal<{ email: string; id: number } | null>(null);
   currentRole = signal<string | null>(null);
   companyId = signal<number | null>(null);
@@ -45,9 +47,11 @@ export class AuthService {
     const rt = getRefreshToken();
     if (rt) {
       try {
-        const tokens = await doRefresh();
+        const tokens = await doRefresh(this.api);
         this.handleTokenResponse(tokens);
       } catch (e) {
+        setAccessToken(null);
+        setRefreshToken(null);
         this.clearSession();
       }
     }
@@ -96,6 +100,7 @@ export class AuthService {
 
   async login(credentials: LoginRequestDto) {
     const tokens = await doLogin(
+      this.api,
       credentials.email,
       credentials.password,
       credentials.deviceId || undefined,
@@ -111,22 +116,36 @@ export class AuthService {
   }
 
   async refreshSession(): Promise<void> {
-    const tokens = await doRefresh();
+    const tokens = await doRefresh(this.api);
     this.handleTokenResponse(tokens);
   }
 
   async register(
     data: RegisterRequestDto,
   ): Promise<ApiResponse<UserResponseDto>> {
-    const res = await api.post<ApiResponse<UserResponseDto>>(
-      '/auth/register',
+    const res = await this.api.post<any, UserResponseDto>(
+      '/Auth/register',
       data,
     );
-    return res.data;
+    return { success: true, data: res };
+  }
+
+  async getDevToken(
+    companyId: number,
+    userId?: number,
+    email?: string,
+  ): Promise<TokenResponseDto> {
+    const tokens = await this.api.post<any, TokenResponseDto>('/Auth/dev/token', {
+      companyId,
+      userId,
+      email,
+    });
+    this.applyTokenResponse(tokens);
+    return tokens;
   }
 
   logout() {
-    clientLogout();
+    void clientLogout(this.api);
     this.clearSession();
     this.router.navigate(['/login']);
   }

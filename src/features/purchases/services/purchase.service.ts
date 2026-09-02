@@ -1,34 +1,40 @@
-import { Injectable } from '@angular/core';
-import api, { extractArray } from '../../cuadreEnv/services/apiClient';
+import { Injectable, inject } from '@angular/core';
+import {
+  ApiClientService,
+  extractArray,
+} from '../../cuadreEnv/services/apiClient';
 import type { PurchaseDto, ApiResponse } from '../../cuadreEnv/types/api';
 
 @Injectable({
   providedIn: 'root',
 })
 export class PurchaseService {
-  async getPurchases(): Promise<ApiResponse<PurchaseDto[]>> {
-    const res = await api.get<any>('/purchase');
-    return { success: true, data: extractArray<PurchaseDto>(res.data) };
+  private readonly api = inject(ApiClientService);
+  async getPurchases(params?: {
+    pageNumber?: number;
+    pageSize?: number;
+  }): Promise<ApiResponse<PurchaseDto[]>> {
+    const res = await this.api.get<any, any>('/Purchase', { params });
+    return { success: true, data: extractArray<PurchaseDto>(res) };
   }
 
   async getPurchase(id: number): Promise<ApiResponse<PurchaseDto>> {
-    const res = await api.get<any>(`/purchase/${id}`);
-    if (res.data && typeof res.data.success === 'boolean') {
-      return res.data;
-    }
-    return { success: true, data: res.data };
+    const res = await this.api.get<any, any>(`/Purchase/${id}`);
+    return { success: true, data: res as PurchaseDto };
   }
 
-  async createPurchase(purchase: PurchaseDto): Promise<ApiResponse<PurchaseDto>> {
-    const res = await api.post<ApiResponse<PurchaseDto>>('/purchase', purchase);
-    return res.data;
+  async createPurchase(
+    purchase: PurchaseDto,
+  ): Promise<ApiResponse<PurchaseDto>> {
+    const res = await this.api.post<any, any>('/Purchase', purchase);
+    return { success: true, data: res as PurchaseDto };
   }
 
   async updatePurchase(purchase: PurchaseDto): Promise<void> {
-    await api.put('/purchase', purchase);
+    await this.api.put('/Purchase', purchase);
   }
 
   async deletePurchase(id: number): Promise<void> {
-    await api.delete(`/purchase/${id}`);
+    await this.api.delete(`/Purchase/${id}`);
   }
 }

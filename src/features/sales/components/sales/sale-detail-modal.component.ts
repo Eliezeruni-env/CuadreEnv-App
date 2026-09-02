@@ -96,14 +96,14 @@ import { TableComponent } from '../../../cuadreEnv/components/table/table.compon
                 </c-row>
               </div>
 
-              <h6 class="fw-bold text-dark mb-2">{{ translationService.t('sales.modal.addProduct') }}</h6>
+              <h6 class="fw-bold text-dark mb-2">{{ translationService.t('sales.modal.items') }}</h6>
               <div class="table-responsive border rounded mb-3">
                 <app-table
                   [columns]="[
                     { field: 'description', label: translationService.t('products.table.product') },
-                    { field: 'quantity', label: translationService.t('sales.modal.quantity') },
-                    { field: 'unitPrice', label: translationService.t('sales.modal.unitPrice') },
-                    { field: 'subtotal', label: translationService.t('sales.modal.subtotal') },
+                    { field: 'quantity', label: translationService.t('sales.modal.quantity'), align: 'end' },
+                    { field: 'unitPrice', label: translationService.t('sales.modal.unitPrice'), align: 'end' },
+                    { field: 'subtotal', label: translationService.t('sales.modal.subtotal'), align: 'end' }
                   ]"
                   [rows]="sale.details"
                   [rowTemplate]="saleDetailRowTpl"
@@ -266,8 +266,8 @@ export class SaleDetailModalComponent implements OnInit {
       if (pRes.success && pRes.data) {
         this.products.set(pRes.data.items || []);
       }
-    } catch (e) {
-      console.error(e);
+    } catch (e: any) {
+      console.error('Failed to load modal products:', e?.message || e);
     }
   }
 
@@ -296,14 +296,12 @@ export class SaleDetailModalComponent implements OnInit {
 
     try {
       await this.saleService.cancelSale(this.sale.id, reason);
-      this.notificationService.success('Sale cancelled successfully.');
+      this.notificationService.success('Venta anulada/cancelada exitosamente.');
       this.closeCancelModal();
       this.cancelled.emit();
       this.close();
     } catch (e: any) {
-      this.notificationService.error(
-        e?.response?.data?.message || e?.message || 'Error cancelling sale.',
-      );
+      this.notificationService.showApiError(e);
     } finally {
       this.isLoading.set(false);
     }

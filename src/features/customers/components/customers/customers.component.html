@@ -20,7 +20,7 @@
     }
   </div>
 
-  <app-filter-panel [title]="translationService.t('customers.filterTitle')" [config]="filterConfig" [values]="filters()"
+  <app-filter-panel [title]="translationService.t('customers.filterTitle')" [config]="filterConfig()" [values]="filters()"
     (filtersChange)="onFiltersChange($event)"></app-filter-panel>
 
   <c-card class="shadow-sm border-0 mb-4">
@@ -42,47 +42,50 @@
       </div>
       } @else {
       <!-- Customers Table using reusable app-table -->
-      <app-table [columns]="columns" [rows]="getFilteredCustomers()" [loading]="isLoading()"
+      <app-table [columns]="columns" [rows]="pagedCustomers()" [loading]="isLoading()"
         [emptyMessage]="translationService.t('customers.emptyBody')" [rowTemplate]="customerRowTpl">
       </app-table>
 
       <ng-template #customerRowTpl let-c>
         <tr>
-          <td class="ps-4">
+          <td class="ps-4 font-monospace small">#{{ c.id }}</td>
+          <td>
             <div class="fw-semibold text-dark">{{ c.name }}</div>
+            @if (c.identification) {
+            <div class="text-body-secondary small">ID: {{ c.identification }}</div>
+            }
           </td>
-          <td><span class="font-monospace small">{{ c.identification || '-' }}</span></td>
-          <td>{{ c.email || '-' }}</td>
-          <td>{{ c.phone || '-' }}</td>
-          <td class="text-center pe-4 action-cell">
+          <td>
+            <div>{{ c.email || '-' }}</div>
+            @if (c.phone) {
+            <div class="text-body-secondary small">Tel: {{ c.phone }}</div>
+            }
+          </td>
+          <td class="text-center">
+            <span
+              [ngClass]="c.active !== false ? 'badge bg-success-subtle text-success border border-success' : 'badge bg-danger-subtle text-danger border border-danger'">
+              {{ c.active !== false ? 'Activo' : 'Inactivo' }}
+            </span>
+          </td>
+          <td class="text-center action-cell">
             <div class="desktop-actions d-flex justify-content-center gap-1">
-              @if (authService.hasRole(['Admin'])) {
-              <button cButton color="light" size="sm" class="border" title="Edit" (click)="openEditModal(c)">
+              <button cButton color="light" size="sm" class="border" (click)="openEditModal(c)">
                 <svg cIcon name="cilPencil" size="sm"></svg>
               </button>
-              <button cButton color="danger" size="sm" variant="ghost" title="Delete" (click)="deleteCustomer(c.id!)">
+              <button cButton color="danger" size="sm" class="border text-white" (click)="deleteCustomer(c.id!)">
                 <svg cIcon name="cilTrash" size="sm"></svg>
               </button>
-              } @else {
-              <span class="text-muted small">-</span>
-              }
             </div>
 
             <details class="mobile-actions">
               <summary class="btn btn-light btn-sm">⋯</summary>
               <div class="mobile-actions-menu">
-                @if (authService.hasRole(['Admin'])) {
-                <button cButton color="light" size="sm" class="border mb-1 w-100" title="Edit"
-                  (click)="openEditModal(c)">
+                <button cButton color="light" size="sm" class="border w-100 mb-1" (click)="openEditModal(c)">
                   <svg cIcon name="cilPencil" size="sm"></svg> Edit
                 </button>
-                <button cButton color="danger" size="sm" variant="ghost" class="w-100" title="Delete"
-                  (click)="deleteCustomer(c.id!)">
+                <button cButton color="danger" size="sm" class="border text-white w-100" (click)="deleteCustomer(c.id!)">
                   <svg cIcon name="cilTrash" size="sm"></svg> Delete
                 </button>
-                } @else {
-                <div class="text-muted small p-2">-</div>
-                }
               </div>
             </details>
           </td>
@@ -92,8 +95,8 @@
     </c-card-body>
   </c-card>
 
-  @if (!isLoading() && getFilteredCustomersCount() > 0) {
-  <app-list-pagination [currentPage]="currentPage()" [totalItems]="getFilteredCustomersCount()" [pageSize]="pageSize"
+  @if (!isLoading() && filteredCustomersCount() > 0) {
+  <app-list-pagination [currentPage]="currentPage()" [totalItems]="filteredCustomersCount()" [pageSize]="pageSize"
     [label]="'clientes'" (pageChange)="onPageChange($event)"></app-list-pagination>
   }
 </c-container>

@@ -1,4 +1,4 @@
-import { Component, inject } from '@angular/core';
+import { Component, computed, inject } from '@angular/core';
 import { RouterLink, RouterOutlet } from '@angular/router';
 import { NgScrollbar } from 'ngx-scrollbar';
 import { CommonModule } from '@angular/common';
@@ -17,13 +17,14 @@ import {
   ToasterComponent,
   ToastComponent,
   ToastHeaderComponent,
-  ToastBodyComponent
+  ToastBodyComponent,
 } from '@coreui/angular';
 
 import { DefaultFooterComponent, DefaultHeaderComponent } from './';
 import { navItems as staticNavItems } from './_nav';
 import { NotificationService } from '../../features/cuadreEnv/services/notification.service';
 import { TranslationService } from '../../features/cuadreEnv/services/translation.service';
+import { ConfirmDialogComponent } from '../../features/cuadreEnv/components/confirm-dialog/confirm-dialog.component';
 
 @Component({
   selector: 'app-dashboard',
@@ -50,15 +51,14 @@ import { TranslationService } from '../../features/cuadreEnv/services/translatio
     ToasterComponent,
     ToastComponent,
     ToastHeaderComponent,
-    ToastBodyComponent
-  ]
+    ToastBodyComponent,
+    ConfirmDialogComponent,
+  ],
 })
 export class DefaultLayoutComponent {
   private readonly translationService = inject(TranslationService);
   public notificationService = inject(NotificationService);
-
-  public get navItems() {
-    return this.translationService.getTranslatedNavItems(staticNavItems);
-  }
+  public readonly navItems = computed(() =>
+    this.translationService.getTranslatedNavItems(staticNavItems),
+  );
 }
-

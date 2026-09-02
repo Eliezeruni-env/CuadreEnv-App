@@ -1,45 +1,49 @@
-import { Injectable } from '@angular/core';
-import api, { extractArray } from '../../cuadreEnv/services/apiClient';
+import { Injectable, inject } from '@angular/core';
+import {
+  ApiClientService,
+  extractArray,
+} from '../../cuadreEnv/services/apiClient';
 import type { UserDto, ApiResponse } from '../../cuadreEnv/types/api';
 
 @Injectable({
   providedIn: 'root',
 })
 export class UserService {
-  async getUsers(): Promise<ApiResponse<UserDto[]>> {
-    const res = await api.get<any>('/user');
-    return { success: true, data: extractArray<UserDto>(res.data) };
+  private readonly api = inject(ApiClientService);
+  async getUsers(params?: {
+    pageNumber?: number;
+    pageSize?: number;
+  }): Promise<ApiResponse<UserDto[]>> {
+    const res = await this.api.get<any, any>('/User', { params });
+    return { success: true, data: extractArray<UserDto>(res) };
   }
 
   async getUser(id: number): Promise<ApiResponse<UserDto>> {
-    const res = await api.get<any>(`/user/${id}`);
-    if (res.data && typeof res.data.success === 'boolean') {
-      return res.data;
-    }
-    return { success: true, data: res.data };
+    const res = await this.api.get<any, any>(`/User/${id}`);
+    return { success: true, data: res as UserDto };
   }
 
   async createUser(user: UserDto): Promise<void> {
-    await api.post('/user', user);
+    await this.api.post('/User', user);
   }
 
   async updateUser(user: UserDto): Promise<void> {
-    await api.put('/user', user);
+    await this.api.put('/User', user);
   }
 
   async deleteUser(id: number): Promise<void> {
-    await api.delete(`/user/${id}`);
+    await this.api.delete(`/User/${id}`);
   }
 
   async changeRole(id: number, role: string): Promise<void> {
-    await api.put(`/user/${id}/role`, { role });
+    await this.api.put(`/User/${id}/role`, { role });
   }
 
   async deactivateUser(id: number): Promise<void> {
-    await api.post(`/user/${id}/deactivate`);
+    await this.api.post(`/User/${id}/deactivate`);
   }
 
   async reactivateUser(id: number): Promise<void> {
-    await api.post(`/user/${id}/reactivate`);
+    await this.api.post(`/User/${id}/reactivate`);
   }
 }

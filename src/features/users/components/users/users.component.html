@@ -25,7 +25,7 @@
     }
   </div>
 
-  <app-filter-panel [title]="translationService.t('users.filterTitle')" [config]="filterConfig" [values]="filters()"
+  <app-filter-panel [title]="translationService.t('users.filterTitle')" [config]="filterConfig()" [values]="filters()"
     (filtersChange)="onFiltersChange($event)"></app-filter-panel>
 
   <c-card class="shadow-sm border-0 mb-4">
@@ -43,7 +43,7 @@
         <p class="text-body-secondary mt-1">{{ translationService.t('users.emptyBody') }}</p>
       </div>
       } @else {
-      <app-table [columns]="columns" [rows]="getFilteredUsers()" [loading]="isLoading()"
+      <app-table [columns]="columns" [rows]="pagedUsers()" [loading]="isLoading()"
         [emptyMessage]="translationService.t('users.emptyBody')" [rowTemplate]="userRowTpl">
       </app-table>
 
@@ -104,8 +104,8 @@
     </c-card-body>
   </c-card>
 
-  @if (!isLoading() && getFilteredUsersCount() > 0) {
-  <app-list-pagination [currentPage]="currentPage()" [totalItems]="getFilteredUsersCount()" [pageSize]="pageSize"
+  @if (!isLoading() && filteredUsersCount() > 0) {
+  <app-list-pagination [currentPage]="currentPage()" [totalItems]="filteredUsersCount()" [pageSize]="pageSize"
     [label]="'usuarios'" (pageChange)="onPageChange($event)"></app-list-pagination>
   }
 </c-container>

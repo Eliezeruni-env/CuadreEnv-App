@@ -1,4 +1,5 @@
-import { ApplicationConfig } from '@angular/core';
+import { ApplicationConfig, ErrorHandler, Injectable } from '@angular/core';
+import { provideHttpClient } from '@angular/common/http';
 import { provideAnimationsAsync } from '@angular/platform-browser/animations/async';
 import {
   provideRouter,
@@ -6,27 +7,52 @@ import {
   withHashLocation,
   withInMemoryScrolling,
   withRouterConfig,
-  withViewTransitions
 } from '@angular/router';
 import { IconSetService } from '@coreui/icons-angular';
 import { routes } from './app.routes';
 
+@Injectable()
+export class GlobalErrorHandler implements ErrorHandler {
+  handleError(error: any): void {
+    if (
+      error?.name === 'InvalidStateError' ||
+      error?.message?.includes('Transition was aborted')
+    ) {
+      return;
+    }
+    const message =
+      error?.message || (typeof error === 'string' ? error : null);
+    if (message) {
+      console.error(`[AppError] ${message}`);
+    } else if (error && typeof error === 'object') {
+      try {
+        console.error('[AppError]', JSON.stringify(error));
+      } catch {
+        console.error('[AppError]', String(error));
+      }
+    } else {
+      console.error('[AppError]', error);
+    }
+  }
+}
+
 export const appConfig: ApplicationConfig = {
   providers: [
-    provideRouter(routes,
+    provideRouter(
+      routes,
       withRouterConfig({
-        onSameUrlNavigation: 'reload'
+        onSameUrlNavigation: 'reload',
       }),
       withInMemoryScrolling({
         scrollPositionRestoration: 'top',
-        anchorScrolling: 'enabled'
+        anchorScrolling: 'enabled',
       }),
       withEnabledBlockingInitialNavigation(),
-      withViewTransitions(),
-      withHashLocation()
+      withHashLocation(),
     ),
     IconSetService,
-    provideAnimationsAsync()
-  ]
+    provideHttpClient(),
+    provideAnimationsAsync(),
+    { provide: ErrorHandler, useClass: GlobalErrorHandler },
+  ],
 };
-

@@ -8,53 +8,67 @@ export const navItems: INavData[] = [
   },
   {
     title: true,
-    name: 'SaaS Core'
+    name: 'Operaciones Comerciales'
   },
   {
-    name: 'Products',
-    url: '/products',
-    iconComponent: { name: 'cil-storage' }
-  },
-  {
-    name: 'Inventory & Warehouses',
-    url: '/inventory',
-    iconComponent: { name: 'cil-swap-horizontal' }
-  },
-  {
-    name: 'Sales Ledger',
+    name: 'Ventas',
     url: '/sales',
     iconComponent: { name: 'cil-cart' }
   },
   {
-    name: 'Customers Directory',
+    name: 'Caja',
+    url: '/cash-register',
+    iconComponent: { name: 'cil-calculator' }
+  },
+  {
+    name: 'Cobros',
+    url: '/receivables',
+    iconComponent: { name: 'cil-dollar' }
+  },
+  {
+    name: 'Clientes',
     url: '/customers',
     iconComponent: { name: 'cil-user' }
   },
   {
     title: true,
-    name: 'Accounting & Supply'
+    name: 'Catálogo e Inventario'
   },
   {
-    name: 'Purchases Log',
+    name: 'Inventario y Almacenes',
+    url: '/inventory',
+    iconComponent: { name: 'cil-swap-horizontal' }
+  },
+  {
+    name: 'Productos',
+    url: '/products',
+    iconComponent: { name: 'cil-storage' }
+  },
+  {
+    name: 'Categorías y Tipos',
+    url: '/products/settings',
+    iconComponent: { name: 'cil-settings' }
+  },
+  {
+    title: true,
+    name: 'Contabilidad y Proveedores'
+  },
+  {
+    name: 'Compras',
     url: '/purchases',
     iconComponent: { name: 'cil-truck' }
   },
   {
-    name: 'Payments Ledger',
+    name: 'Pagos a Proveedores',
     url: '/payments',
     iconComponent: { name: 'cil-credit-card' }
   },
   {
-    name: 'Cash Register',
-    url: '/cash-register',
-    iconComponent: { name: 'cil-calculator' }
-  },
-  {
     title: true,
-    name: 'Administration'
+    name: 'Administración'
   },
   {
-    name: 'Team & Users',
+    name: 'Usuarios y Equipo',
     url: '/users',
     iconComponent: { name: 'cil-people' }
   }

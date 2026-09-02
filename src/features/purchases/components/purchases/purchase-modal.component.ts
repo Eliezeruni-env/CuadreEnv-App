@@ -106,7 +106,7 @@ import {
                     </button>
                   </div>
 
-                  <div class="border rounded bg-light p-2">
+                  <div class="border rounded bg-light p-2" style="max-height: 375px; overflow-y: auto; overflow-x: hidden;">
                     @if (items.length === 0) {
                       <div class="text-center py-3 text-secondary small">
                         {{ translationService.t('common.noResults') }}
@@ -352,8 +352,8 @@ export class PurchaseModalComponent implements OnInit {
       if (pRes.success && pRes.data) {
         this.products.set(pRes.data.items || []);
       }
-    } catch (e) {
-      console.error(e);
+    } catch (e: any) {
+      console.error('Failed to load purchase products:', e?.message || e);
     }
   }
 
@@ -403,18 +403,16 @@ export class PurchaseModalComponent implements OnInit {
       });
 
       if (res.success) {
-        this.notificationService.success('Purchase registered successfully!');
+        this.notificationService.success('Compra registrada exitosamente.');
         this.saved.emit();
         this.close();
       } else {
         this.notificationService.error(
-          res.message || 'Failed to create purchase.',
+          res.message || 'Error al crear la compra.',
         );
       }
     } catch (e: any) {
-      this.notificationService.error(
-        e?.response?.data?.message || e?.message || 'Error saving purchase.',
-      );
+      this.notificationService.showApiError(e);
     } finally {
       this.isLoading.set(false);
     }

@@ -11,7 +11,7 @@
   </c-sidebar-header>
 
   <ng-scrollbar pointerEventsMethod="scrollbar" visibility="hover">
-    <c-sidebar-nav [navItems]="navItems" dropdownMode="close" compact />
+    <c-sidebar-nav [navItems]="navItems()" dropdownMode="close" compact />
   </ng-scrollbar>
 
   @if (!sidebar1.narrow) {
@@ -37,21 +37,45 @@
   <app-default-footer />
 </div>
 
+<!-- Global Confirmation Dialog Modal -->
+<app-confirm-dialog />
+
 <!-- Global SaaS Toaster -->
-<c-toaster class="p-3" position="fixed" placement="top-end" style="z-index: 1060;">
+<c-toaster class="p-3" position="fixed" placement="top-end" style="z-index: 1080;">
   @for (toast of notificationService.toasts(); track toast.id) {
   <c-toast [fade]="true" [visible]="toast.visible" [color]="toast.color" class="border-0 shadow-lg mb-2">
     <c-toast-header [closeButton]="false"
-      class="d-flex align-items-center justify-content-between text-white border-0 bg-transparent opacity-85">
-      <div class="d-flex align-items-center">
-        <svg cIcon name="cilBell" class="me-2 text-white" style="width: 16px; height: 16px;"></svg>
-        <strong class="me-auto text-white">{{ toast.title }}</strong>
+      class="d-flex align-items-center justify-content-between text-white border-0 bg-transparent opacity-95">
+      <div class="d-flex align-items-center text-truncate pe-2">
+        <svg cIcon [name]="toast.color === 'danger' ? 'cilWarning' : (toast.color === 'success' ? 'cilCheckAlt' : 'cilBell')" class="me-2 text-white flex-shrink-0" style="width: 16px; height: 16px;"></svg>
+        <strong class="me-auto text-white text-truncate">{{ toast.title }}</strong>
       </div>
-      <button type="button" class="btn-close btn-close-white ms-2" (click)="notificationService.remove(toast.id)"
+      <button type="button" class="btn-close btn-close-white ms-2 flex-shrink-0" (click)="notificationService.remove(toast.id)"
         aria-label="Close"></button>
     </c-toast-header>
-    <c-toast-body class="text-white opacity-90 py-2">
-      {{ toast.message }}
+    <c-toast-body class="text-white opacity-95 py-2">
+      <div class="toast-body-text mb-1">{{ toast.message }}</div>
+      @if (toast.requestId) {
+        <div class="d-flex align-items-center justify-content-between pt-2 mt-2 border-top border-white border-opacity-25 small">
+          <div class="text-truncate me-2 opacity-75 font-monospace" style="font-size: 0.72rem;">
+            ID: {{ toast.requestId }}
+          </div>
+          <button
+            type="button"
+            class="btn btn-sm btn-light py-0 px-2 d-inline-flex align-items-center gap-1 shadow-none flex-shrink-0"
+            style="font-size: 0.72rem; border-radius: 4px;"
+            (click)="notificationService.copyRequestId(toast.id, toast.requestId)"
+          >
+            @if (toast.copied) {
+              <svg cIcon name="cilCheck" style="width: 12px; height: 12px;"></svg>
+              <span>¡Copiado!</span>
+            } @else {
+              <svg cIcon name="cilCopy" style="width: 12px; height: 12px;"></svg>
+              <span>Copiar ID</span>
+            }
+          </button>
+        </div>
+      }
     </c-toast-body>
   </c-toast>
   }

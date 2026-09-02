@@ -5,15 +5,28 @@
         <span class="text-body-secondary small">{{ totalItems }} {{ label }}</span>
     </div>
 
-    <c-pagination class="mb-0">
-        <li cPageItem [disabled]="currentPage === 1">
-            <a cPageLink (click)="onPageChange(currentPage - 1)" style="cursor: pointer;">{{
-                translationService.t('common.previous') }}</a>
-        </li>
-        <li cPageItem [disabled]="currentPage >= totalPages">
-            <a cPageLink (click)="onPageChange(currentPage + 1)" style="cursor: pointer;">{{
-                translationService.t('common.next') }}</a>
-        </li>
-    </c-pagination>
+    <div class="d-flex align-items-center gap-3">
+        <div class="d-flex align-items-center gap-1.5 text-body-secondary small">
+            <span>Ir a:</span>
+            <input type="number" 
+                   class="form-control form-control-sm text-center" 
+                   [value]="currentPage" 
+                   (change)="onPageInput($event)"
+                   min="1" 
+                   [max]="totalPages"
+                   style="width: 55px; height: 31px; padding: 0.25rem 0.5rem;" />
+        </div>
+
+        <c-pagination class="mb-0">
+            <li cPageItem [disabled]="currentPage === 1">
+                <a cPageLink (click)="onPageChange(currentPage - 1)" style="cursor: pointer;">{{
+                    translationService.t('common.previous') }}</a>
+            </li>
+            <li cPageItem [disabled]="currentPage >= totalPages">
+                <a cPageLink (click)="onPageChange(currentPage + 1)" style="cursor: pointer;">{{
+                    translationService.t('common.next') }}</a>
+            </li>
+        </c-pagination>
+    </div>
 </div>
 }

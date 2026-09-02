@@ -6,60 +6,86 @@
     </c-alert>
   }
 
-  <!-- Header -->
-  <div class="mb-4">
-    <h2 class="fw-bold text-dark mb-1">{{ translationService.t('dashboard.title') }}</h2>
-    <p class="text-body-secondary mb-0">{{ translationService.t('dashboard.subtitle') }}</p>
+  <!-- Header & Date Filter Bar -->
+  <div class="mb-4 d-flex justify-content-between align-items-center flex-wrap gap-3">
+    <div>
+      <h2 class="fw-bold text-dark mb-1">Panel de Control (Dashboard)</h2>
+      <p class="text-body-secondary mb-0">Resumen ejecutivo en tiempo real de operaciones, ventas y auditoría</p>
+    </div>
+    <div class="d-flex align-items-center gap-3 flex-wrap bg-white p-3 rounded-3 shadow-sm border">
+      <!-- Quick Presets -->
+      <div class="btn-group" role="group">
+        <button type="button" cButton [color]="selectedPreset() === 'today' ? 'primary' : 'light'" class="px-3 py-1.5 font-size-sm" (click)="setPreset('today')">
+          Hoy
+        </button>
+        <button type="button" cButton [color]="selectedPreset() === '7days' ? 'primary' : 'light'" class="px-3 py-1.5 font-size-sm" (click)="setPreset('7days')">
+          7 Días
+        </button>
+        <button type="button" cButton [color]="selectedPreset() === 'thisMonth' ? 'primary' : 'light'" class="px-3 py-1.5 font-size-sm" (click)="setPreset('thisMonth')">
+          Este Mes
+        </button>
+        <button type="button" cButton [color]="selectedPreset() === 'all' ? 'primary' : 'light'" class="px-3 py-1.5 font-size-sm" (click)="setPreset('all')">
+          Todo
+        </button>
+      </div>
+
+      <!-- Custom Date Inputs -->
+      <div class="d-flex align-items-center gap-2 font-size-sm text-secondary">
+        <div class="d-flex align-items-center gap-1">
+          <span class="fw-medium text-dark font-size-xs">Desde:</span>
+          <input type="date" class="form-control px-2.5 py-1 font-size-sm rounded" [ngModel]="startDate()" (ngModelChange)="startDate.set($event); onDateChange()" style="min-width: 155px;" />
+        </div>
+        <div class="d-flex align-items-center gap-1">
+          <span class="fw-medium text-dark font-size-xs">Hasta:</span>
+          <input type="date" class="form-control px-2.5 py-1 font-size-sm rounded" [ngModel]="endDate()" (ngModelChange)="endDate.set($event); onDateChange()" style="min-width: 155px;" />
+        </div>
+      </div>
+
+      <button cButton color="light" class="border px-2.5 py-1.5 rounded" title="Refrescar datos" (click)="loadDashboardData()">
+        <svg cIcon name="cilTransfer" style="width: 16px; height: 16px;"></svg>
+      </button>
+    </div>
   </div>
 
   <!-- Loading State -->
   @if (isLoading() && productsCount() === 0) {
     <div class="py-5 text-center">
       <c-spinner color="primary" class="mb-3"></c-spinner>
-      <p class="text-body-secondary mb-0">{{ translationService.t('dashboard.loading') }}</p>
+      <p class="text-body-secondary mb-0">Cargando métricas del período seleccionado...</p>
     </div>
   } @else {
-    <!-- Metrics Row -->
+    <!-- Main KPIs Row -->
     <c-row class="g-4 mb-4">
-      <!-- Products Count -->
-      <c-col sm="6" lg="3">
-        <c-card class="shadow-xs border-0 border-top-primary h-100">
-          <c-card-body class="p-4 d-flex align-items-center justify-content-between">
-            <div>
-              <div class="text-uppercase text-secondary font-size-xs fw-bold mb-1">{{ translationService.t('dashboard.productsCount') }}</div>
-              <h2 class="fw-bold text-dark mb-0">{{ productsCount() }}</h2>
-            </div>
-            <div class="p-3 rounded bg-primary-subtle text-primary">
-              <svg cIcon name="cilStorage" style="width: 24px; height: 24px;"></svg>
-            </div>
-          </c-card-body>
-        </c-card>
-      </c-col>
-
-      <!-- Warehouses Count -->
+      <!-- 1. Total Ventas (filtrado por fecha) -->
       <c-col sm="6" lg="3">
         <c-card class="shadow-xs border-0 border-top-success h-100">
           <c-card-body class="p-4 d-flex align-items-center justify-content-between">
             <div>
-              <div class="text-uppercase text-secondary font-size-xs fw-bold mb-1">{{ translationService.t('dashboard.warehousesCount') }}</div>
-              <h2 class="fw-bold text-dark mb-0">{{ warehousesCount() }}</h2>
+              <div class="text-uppercase text-secondary font-size-xs fw-bold mb-1">
+                {{ selectedPreset() === 'today' ? 'Ventas de Hoy' : 'Ventas en Período' }}
+              </div>
+              <h2 class="fw-bold text-success mb-0">${{ todaySalesTotal() | number:'1.2-2' }}</h2>
+              <span class="font-size-xs text-body-secondary">{{ todaySalesCount() }} transacciones</span>
             </div>
             <div class="p-3 rounded bg-success-subtle text-success">
-              <svg cIcon name="cilBuilding" style="width: 24px; height: 24px;"></svg>
+              <svg cIcon name="cilDollar" style="width: 24px; height: 24px;"></svg>
             </div>
           </c-card-body>
         </c-card>
       </c-col>
 
-      <!-- Low Stock Alerts Count -->
+      <!-- 2. Alertas de Almacén (Bajo Stock) -->
       <c-col sm="6" lg="3">
         <c-card class="shadow-xs border-0 border-top-danger h-100">
           <c-card-body class="p-4 d-flex align-items-center justify-content-between">
             <div>
-              <div class="text-uppercase text-secondary font-size-xs fw-bold mb-1">{{ translationService.t('dashboard.lowStockCount') }}</div>
-              <h2 class="fw-bold mb-0" [ngClass]="lowStockCount() > 0 ? 'text-danger fw-bold' : 'text-dark'">
+              <div class="text-uppercase text-secondary font-size-xs fw-bold mb-1">Alertas Almacén</div>
+              <h2 class="fw-bold mb-0" [ngClass]="lowStockCount() > 0 ? 'text-danger' : 'text-dark'">
                 {{ lowStockCount() }}
               </h2>
+              <span class="font-size-xs" [ngClass]="lowStockCount() > 0 ? 'text-danger font-weight-bold' : 'text-body-secondary'">
+                {{ lowStockCount() > 0 ? 'Productos en nivel crítico' : 'Inventario en orden' }}
+              </span>
             </div>
             <div class="p-3 rounded" [ngClass]="lowStockCount() > 0 ? 'bg-danger-subtle text-danger' : 'bg-light text-secondary'">
               <svg cIcon name="cilWarning" style="width: 24px; height: 24px;"></svg>
@@ -68,71 +94,149 @@
         </c-card>
       </c-col>
 
-      <!-- Team Members Count -->
+      <!-- 3. Cajas Registradoras Activas -->
       <c-col sm="6" lg="3">
-        <c-card class="shadow-xs border-0 border-top-info h-100">
+        <c-card class="shadow-xs border-0 border-top-primary h-100">
           <c-card-body class="p-4 d-flex align-items-center justify-content-between">
             <div>
-              <div class="text-uppercase text-secondary font-size-xs fw-bold mb-1">{{ translationService.t('dashboard.teamSize') }}</div>
-              <h2 class="fw-bold text-dark mb-0">{{ usersCount() }}</h2>
+              <div class="text-uppercase text-secondary font-size-xs fw-bold mb-1">Cajas Activas</div>
+              <h2 class="fw-bold text-primary mb-0">{{ activeCashRegistersCount() }}</h2>
+              <span class="font-size-xs text-body-secondary">Turnos abiertos hoy</span>
             </div>
-            <div class="p-3 rounded bg-info-subtle text-info">
-              <svg cIcon name="cilPeople" style="width: 24px; height: 24px;"></svg>
+            <div class="p-3 rounded bg-primary-subtle text-primary">
+              <svg cIcon name="cilCalculator" style="width: 24px; height: 24px;"></svg>
+            </div>
+          </c-card-body>
+        </c-card>
+      </c-col>
+
+      <!-- 4. Cuentas por Cobrar Vencidas -->
+      <c-col sm="6" lg="3">
+        <c-card class="shadow-xs border-0 border-top-warning h-100">
+          <c-card-body class="p-4 d-flex align-items-center justify-content-between">
+            <div>
+              <div class="text-uppercase text-secondary font-size-xs fw-bold mb-1">Cobros Vencidos</div>
+              <h2 class="fw-bold text-warning mb-0">{{ overdueAccountsCount() }}</h2>
+              <span class="font-size-xs text-body-secondary">Facturas por cobrar</span>
+            </div>
+            <div class="p-3 rounded bg-warning-subtle text-warning">
+              <svg cIcon name="cilCreditCard" style="width: 24px; height: 24px;"></svg>
             </div>
           </c-card-body>
         </c-card>
       </c-col>
     </c-row>
 
-    <!-- Layout Grid -->
+    <!-- Secondary Counters Row -->
+    <c-row class="g-4 mb-4">
+      <c-col sm="4">
+        <c-card class="shadow-xs border-0 bg-light">
+          <c-card-body class="p-3 d-flex align-items-center justify-content-between">
+            <div class="d-flex align-items-center">
+              <div class="p-2 rounded bg-white text-dark me-3 shadow-xs">
+                <svg cIcon name="cilStorage" style="width: 20px; height: 20px;"></svg>
+              </div>
+              <div>
+                <div class="font-size-xs text-secondary">Total Productos</div>
+                <div class="fw-bold text-dark fs-5">{{ productsCount() }}</div>
+              </div>
+            </div>
+          </c-card-body>
+        </c-card>
+      </c-col>
+      <c-col sm="4">
+        <c-card class="shadow-xs border-0 bg-light">
+          <c-card-body class="p-3 d-flex align-items-center justify-content-between">
+            <div class="d-flex align-items-center">
+              <div class="p-2 rounded bg-white text-dark me-3 shadow-xs">
+                <svg cIcon name="cilBuilding" style="width: 20px; height: 20px;"></svg>
+              </div>
+              <div>
+                <div class="font-size-xs text-secondary">Almacenes Registrados</div>
+                <div class="fw-bold text-dark fs-5">{{ warehousesCount() }}</div>
+              </div>
+            </div>
+          </c-card-body>
+        </c-card>
+      </c-col>
+      <c-col sm="4">
+        <c-card class="shadow-xs border-0 bg-light">
+          <c-card-body class="p-3 d-flex align-items-center justify-content-between">
+            <div class="d-flex align-items-center">
+              <div class="p-2 rounded bg-white text-dark me-3 shadow-xs">
+                <svg cIcon name="cilPeople" style="width: 20px; height: 20px;"></svg>
+              </div>
+              <div>
+                <div class="font-size-xs text-secondary">Usuarios del Equipo</div>
+                <div class="fw-bold text-dark fs-5">{{ usersCount() }}</div>
+              </div>
+            </div>
+          </c-card-body>
+        </c-card>
+      </c-col>
+    </c-row>
+
+    <!-- Main Content Layout Grid -->
     <c-row class="g-4">
-      <!-- Left Column: Quick Actions & Alerts -->
+      <!-- Left Column: Operations & Warehouse Alerts -->
       <c-col md="6" lg="5">
-        <!-- Quick Action CTA Modals -->
+        <!-- Quick Operations Panel -->
         <c-card class="shadow-xs border-0 mb-4 bg-light border-0">
           <c-card-body class="p-4">
-            <h5 class="fw-bold text-dark mb-3">{{ translationService.t('dashboard.quickOps') }}</h5>
+            <h5 class="fw-bold text-dark mb-3">Acciones Rápidas</h5>
             <div class="d-grid gap-2">
+              @if (authService.hasRole(['Admin', 'Manager', 'Seller'])) {
+                <button cButton color="success" class="py-2.5 d-flex align-items-center justify-content-start text-white border-0 shadow-sm" routerLink="/sales">
+                  <svg cIcon name="cilDollar" class="me-3" style="width: 18px; height: 18px;"></svg>
+                  Registrar Nueva Venta
+                </button>
+              }
               @if (authService.hasRole(['Admin', 'Manager'])) {
                 <button cButton color="primary" class="py-2.5 d-flex align-items-center justify-content-start text-white border-0 shadow-sm" routerLink="/inventory">
                   <svg cIcon name="cilPlus" class="me-3" style="width: 18px; height: 18px;"></svg>
-                  {{ translationService.t('dashboard.regStock') }}
+                  Entrada / Ajuste de Stock
                 </button>
                 <button cButton color="light" class="py-2.5 d-flex align-items-center justify-content-start border" routerLink="/products">
                   <svg cIcon name="cilStorage" class="me-3 text-secondary" style="width: 18px; height: 18px;"></svg>
-                  {{ translationService.t('dashboard.addProduct') }}
+                  Catálogo de Productos
                 </button>
               }
               @if (authService.hasRole(['Admin'])) {
                 <button cButton color="light" class="py-2.5 d-flex align-items-center justify-content-start border" routerLink="/users">
                   <svg cIcon name="cilUserFollow" class="me-3 text-secondary" style="width: 18px; height: 18px;"></svg>
-                  {{ translationService.t('dashboard.inviteTeam') }}
+                  Invitar Nuevo Usuario
                 </button>
               }
             </div>
           </c-card-body>
         </c-card>
 
-        <!-- Current Alerts summary box -->
+        <!-- Current Warehouse Alerts Panel -->
         <c-card class="shadow-xs border-0 mb-4">
           <c-card-body class="p-4">
-            <h5 class="fw-bold text-dark mb-3">{{ translationService.t('dashboard.criticalLimits') }}</h5>
+            <div class="d-flex justify-content-between align-items-center mb-3">
+              <h5 class="fw-bold text-dark mb-0">Detalle Alertas de Almacén</h5>
+              <span class="badge bg-danger-subtle text-danger">{{ lowStockCount() }} Alertas</span>
+            </div>
             @if (lowStockCount() === 0) {
               <div class="py-4 text-center text-success small border border-dashed rounded bg-light">
                 <svg cIcon name="cilCheckCircle" size="lg" class="mb-2" style="width: 24px; height: 24px;"></svg>
-                <div>{{ translationService.t('dashboard.stocksOk') }}</div>
+                <div>Todos los almacenes están abastecidos correctamente</div>
               </div>
             } @else {
               <div class="alert-list-scrollable" style="max-height: 280px; overflow-y: auto;">
                 <div class="d-flex flex-column gap-2">
-                  <div class="p-2 border-left-danger bg-danger-subtle rounded small d-flex justify-content-between align-items-center">
-                    <div>
-                      <span class="fw-bold text-danger">{{ translationService.t('dashboard.productsBelowMin', { count: lowStockCount() }) }}</span>
+                  @for (prod of lowStockProducts(); track prod.id) {
+                    <div class="p-3 border-left-danger bg-danger-subtle rounded small d-flex justify-content-between align-items-center">
+                      <div>
+                        <div class="fw-bold text-danger">{{ prod.description }}</div>
+                        <div class="text-secondary font-size-xs">Cód: {{ prod.barcode || prod.id }}</div>
+                      </div>
+                      <button cButton color="danger" size="sm" class="py-1 px-2 text-white border-0" routerLink="/inventory">
+                        Reabastecer
+                      </button>
                     </div>
-                    <button cButton color="danger" size="sm" class="py-0 px-2 text-white border-0" routerLink="/inventory">
-                      {{ translationService.t('common.view') }}
-                    </button>
-                  </div>
+                  }
                 </div>
               </div>
             }
@@ -140,57 +244,67 @@
         </c-card>
       </c-col>
 
-      <!-- Right Column: Recent Activity Timeline -->
+      <!-- Right Column: Audited History Feed (Historial de Auditoría de Creación y Acciones) -->
       <c-col md="6" lg="7">
         <c-card class="shadow-xs border-0 h-100">
           <c-card-body class="p-4">
             <div class="d-flex justify-content-between align-items-center mb-4">
-              <h5 class="fw-bold text-dark mb-0">{{ translationService.t('dashboard.activityLedger') }}</h5>
+              <div>
+                <h5 class="fw-bold text-dark mb-1">Historial Auditado de Acciones</h5>
+                <p class="text-body-secondary small mb-0">
+                  @if (startDate() && endDate()) {
+                    Período del {{ startDate() }} al {{ endDate() }}
+                  } @else {
+                    Todos los registros auditados
+                  }
+                </p>
+              </div>
               <button cButton color="link" size="sm" class="text-decoration-none px-0" routerLink="/inventory">
-                {{ translationService.t('dashboard.viewAllMovements') }}
+                Ver Historial Completo
               </button>
             </div>
 
-            @if (recentMovements().length === 0) {
+            @if (auditMovements().length === 0 && recentMovements().length === 0) {
               <div class="py-5 text-center px-4 border border-dashed rounded bg-light">
                 <svg cIcon name="cilList" size="xl" class="text-body-secondary mb-3" style="width: 48px; height: 48px;"></svg>
-                <h6 class="fw-bold text-dark">{{ translationService.t('dashboard.noEvents') }}</h6>
-                <p class="text-body-secondary small mb-0">{{ translationService.t('dashboard.noEventsSub') }}</p>
+                <h6 class="fw-bold text-dark">No hay eventos registrados en el período</h6>
+                <p class="text-body-secondary small mb-0">Intenta seleccionando un rango de fechas diferente.</p>
               </div>
             } @else {
-              <!-- Vertical Timeline Ledger -->
+              <!-- Vertical Timeline Ledger for Audit History -->
               <div class="saas-timeline">
-                @for (movement of recentMovements(); track movement.id; let idx = $index) {
+                @for (movement of (auditMovements().length > 0 ? auditMovements() : recentMovements()); track movement.id; let idx = $index) {
                   <div class="saas-timeline-item">
                     <div class="saas-timeline-badge" [ngClass]="{
-                      'bg-success-subtle text-success': movement.type === 'Inbound',
-                      'bg-danger-subtle text-danger': movement.type === 'Outbound',
-                      'bg-primary-subtle text-primary': movement.type === 'Transfer'
+                      'bg-success-subtle text-success': movement.type === 'Inbound' || movement.type === 'Create',
+                      'bg-danger-subtle text-danger': movement.type === 'Outbound' || movement.type === 'Delete',
+                      'bg-primary-subtle text-primary': movement.type === 'Transfer' || movement.type === 'Update'
                     }">
-                      @if (movement.type === 'Inbound') {
-                        <svg cIcon name="cilArrowThickFromBottom" style="width: 14px; height: 14px;"></svg>
-                      } @else if (movement.type === 'Outbound') {
-                        <svg cIcon name="cilArrowThickToBottom" style="width: 14px; height: 14px;"></svg>
+                      @if (movement.type === 'Inbound' || movement.type === 'Create') {
+                        <svg cIcon name="cilPlus" style="width: 14px; height: 14px;"></svg>
+                      } @else if (movement.type === 'Outbound' || movement.type === 'Delete') {
+                        <svg cIcon name="cilTrash" style="width: 14px; height: 14px;"></svg>
                       } @else {
                         <svg cIcon name="cilSwapHorizontal" style="width: 14px; height: 14px;"></svg>
                       }
                     </div>
                     <div class="saas-timeline-content">
                       <div class="d-flex justify-content-between align-items-baseline">
-                        <span class="fw-semibold text-dark">{{ movement.type === 'Inbound' ? translationService.t('inventory.inbound') : (movement.type === 'Outbound' ? translationService.t('inventory.outbound') : translationService.t('inventory.adjustment')) }}</span>
+                        <span class="fw-semibold text-dark">
+                          {{ movement.type === 'Inbound' ? 'Registro de Entrada' : (movement.type === 'Outbound' ? 'Registro de Salida' : (movement.type === 'Transfer' ? 'Transferencia' : 'Acción Auditada')) }}
+                        </span>
                         <span class="text-secondary small font-size-xs">{{ getDaysAgoMock(idx) }}</span>
                       </div>
                       <p class="text-body-secondary small mb-1 mt-0.5">
-                        {{ translationService.t('dashboard.moved', { qty: movement.quantity, product: getProductName(movement.productId) }) }}
-                        @if (movement.type === 'Inbound') {
-                          (-> <span class="fw-semibold">{{ getWarehouseName(movement.toWarehouseId) }}</span>).
-                        } @else if (movement.type === 'Outbound') {
-                          (<- <span class="fw-semibold">{{ getWarehouseName(movement.fromWarehouseId) }}</span>).
-                        } @else {
-                          (<span class="fw-semibold">{{ getWarehouseName(movement.fromWarehouseId) }}</span> -> <span class="fw-semibold">{{ getWarehouseName(movement.toWarehouseId) }}</span>).
+                        Creación/movimiento de <strong>{{ movement.quantity }} unidad(es)</strong> de <strong>{{ getProductName(movement.productId) }}</strong>.
+                        @if (movement.toWarehouseId) {
+                          Destino: <span class="fw-semibold">{{ getWarehouseName(movement.toWarehouseId) }}</span>.
                         }
                       </p>
-                      <span class="text-secondary small font-monospace font-size-xs">TX #{{ movement.id }}</span>
+                      <div class="d-flex align-items-center gap-2">
+                        <span class="badge bg-light text-secondary font-monospace border font-size-xs">AUDIT ID #{{ movement.id }}</span>
+                        <span class="text-secondary font-size-xs">Empresa Inquilina: Autenticada</span>
+                      </div>
                     </div>
                   </div>
                 }

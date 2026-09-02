@@ -20,7 +20,7 @@
     }
   </div>
 
-  <app-filter-panel [title]="translationService.t('payments.filterTitle')" [config]="filterConfig" [values]="filters()"
+  <app-filter-panel [title]="translationService.t('payments.filterTitle')" [config]="filterConfig()" [values]="filters()"
     (filtersChange)="onFiltersChange($event)"></app-filter-panel>
 
   <c-card class="shadow-sm border-0 mb-4">
@@ -42,7 +42,7 @@
         </button>
       </div>
       } @else {
-      <app-table [columns]="columns" [rows]="getFilteredPayments()" [loading]="isLoading()"
+      <app-table [columns]="columns" [rows]="pagedPayments()" [loading]="isLoading()"
         [emptyMessage]="translationService.t('payments.emptyBody')" [rowTemplate]="paymentRowTpl">
       </app-table>
 
@@ -63,7 +63,7 @@
             <span class="badge bg-light text-dark border">{{ p.method }}</span>
           </td>
           <td>{{ p.reference || '-' }}</td>
-          <td class="text-end fw-bold text-dark">\${{ p.amount | number:'1.2-2' }}</td>
+          <td class="text-end fw-bold text-dark">${{ p.amount | number:'1.2-2' }}</td>
           <td class="text-center pe-4 action-cell">
             <div class="desktop-actions">
               @if (authService.hasRole(['Admin'])) {
@@ -95,8 +95,8 @@
     </c-card-body>
   </c-card>
 
-  @if (!isLoading() && getFilteredPaymentsCount() > 0) {
-  <app-list-pagination [currentPage]="currentPage()" [totalItems]="getFilteredPaymentsCount()" [pageSize]="pageSize"
+  @if (!isLoading() && filteredPaymentsCount() > 0) {
+  <app-list-pagination [currentPage]="currentPage()" [totalItems]="filteredPaymentsCount()" [pageSize]="pageSize"
     [label]="'pagos'" (pageChange)="onPageChange($event)"></app-list-pagination>
   }
 </c-container>

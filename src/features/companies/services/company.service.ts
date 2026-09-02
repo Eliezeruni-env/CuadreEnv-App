@@ -1,5 +1,5 @@
-import { Injectable } from '@angular/core';
-import api from '../../cuadreEnv/services/apiClient';
+import { Injectable, inject } from '@angular/core';
+import { ApiClientService } from '../../cuadreEnv/services/apiClient';
 import type {
   Company,
   CompanySettingsDto,
@@ -17,35 +17,38 @@ export interface CreateCompanyResult {
   providedIn: 'root',
 })
 export class CompanyService {
+  private readonly api = inject(ApiClientService);
   async getCompanies(): Promise<ApiResponse<Company[]>> {
-    const res = await api.get<ApiResponse<Company[]>>('/company');
-    return res.data;
+    const res = await this.api.get<any, any>('/Company');
+    if (Array.isArray(res)) {
+      return { success: true, data: res };
+    }
+    return res;
   }
 
   async getCompany(id: number): Promise<Company> {
-    const res = await api.get<ApiResponse<Company>>(`/company/${id}`);
-    const body = res.data as ApiResponse<Company> | undefined;
-    if (body?.success && body.data) {
-      return body.data as Company;
+    const res = await this.api.get<any, any>(`/Company/${id}`);
+    if (res && typeof res === 'object') {
+      if (res.id) return res as Company;
+      if (res.data) return res.data as Company;
     }
-    throw new Error(body?.message || 'Unable to load company.');
+    throw new Error('Unable to load company.');
   }
 
   async getCompanySettings(): Promise<CompanySettingsDto> {
-    const res = await api.get<CompanySettingsDto>('/companysettings');
-    return res.data as CompanySettingsDto;
+    // Treats result as raw DTO as per specification
+    const res = await this.api.get<any, CompanySettingsDto>('/CompanySettings');
+    return res;
   }
 
   async updateCompanySettings(settings: CompanySettingsDto): Promise<void> {
-    await api.put('/companysettings', settings);
+    await this.api.put('/CompanySettings', settings);
   }
 
   async createCompany(
     data: CreateCompanyRequest,
   ): Promise<CreateCompanyResult> {
-    const res = await api.post('/company', data);
-    const body = res.data as any;
-    const payload = body?.data ?? body;
+    const payload = await this.api.post<any, any>('/Company', data);
 
     if (payload && payload.company) {
       return {
@@ -62,10 +65,10 @@ export class CompanyService {
   }
 
   async updateCompany(data: Company): Promise<void> {
-    await api.put('/company', data);
+    await this.api.put('/Company', data);
   }
 
   async deleteCompany(id: number): Promise<void> {
-    await api.delete(`/company/${id}`);
+    await this.api.delete(`/Company/${id}`);
   }
 }

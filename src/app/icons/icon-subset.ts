@@ -107,7 +107,10 @@ import {
   cilZoom,
   cilX,
   cilWarning,
-  cilCheckCircle
+  cilCheckCircle,
+  cilStorage,
+  cilFilter,
+  cilChevronTop
 } from '@coreui/icons';
 
 import { signet } from './signet';
@@ -127,6 +130,7 @@ export const iconSubset = {
   cilX,
   cilWarning,
   cilCheckCircle,
+  cilStorage,
   cibCcAmex,
   cibCcApplePay,
   cibCcMastercard,
@@ -223,6 +227,8 @@ export const iconSubset = {
   cilUserFemale,
   cilUserFollow,
   cilUserUnfollow,
+  cilFilter,
+  cilChevronTop,
   logo,
   signet
 };
@@ -324,6 +330,7 @@ export enum IconSubset {
   cilUserFemale = 'cilUserFemale',
   cilUserFollow = 'cilUserFollow',
   cilUserUnfollow = 'cilUserUnfollow',
+  cilStorage = 'cilStorage',
   logo = 'logo',
   signet = 'signet'
 }

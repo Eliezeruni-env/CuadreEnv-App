@@ -91,8 +91,28 @@ export class LoginComponent {
         this.router.navigate(['/dashboard']);
       }
     } catch (error: any) {
-      const serverMsg = error?.response?.data?.message || error?.message;
-      const errors = error?.response?.data?.errors;
+      const responseBody = error?.error ?? error?.response?.data;
+      console.error('login error', error);
+      try {
+        console.error(
+          'login error details',
+          JSON.stringify(
+            {
+              status: error?.status,
+              statusText: error?.statusText,
+              url: error?.url,
+              body: responseBody,
+            },
+            null,
+            2,
+          ),
+        );
+      } catch {
+        console.error('login error details', String(error));
+      }
+
+      const serverMsg = responseBody?.message || error?.message;
+      const errors = responseBody?.errors;
       if (errors && errors.length > 0) {
         this.errorMessage.set(errors.join(', '));
       } else {
