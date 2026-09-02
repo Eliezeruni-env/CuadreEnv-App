@@ -195,14 +195,16 @@ export class DashboardComponent implements OnInit {
         let filteredAudit = auditRes.data;
         if (from) {
           filteredAudit = filteredAudit.filter((m: any) => {
-            const mDate = m.timestamp || m.createdAt || m.occurredAt || m.creationDate ? (m.timestamp || m.createdAt || m.occurredAt || m.creationDate).split('T')[0] : '';
-            return mDate === '' || mDate >= from;
+            const mDate = m.timestamp || m.createdAt || m.occurredAt || m.creationDate || m.date;
+            if (!mDate) return false;
+            return mDate.split('T')[0] >= from;
           });
         }
         if (to) {
           filteredAudit = filteredAudit.filter((m: any) => {
-            const mDate = m.timestamp || m.createdAt || m.occurredAt || m.creationDate ? (m.timestamp || m.createdAt || m.occurredAt || m.creationDate).split('T')[0] : '';
-            return mDate === '' || mDate <= to;
+            const mDate = m.timestamp || m.createdAt || m.occurredAt || m.creationDate || m.date;
+            if (!mDate) return false;
+            return mDate.split('T')[0] <= to;
           });
         }
         this.auditMovements.set(filteredAudit.slice(0, 10));
@@ -244,11 +246,51 @@ export class DashboardComponent implements OnInit {
     return w ? w.name : `Almacén #${warehouseId}`;
   }
 
-  getDaysAgoMock(index: number): string {
-    if (index === 0) return 'Hace un momento';
-    if (index === 1) return 'Hace 10 min';
-    if (index === 2) return 'Hace 1 hora';
-    if (index === 3) return 'Hace 3 horas';
-    return `Hace ${index} horas`;
+  getMovementTypeLabel(type: string): string {
+    const t = (type || '').toLowerCase();
+    if (t === 'inbound' || t === 'in' || t === 'create') return 'Entrada de Stock';
+    if (t === 'outbound' || t === 'out' || t === 'delete') return 'Salida de Stock';
+    if (t === 'transfer') return 'Transferencia entre Almacenes';
+    if (t === 'sale') return 'Salida por Venta';
+    if (t === 'adjustment') return 'Ajuste de Stock';
+    return 'Movimiento Registrado';
+  }
+
+  formatMovementTime(movement: any): string {
+    const rawDate =
+      movement.timestamp ||
+      movement.createdAt ||
+      movement.occurredAt ||
+      movement.creationDate ||
+      movement.date;
+
+    if (!rawDate) {
+      return 'Registrado';
+    }
+
+    const d = new Date(rawDate);
+    if (isNaN(d.getTime())) {
+      return 'Registrado';
+    }
+
+    const now = new Date();
+    const diffMs = now.getTime() - d.getTime();
+    const diffMin = Math.floor(diffMs / 60000);
+    const diffHours = Math.floor(diffMs / 3600000);
+    const diffDays = Math.floor(diffMs / 86400000);
+
+    if (diffMin < 1) return 'Hace un momento';
+    if (diffMin < 60) return `Hace ${diffMin} min`;
+    if (diffHours < 24) return `Hace ${diffHours} h`;
+    if (diffDays === 1) return 'Ayer';
+    if (diffDays < 7) return `Hace ${diffDays} días`;
+
+    return d.toLocaleDateString('es-DO', {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+    });
   }
 }

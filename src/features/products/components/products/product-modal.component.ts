@@ -38,152 +38,7 @@ import { IconDirective } from '@coreui/icons-angular';
     SpinnerComponent,
     IconDirective
   ],
-  template: `
-    @if (visible) {
-      <div class="custom-modal-backdrop" (click)="close()">
-        <div class="custom-modal-content modal-lg" (click)="$event.stopPropagation()">
-          <div class="custom-modal-header">
-            <h5 class="fw-bold">{{ isEditMode ? translationService.t('products.modal.editTitle') : translationService.t('products.modal.createTitle') }}</h5>
-            <button type="button" class="btn-close" (click)="close()" aria-label="Close"></button>
-          </div>
-          <div class="custom-modal-body">
-            <form cForm [formGroup]="productForm">
-              <!-- Description -->
-              <div class="mb-3">
-                <label class="small fw-semibold text-secondary mb-1">{{ translationService.t('products.modal.nameLabel') }} *</label>
-                <input formControlName="description" cFormControl [placeholder]="translationService.t('products.modal.nameLabel')" />
-                @if (productForm.get('description')?.touched && productForm.get('description')?.invalid) {
-                  @if (productForm.get('description')?.hasError('duplicate')) {
-                    <div class="text-danger small mt-1">El nombre del producto ya existe.</div>
-                  } @else {
-                    <div class="text-danger small mt-1">{{ translationService.t('common.error') }}</div>
-                  }
-                }
-              </div>
-
-              <c-row>
-                <!-- Barcode -->
-                <c-col md="6" class="mb-3">
-                  <label class="small fw-semibold text-secondary mb-1">{{ translationService.t('products.modal.barcodeLabel') }}</label>
-                  <input formControlName="barcode" cFormControl [placeholder]="translationService.t('products.modal.barcodeLabel')" />
-                </c-col>
-
-                <!-- Reference -->
-                <c-col md="6" class="mb-3">
-                  <label class="small fw-semibold text-secondary mb-1">{{ translationService.t('products.modal.refLabel') }}</label>
-                  <input formControlName="reference" cFormControl [placeholder]="translationService.t('products.modal.refLabel')" />
-                </c-col>
-              </c-row>
-
-              <c-row>
-                <!-- Product Type Dropdown -->
-                <c-col md="6" class="mb-3">
-                  <label class="small fw-semibold text-secondary mb-1">
-                    Tipo de Producto @if (isRealBackendTypes()) { * }
-                  </label>
-                  <select formControlName="productTypeId" class="form-select">
-                    <option [ngValue]="null">-- Seleccionar Tipo --</option>
-                    @for (pt of productTypes(); track pt.id) {
-                      <option [ngValue]="pt.id">{{ pt.name || pt.description || ('Tipo #' + pt.id) }}</option>
-                    }
-                  </select>
-                  @if (isRealBackendTypes() && productForm.get('productTypeId')?.touched && productForm.get('productTypeId')?.invalid) {
-                    <div class="text-danger small mt-1">El tipo de producto es requerido.</div>
-                  }
-                </c-col>
-
-                <!-- Category Dropdown -->
-                <c-col md="6" class="mb-3">
-                  <label class="small fw-semibold text-secondary mb-1">
-                    Categoría @if (isRealBackendCategories()) { * }
-                  </label>
-                  <select formControlName="categoryId" class="form-select">
-                    <option [ngValue]="null">-- Seleccionar Categoría --</option>
-                    @for (cat of categories(); track cat.id) {
-                      <option [ngValue]="cat.id">{{ cat.name || cat.description || ('Categoría #' + cat.id) }}</option>
-                    }
-                  </select>
-                  @if (isRealBackendCategories() && productForm.get('categoryId')?.touched && productForm.get('categoryId')?.invalid) {
-                    <div class="text-danger small mt-1">La categoría es requerida.</div>
-                  }
-                  @if (!isRealBackendCategories()) {
-                    <span class="text-body-secondary font-size-xs mt-1 d-block">
-                      Categoría opcional (no se enviará al backend hasta que existan categorías en la base de datos)
-                    </span>
-                  }
-                </c-col>
-              </c-row>
-
-              <c-row>
-                <!-- Cost -->
-                <c-col md="6" class="mb-3">
-                  <label class="small fw-semibold text-secondary mb-1">{{ translationService.t('products.modal.costLabel') }} *</label>
-                  <input formControlName="cost" type="number" cFormControl />
-                  @if (productForm.get('cost')?.touched && productForm.get('cost')?.invalid) {
-                    <div class="text-danger small mt-1">El costo debe ser mayor a cero.</div>
-                  }
-                </c-col>
-
-                <!-- Stock -->
-                <c-col md="6" class="mb-3">
-                  <label class="small fw-semibold text-secondary mb-1">{{ translationService.t('products.modal.stockLabel') }} *</label>
-                  <input formControlName="stock" type="number" cFormControl [readonly]="isEditMode" />
-                </c-col>
-              </c-row>
-
-              <div class="mb-3">
-                <label class="small fw-semibold text-secondary mb-1">{{ translationService.t('common.description') }}</label>
-                <input formControlName="shortDescription" cFormControl [placeholder]="translationService.t('common.description')" />
-              </div>
-
-              <c-row>
-                <!-- Min Qty -->
-                <c-col md="6" class="mb-3">
-                  <label class="small fw-semibold text-secondary mb-1">{{ translationService.t('products.modal.minStockLabel') }}</label>
-                  <input formControlName="minimumQuantity" type="number" cFormControl />
-                </c-col>
-
-                <!-- Max Qty -->
-                <c-col md="6" class="mb-3">
-                  <label class="small fw-semibold text-secondary mb-1">Max Qty</label>
-                  <input formControlName="maximumQuantity" type="number" cFormControl />
-                </c-col>
-              </c-row>
-
-              <!-- Invoice Without Stock Checkbox -->
-              <div class="form-check mb-2">
-                <input class="form-check-input" type="checkbox" id="invoiceWithoutStock" formControlName="invoiceWithoutStock">
-                <label class="form-check-label small fw-semibold text-secondary" for="invoiceWithoutStock">
-                  Allow invoicing without stock
-                </label>
-              </div>
-            </form>
-          </div>
-          <div class="custom-modal-footer d-flex justify-content-between">
-            <div>
-              @if (isEditMode) {
-                <button cButton color="danger" class="text-white" [disabled]="isLoading()" (click)="deleteProduct()">
-                  <svg cIcon name="cilTrash" class="me-1"></svg>
-                  Eliminar
-                </button>
-              }
-            </div>
-            <div class="d-flex gap-2">
-              <button cButton color="light" class="border" (click)="close()">{{ translationService.t('products.modal.cancelBtn') }}</button>
-              <button cButton color="primary" [disabled]="isLoading() || productForm.invalid" (click)="saveProduct()">
-                @if (isLoading()) {
-                  <c-spinner size="sm" class="me-2"></c-spinner>
-                  {{ translationService.t('common.loading') }}
-                } @else {
-                  {{ translationService.t('products.modal.saveBtn') }}
-                }
-              </button>
-            </div>
-          </div>
-        </div>
-      </div>
-    }
-  `
+  templateUrl: './product-modal.component.html',
 })
 export class ProductModalComponent {
   readonly translationService = inject(TranslationService);
@@ -338,11 +193,18 @@ export class ProductModalComponent {
           this.notificationService.error('El nombre del producto ya existe.');
           this.productForm.get('description')?.setErrors({ duplicate: true });
 
-          // Focus the name field
           const inputEl = document.querySelector('input[formControlName="description"]') as HTMLInputElement;
           if (inputEl) {
             inputEl.focus();
           }
+          this.isLoading.set(false);
+          return;
+        }
+
+        const barcode = String(formVal.barcode || '').trim();
+        if (barcode && existing.some(p => (p.barcode || '').trim() === barcode)) {
+          this.notificationService.error('El código de barras ya está registrado en otro producto.');
+          this.productForm.get('barcode')?.setErrors({ duplicate: true });
           this.isLoading.set(false);
           return;
         }
@@ -406,8 +268,6 @@ export class ProductModalComponent {
     const confirmed = await this.confirmService.confirm({
       title: '¿Eliminar producto?',
       message: '¿Estás seguro de que deseas eliminar este producto? Esta acción no se puede deshacer.',
-      itemName: productName,
-      itemType: 'Producto',
       confirmText: 'Eliminar',
       variant: 'danger',
     });

@@ -35,6 +35,67 @@ export const routes: Routes = [
         data: { title: 'Inventory & Warehouses' }
       },
       {
+        path: 'inventory/warehouses',
+        loadComponent: () => import('../features/inventory/components/warehouse/warehouse-list.component').then((m) => m.WarehouseListComponent),
+        data: { title: 'Gestión de Almacenes' }
+      },
+      {
+        path: 'inventory/entries',
+        loadComponent: () => import('../features/inventory/components/warehouse-entry/listwarehouse-entry.component').then((m) => m.ListwarehouseEntryComponent),
+        data: { title: 'Entradas de Almacén' }
+      },
+      {
+        path: 'inventory/entries/create',
+        loadComponent: () => import('../features/inventory/components/warehouse-entry/createwarehouse-entry.component').then((m) => m.CreatewarehouseEntryComponent),
+        data: { title: 'Nueva Entrada' }
+      },
+      {
+        path: 'inventory/outlets',
+        loadComponent: () => import('../features/inventory/components/warehouse-outlet/listwarehouse-outlet.component').then((m) => m.ListwarehouseOutletComponent),
+        data: { title: 'Salidas de Almacén' }
+      },
+      {
+        path: 'inventory/outlets/create',
+        loadComponent: () => import('../features/inventory/components/warehouse-outlet/createwarehouse-outlet.component').then((m) => m.CreatewarehouseOutletComponent),
+        data: { title: 'Nueva Salida' }
+      },
+      {
+        path: 'inventory/transfers',
+        loadComponent: () => import('../features/inventory/components/warehouse-transfer/listwarehouse-transfer.component').then((m) => m.ListwarehouseTransferComponent),
+        data: { title: 'Transferencias entre Almacenes' }
+      },
+      {
+        path: 'inventory/transfers/create',
+        loadComponent: () => import('../features/inventory/components/warehouse-transfer/createwarehouse-transfer.component').then((m) => m.CreatewarehouseTransferComponent),
+        data: { title: 'Nueva Transferencia' }
+      },
+      {
+        path: 'inventory/stock',
+        loadComponent: () => import('../features/inventory/components/stock/stock.component').then((m) => m.StockComponent),
+        data: { title: 'Consulta de Existencias / Stock' }
+      },
+      {
+        path: 'inventory/manage-requests',
+        loadComponent: () => import('../features/inventory/components/manage-request/manage-request-list.component').then((m) => m.ManageRequestListComponent),
+        data: { title: 'Bandeja de Aprobaciones' }
+      },
+      {
+        path: 'purchases/receipts',
+        loadComponent: () => import('../features/purchases/components/purchase-order-receipt/purchase-order-receipt-list.component').then((m) => m.PurchaseOrderReceiptListComponent),
+        data: { title: 'Recepciones de Compra' }
+      },
+      {
+        path: 'purchases/receipts/create',
+        loadComponent: () => import('../features/purchases/components/purchase-order-receipt/purchase-order-receipt-form.component').then((m) => m.PurchaseOrderReceiptFormComponent),
+        data: { title: 'Nueva Recepción' }
+      },
+      {
+        path: 'purchases/receipts/create/:id',
+        loadComponent: () => import('../features/purchases/components/purchase-order-receipt/purchase-order-receipt-form.component').then((m) => m.PurchaseOrderReceiptFormComponent),
+        canActivate: [() => import('./guards/reception-exists.guard').then(m => m.ReceptionExistsGuard)],
+        data: { title: 'Recepción de Orden' }
+      },
+      {
         path: 'users',
         loadComponent: () => import('../features/users/components/users/users.component').then((m) => m.UsersComponent),
         data: { title: 'Team Management' }
@@ -52,6 +113,31 @@ export const routes: Routes = [
       {
         path: 'sales/receivables',
         redirectTo: 'receivables',
+        pathMatch: 'full'
+      },
+      {
+        path: 'billing',
+        loadComponent: () => import('../features/billing/components/listbilling/listbilling.component').then((m) => m.ListbillingComponent),
+        data: { title: 'Facturación y Comprobantes Fiscales' }
+      },
+      {
+        path: 'billing/create',
+        loadComponent: () => import('../features/billing/components/createbilling/createbilling.component').then((m) => m.CreatebillingComponent),
+        data: { title: 'Nueva Factura' }
+      },
+      {
+        path: 'billing/quotationNo/:quotationNo',
+        loadComponent: () => import('../features/billing/components/createbilling/createbilling.component').then((m) => m.CreatebillingComponent),
+        data: { title: 'Facturar Cotización' }
+      },
+      {
+        path: 'credit-notes',
+        loadComponent: () => import('../features/sales/components/credit-notes/credit-notes.component').then((m) => m.CreditNotesComponent),
+        data: { title: 'Notas de Crédito y Devoluciones' }
+      },
+      {
+        path: 'sales/credit-notes',
+        redirectTo: 'credit-notes',
         pathMatch: 'full'
       },
       {

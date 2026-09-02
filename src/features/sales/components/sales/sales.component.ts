@@ -11,6 +11,12 @@ import { SaleDetailModalComponent } from './sale-detail-modal.component';
 import { NewSaleChoiceModalComponent } from './new-sale-choice-modal.component';
 import { QuickSaleModalComponent } from '../../../cash-register/components/cash-register/quick-sale-modal.component';
 import { CreateReceivableModalComponent } from '../receivables/create-receivable-modal.component';
+import { CreateServiceSaleModalComponent } from './create-service-sale-modal.component';
+import {
+  SaleCompletedModalComponent,
+  type CompletedSaleDto,
+} from './sale-completed-modal.component';
+import { CreditNoteFormComponent } from '../credit-notes/credit-note-form.component';
 import {
   FilterPanelComponent,
   type FilterConfig,
@@ -46,6 +52,9 @@ import { ListPaginationComponent } from '../../../cuadreEnv/components/list-pagi
     NewSaleChoiceModalComponent,
     QuickSaleModalComponent,
     CreateReceivableModalComponent,
+    CreateServiceSaleModalComponent,
+    SaleCompletedModalComponent,
+    CreditNoteFormComponent,
     FilterPanelComponent,
     ListPaginationComponent,
   ],
@@ -54,7 +63,10 @@ export class SalesComponent implements OnInit {
   @ViewChild('newSaleChoiceModal') newSaleChoiceModal!: NewSaleChoiceModalComponent;
   @ViewChild('quickSaleModal') quickSaleModal!: QuickSaleModalComponent;
   @ViewChild('createReceivableModal') createReceivableModal!: CreateReceivableModalComponent;
+  @ViewChild('createServiceSaleModal') createServiceSaleModal!: CreateServiceSaleModalComponent;
   @ViewChild('createSaleModal') createSaleModal!: CreateSaleModalComponent;
+  @ViewChild('saleCompletedModal') saleCompletedModal!: SaleCompletedModalComponent;
+  @ViewChild('creditNoteFormModal') creditNoteFormModal!: CreditNoteFormComponent;
 
   readonly translationService = inject(TranslationService);
 
@@ -92,6 +104,16 @@ export class SalesComponent implements OnInit {
       ],
     },
     {
+      key: 'channel',
+      label: 'Canal / Origen',
+      type: 'select',
+      options: [
+        { label: 'Todos los canales', value: '' },
+        { label: 'Ventas en Caja (POS)', value: 'caja' },
+        { label: 'Ventas Directas', value: 'direct' },
+      ],
+    },
+    {
       key: 'amount',
       label: this.translationService.t('sales.filterAmount'),
       type: 'numberRange',
@@ -102,8 +124,11 @@ export class SalesComponent implements OnInit {
   isChoiceModalOpen = false;
   isQuickSaleModalOpen = false;
   isCreateReceivableModalOpen = false;
+  isCreateServiceModalOpen = false;
   isCreateModalOpen = false;
   isDetailModalOpen = false;
+  isSaleCompletedModalOpen = false;
+  lastCompletedSale: CompletedSaleDto | null = null;
   selectedSale: SaleResponseDto | null = null;
 
   constructor(
@@ -161,6 +186,9 @@ export class SalesComponent implements OnInit {
     const status = String(
       (activeFilters['status'] as string | undefined) || '',
     );
+    const channel = String(
+      (activeFilters['channel'] as string | undefined) || '',
+    );
     const amountMin =
       activeFilters['amount_min'] !== undefined &&
       activeFilters['amount_min'] !== ''
@@ -184,6 +212,11 @@ export class SalesComponent implements OnInit {
         const isCancelled = (sale as any).isCancelled;
         if (status === 'cancelled' && !isCancelled) return false;
         if (status === 'processed' && isCancelled) return false;
+      }
+
+      if (channel) {
+        if (channel === 'caja' && !sale.cashRegisterId) return false;
+        if (channel === 'direct' && sale.cashRegisterId) return false;
       }
 
       if (amountMin !== null && sale.total < amountMin) {
@@ -219,14 +252,18 @@ export class SalesComponent implements OnInit {
     }
   }
 
-  onSaleOptionChosen(option: 'quick' | 'credit') {
+  onSaleOptionChosen(option: 'quick' | 'credit' | 'service') {
     if (option === 'quick') {
       if (this.quickSaleModal) {
         this.quickSaleModal.open();
       }
-    } else {
+    } else if (option === 'credit') {
       if (this.createReceivableModal) {
         this.createReceivableModal.open();
+      }
+    } else if (option === 'service') {
+      if (this.createServiceSaleModal) {
+        this.createServiceSaleModal.open();
       }
     }
   }
@@ -234,6 +271,78 @@ export class SalesComponent implements OnInit {
   openDetailModal(sale: SaleResponseDto) {
     this.selectedSale = sale;
     this.isDetailModalOpen = true;
+  }
+
+  openInvoiceForSale(sale: SaleResponseDto) {
+    const cust = this.customers().find((c) => c.id === sale.customerId);
+    const rawItems =
+      sale.details && sale.details.length > 0
+        ? sale.details
+        : (sale as any).items && (sale as any).items.length > 0
+        ? (sale as any).items
+        : (sale as any).saleDetails && (sale as any).saleDetails.length > 0
+        ? (sale as any).saleDetails
+        : (sale as any).productDetails && (sale as any).productDetails.length > 0
+        ? (sale as any).productDetails
+        : [
+            {
+              productId: (sale as any).productId || 1,
+              productName: (sale as any).notes || (sale as any).description || `Venta #${sale.id}`,
+              productCode: `VTA-${sale.id}`,
+              unitPrice: sale.total,
+              quantity: 1,
+              total: sale.total,
+            },
+          ];
+
+    const invoiceDto: CompletedSaleDto = {
+      id: sale.id,
+      invoiceNumber: `VTA-${String(sale.id).padStart(6, '0')}`,
+      date: sale.creationDate,
+      customerName: cust?.name || 'Consumidor final',
+      customerRnc: cust?.identification || '000-0000000-0',
+      cashRegisterName: sale.cashRegisterId ? `Caja #${sale.cashRegisterId}` : 'Venta Directa',
+      cashierName: 'Admin',
+      paymentMethod: sale.paidAmount >= sale.total ? 'Efectivo / Contado' : 'Crédito',
+      subtotal: Math.round((sale.total / 1.18) * 100) / 100,
+      discount: 0,
+      itbis: Math.round((sale.total - (sale.total / 1.18)) * 100) / 100,
+      total: sale.total,
+      amountReceived: sale.paidAmount,
+      change: Math.max(0, sale.paidAmount - sale.total),
+      items: rawItems.map((d: any) => ({
+        productId: d.productId || d.id || 1,
+        productName: d.productName || d.description || `Producto #${d.productId || d.id || 1}`,
+        productCode: d.productCode || d.barcode || `PROD-${d.productId || d.id || 1}`,
+        unitPrice: Number(d.unitPrice ?? d.price ?? 0) || 0,
+        quantity: Number(d.quantity ?? 1) || 1,
+        total: (Number(d.quantity ?? 1) || 1) * (Number(d.unitPrice ?? d.price ?? 0) || 0),
+      })),
+    };
+
+    this.lastCompletedSale = invoiceDto;
+    if (this.saleCompletedModal) {
+      this.saleCompletedModal.open(invoiceDto);
+    } else {
+      this.isSaleCompletedModalOpen = true;
+    }
+  }
+
+  onQuickSaleCompleted(data: CompletedSaleDto) {
+    this.lastCompletedSale = data;
+    this.loadData();
+    if (this.saleCompletedModal) {
+      this.saleCompletedModal.open(data);
+    } else {
+      this.isSaleCompletedModalOpen = true;
+    }
+  }
+
+  openCreditNoteForSale(sale: SaleResponseDto) {
+    const formattedId = `VTA-${String(sale.id).padStart(6, '0')}`;
+    if (this.creditNoteFormModal) {
+      this.creditNoteFormModal.open(formattedId);
+    }
   }
 
   onSaleCreated() {

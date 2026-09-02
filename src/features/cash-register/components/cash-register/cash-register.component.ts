@@ -14,6 +14,7 @@ import {
   ReactiveFormsModule,
   FormsModule,
 } from '@angular/forms';
+import { ActivatedRoute } from '@angular/router';
 import {
   CashRegisterService,
   type CashRegisterSessionDto,
@@ -25,6 +26,11 @@ import { NotificationService } from '../../../cuadreEnv/services/notification.se
 import { QuickSaleModalComponent } from './quick-sale-modal.component';
 import { ManualMovementModalComponent } from './manual-movement-modal.component';
 import { CloseRegisterModalComponent } from './close-register-modal.component';
+import {
+  SaleCompletedModalComponent,
+  type CompletedSaleDto,
+} from '../../../sales/components/sales/sale-completed-modal.component';
+import { ListPaginationComponent } from '../../../cuadreEnv/components/list-pagination/list-pagination.component';
 import {
   ButtonDirective,
   ContainerComponent,
@@ -52,6 +58,8 @@ import {
     QuickSaleModalComponent,
     ManualMovementModalComponent,
     CloseRegisterModalComponent,
+    SaleCompletedModalComponent,
+    ListPaginationComponent,
   ],
 })
 export class CashRegisterComponent implements OnInit {
@@ -60,11 +68,13 @@ export class CashRegisterComponent implements OnInit {
   private readonly cashRegisterService = inject(CashRegisterService);
   private readonly notificationService = inject(NotificationService);
   public readonly authService = inject(AuthService);
+  private readonly route = inject(ActivatedRoute);
   private readonly fb = inject(FormBuilder);
 
   @ViewChild('quickSaleModal') quickSaleModal!: QuickSaleModalComponent;
   @ViewChild('manualMovementModal') manualMovementModal!: ManualMovementModalComponent;
   @ViewChild('closeRegisterModal') closeRegisterModal!: CloseRegisterModalComponent;
+  @ViewChild('saleCompletedModal') saleCompletedModal!: SaleCompletedModalComponent;
 
   activeSession = signal<CashRegisterSessionDto | null>(null);
   movements = signal<CashRegisterMovementItem[]>([]);
@@ -76,10 +86,18 @@ export class CashRegisterComponent implements OnInit {
 
   showMovementMenu = signal<boolean>(false);
 
+  // Pagination signals
+  movementsPage = signal<number>(1);
+  movementsPageSize = signal<number>(10);
+  historyPage = signal<number>(1);
+  historyPageSize = signal<number>(5);
+
   // Modals visibility
   isQuickSaleModalOpen = false;
   isManualMovementModalOpen = false;
   isCloseModalOpen = false;
+  isSaleCompletedModalOpen = false;
+  lastCompletedSale: CompletedSaleDto | null = null;
 
   openSessionForm: FormGroup;
 
@@ -112,6 +130,18 @@ export class CashRegisterComponent implements OnInit {
     return list;
   });
 
+  readonly pagedMovements = computed(() => {
+    const list = this.filteredMovements();
+    const start = (this.movementsPage() - 1) * this.movementsPageSize();
+    return list.slice(start, start + this.movementsPageSize());
+  });
+
+  readonly pagedHistory = computed(() => {
+    const list = this.sessionHistory();
+    const start = (this.historyPage() - 1) * this.historyPageSize();
+    return list.slice(start, start + this.historyPageSize());
+  });
+
   readonly totalEntradas = computed(() => {
     return this.movements()
       .filter((m) => m.type === 'Entrada')
@@ -128,6 +158,14 @@ export class CashRegisterComponent implements OnInit {
     return this.movements().length;
   });
 
+  onMovementsPageChange(page: number) {
+    this.movementsPage.set(page);
+  }
+
+  onHistoryPageChange(page: number) {
+    this.historyPage.set(page);
+  }
+
   constructor() {
     this.openSessionForm = this.fb.group({
       initialAmount: [10000, [Validators.required, Validators.min(0)]],
@@ -139,6 +177,13 @@ export class CashRegisterComponent implements OnInit {
 
   ngOnInit() {
     this.loadData();
+    this.route.queryParams.subscribe((params) => {
+      if (params['requiresOpenSession']) {
+        this.notificationService.warning(
+          'Debes aperturar un turno de caja antes de realizar ventas o cobros.',
+        );
+      }
+    });
   }
 
   async loadData() {
@@ -154,15 +199,12 @@ export class CashRegisterComponent implements OnInit {
       if (sessionRes?.success && sessionRes.data) {
         this.activeSession.set(sessionRes.data);
 
-        // Load movements
+        // Load movements directly from DB
         const movRes = await this.cashRegisterService.getMovements();
         if (movRes?.success && movRes.data) {
-          // If movements are empty, populate initial sample movements matching Image 2
-          if (movRes.data.length <= 1) {
-            this.seedInitialMockMovements(sessionRes.data.initialAmount);
-          } else {
-            this.movements.set(movRes.data);
-          }
+          this.movements.set(movRes.data);
+        } else {
+          this.movements.set([]);
         }
       } else {
         this.activeSession.set(null);
@@ -174,108 +216,10 @@ export class CashRegisterComponent implements OnInit {
       }
     } catch (e: any) {
       this.errorMessage.set(
-        e?.response?.data?.message || e?.message || 'Error loading cash register data.',
+        e?.response?.data?.message || e?.message || 'Error al cargar datos de la caja.',
       );
     } finally {
       this.isLoading.set(false);
-    }
-  }
-
-  seedInitialMockMovements(initialAmount: number) {
-    const sampleMovements: CashRegisterMovementItem[] = [
-      {
-        id: 1,
-        date: '27/05/2025 09:00 AM',
-        rawDate: '2025-05-27T09:00:00Z',
-        type: 'Saldo inicial',
-        category: 'Apertura',
-        description: 'Apertura de caja',
-        inAmount: initialAmount || 10000.0,
-        outAmount: null,
-        balance: 10000.0,
-        paymentMethod: 'Efectivo',
-      },
-      {
-        id: 2,
-        date: '27/05/2025 09:15 AM',
-        rawDate: '2025-05-27T09:15:00Z',
-        type: 'Entrada',
-        category: 'Ventas',
-        description: 'Venta en efectivo INV-000123',
-        inAmount: 5000.0,
-        outAmount: null,
-        balance: 15000.0,
-        paymentMethod: 'Efectivo',
-      },
-      {
-        id: 3,
-        date: '27/05/2025 10:30 AM',
-        rawDate: '2025-05-27T10:30:00Z',
-        type: 'Entrada',
-        category: 'Cobros',
-        description: 'Pago de cliente Juan Pérez',
-        inAmount: 3000.0,
-        outAmount: null,
-        balance: 18000.0,
-        paymentMethod: 'Efectivo',
-      },
-      {
-        id: 4,
-        date: '27/05/2025 11:20 AM',
-        rawDate: '2025-05-27T11:20:00Z',
-        type: 'Salida',
-        category: 'Compras',
-        description: 'Compra de mercancía',
-        inAmount: null,
-        outAmount: 1800.0,
-        balance: 16200.0,
-        paymentMethod: 'Efectivo',
-      },
-      {
-        id: 5,
-        date: '27/05/2025 02:10 PM',
-        rawDate: '2025-05-27T14:10:00Z',
-        type: 'Entrada',
-        category: 'Ventas',
-        description: 'Venta en efectivo INV-000124',
-        inAmount: 4250.0,
-        outAmount: null,
-        balance: 20450.0,
-        paymentMethod: 'Efectivo',
-      },
-      {
-        id: 6,
-        date: '27/05/2025 03:45 PM',
-        rawDate: '2025-05-27T15:45:00Z',
-        type: 'Salida',
-        category: 'Gastos',
-        description: 'Gasto de transporte',
-        inAmount: null,
-        outAmount: 700.0,
-        balance: 19750.0,
-        paymentMethod: 'Efectivo',
-      },
-      {
-        id: 7,
-        date: '27/05/2025 05:05 PM',
-        rawDate: '2025-05-27T17:05:00Z',
-        type: 'Entrada',
-        category: 'Cobros',
-        description: 'Pago de cliente María G.',
-        inAmount: 4500.0,
-        outAmount: null,
-        balance: 24250.0,
-        paymentMethod: 'Efectivo',
-      },
-    ];
-
-    this.movements.set(sampleMovements);
-    if (this.activeSession()) {
-      const sess = { ...this.activeSession()! };
-      sess.totalIn = 16750.0;
-      sess.totalOut = 2500.0;
-      sess.currentBalance = 24250.0;
-      this.activeSession.set(sess);
     }
   }
 
@@ -337,6 +281,16 @@ export class CashRegisterComponent implements OnInit {
   openCloseRegisterModal() {
     if (this.closeRegisterModal && this.activeSession()) {
       this.closeRegisterModal.open(this.activeSession()!);
+    }
+  }
+
+  onQuickSaleCompleted(data: CompletedSaleDto) {
+    this.lastCompletedSale = data;
+    this.loadData();
+    if (this.saleCompletedModal) {
+      this.saleCompletedModal.open(data);
+    } else {
+      this.isSaleCompletedModalOpen = true;
     }
   }
 }

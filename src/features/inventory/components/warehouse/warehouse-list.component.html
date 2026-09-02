@@ -1,0 +1,157 @@
+<div class="container-fluid py-3">
+  <!-- Header -->
+  <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-4">
+    <div>
+      <h3 class="fw-bold text-dark mb-1">Gestión de Almacenes y Depósitos</h3>
+      <p class="text-secondary small mb-0">Administra los puntos de almacenamiento, sucursales y bodegas</p>
+    </div>
+    <button type="button" class="btn btn-primary fw-semibold d-flex align-items-center gap-2 shadow-sm" (click)="openCreateModal()">
+      <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <line x1="12" y1="5" x2="12" y2="19"></line>
+        <line x1="5" y1="12" x2="19" y2="12"></line>
+      </svg>
+      Nuevo Almacén
+    </button>
+  </div>
+
+  <!-- Table Card -->
+  <div class="card border-0 shadow-sm rounded-4 overflow-hidden mb-4">
+    <div class="p-3 border-bottom d-flex justify-content-between align-items-center bg-white">
+      <h6 class="fw-bold text-dark mb-0">Almacenes Registrados</h6>
+      <input
+        type="text"
+        class="form-control form-control-sm"
+        placeholder="Buscar por nombre, código, encargado..."
+        style="width: 280px;"
+        [(ngModel)]="searchTerm"
+      />
+    </div>
+
+    <div class="table-responsive">
+      <table class="table align-middle mb-0 small">
+        <thead class="table-light">
+          <tr>
+            <th class="ps-4">Código / Nombre</th>
+            <th>Ubicación / Dirección</th>
+            <th>Teléfono</th>
+            <th>Responsable</th>
+            <th class="text-center">Tipo</th>
+            <th class="text-center">Estado</th>
+            <th class="text-center pe-4">Acciones</th>
+          </tr>
+        </thead>
+        <tbody>
+          @if (isLoading()) {
+            <tr>
+              <td colspan="7" class="text-center py-5 text-secondary">
+                <span class="spinner-border spinner-border-sm me-2"></span>
+                Cargando almacenes...
+              </td>
+            </tr>
+          } @else if (filteredWarehouses().length === 0) {
+            <tr>
+              <td colspan="7" class="text-center py-5 text-secondary">
+                No se encontraron almacenes registrados.
+              </td>
+            </tr>
+          } @else {
+            @for (wh of pagedWarehouses(); track wh.id) {
+              <tr>
+                <td class="ps-4">
+                  <div class="fw-bold text-dark">{{ wh.name }}</div>
+                  <span class="badge bg-light text-secondary border font-monospace">{{ wh.code }}</span>
+                </td>
+                <td class="text-secondary">{{ wh.address || 'Sin dirección' }}</td>
+                <td class="font-monospace text-secondary">{{ wh.phone || '-' }}</td>
+                <td class="fw-semibold text-dark">{{ wh.managerName || 'Sin asignar' }}</td>
+                <td class="text-center">
+                  @if (wh.isMain) {
+                    <span class="badge bg-primary-subtle text-primary border border-primary-subtle">Principal</span>
+                  } @else {
+                    <span class="badge bg-light text-secondary border">Secundario</span>
+                  }
+                </td>
+                <td class="text-center">
+                  <span
+                    class="badge"
+                    [ngClass]="wh.isActive ? 'bg-success-subtle text-success border border-success-subtle' : 'bg-danger-subtle text-danger border border-danger-subtle'"
+                  >
+                    {{ wh.isActive ? 'Activo' : 'Inactivo' }}
+                  </span>
+                </td>
+                <td class="text-center pe-4">
+                  <div class="btn-group btn-group-sm">
+                    <button type="button" class="btn btn-light border text-primary" (click)="openEditModal(wh)" title="Editar">
+                      ✎
+                    </button>
+                    <button
+                      type="button"
+                      class="btn btn-light border"
+                      [ngClass]="wh.isActive ? 'text-warning' : 'text-success'"
+                      (click)="toggleActive(wh)"
+                      [title]="wh.isActive ? 'Desactivar' : 'Activar'"
+                    >
+                      {{ wh.isActive ? '⏸' : '▶' }}
+                    </button>
+                  </div>
+                </td>
+              </tr>
+            }
+          }
+        </tbody>
+      </table>
+    </div>
+
+    <app-list-pagination
+      [currentPage]="currentPage()"
+      [pageSize]="pageSize()"
+      [totalItems]="filteredWarehouses().length"
+      label="almacenes"
+      (pageChange)="onPageChange($event)"
+    ></app-list-pagination>
+  </div>
+</div>
+
+<!-- Modal Form -->
+@if (isModalOpen) {
+  <div class="custom-modal-backdrop" (click)="isModalOpen = false">
+    <div class="custom-modal-content" (click)="$event.stopPropagation()" style="max-width: 520px;">
+      <div class="p-3 border-bottom d-flex justify-content-between align-items-center bg-light">
+        <h6 class="fw-bold mb-0 text-dark">{{ editingWarehouse ? 'Editar Almacén' : 'Nuevo Almacén' }}</h6>
+        <button type="button" class="btn-close" (click)="isModalOpen = false"></button>
+      </div>
+      <div class="p-4">
+        <div class="mb-3">
+          <label class="form-label small fw-semibold text-secondary">Nombre del Almacén *</label>
+          <input type="text" class="form-control" [(ngModel)]="formModel.name" placeholder="Ej. Almacén Central" />
+        </div>
+        <div class="row g-2 mb-3">
+          <div class="col-6">
+            <label class="form-label small fw-semibold text-secondary">Código Identificador</label>
+            <input type="text" class="form-control font-monospace" [(ngModel)]="formModel.code" placeholder="ALM-01" />
+          </div>
+          <div class="col-6">
+            <label class="form-label small fw-semibold text-secondary">Teléfono de Contacto</label>
+            <input type="text" class="form-control" [(ngModel)]="formModel.phone" placeholder="(809) 555-0000" />
+          </div>
+        </div>
+        <div class="mb-3">
+          <label class="form-label small fw-semibold text-secondary">Dirección / Ubicación</label>
+          <input type="text" class="form-control" [(ngModel)]="formModel.address" placeholder="Calle, Sector, Ciudad" />
+        </div>
+        <div class="mb-3">
+          <label class="form-label small fw-semibold text-secondary">Encargado / Responsable</label>
+          <input type="text" class="form-control" [(ngModel)]="formModel.managerName" placeholder="Nombre completo" />
+        </div>
+        <div class="form-check form-switch mb-3">
+          <input class="form-check-input" type="checkbox" id="isMainCheck" [(ngModel)]="formModel.isMain" />
+          <label class="form-check-label small fw-semibold" for="isMainCheck">Definir como Almacén Principal</label>
+        </div>
+      </div>
+      <div class="p-3 border-top bg-light d-flex justify-content-end gap-2">
+        <button type="button" class="btn btn-light border" (click)="isModalOpen = false">Cancelar</button>
+        <button type="button" class="btn btn-primary fw-semibold" (click)="saveWarehouse()">Guardar Almacén</button>
+      </div>
+    </div>
+  </div>
+}

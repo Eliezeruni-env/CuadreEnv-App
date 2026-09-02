@@ -50,6 +50,18 @@ export class ReceivablesComponent implements OnInit {
   receivables = signal<ReceivableDto[]>([]);
   isLoading = signal<boolean>(false);
 
+  // Tab Segment: 'pending' (Pendientes) vs 'paid' (Saldadas por completo)
+  selectedTab = signal<'pending' | 'paid'>('pending');
+
+  // Counts for tabs
+  readonly pendingCount = computed(() =>
+    this.receivables().filter((r) => r.pendingAmount > 0 && r.status !== 'Pagado').length,
+  );
+
+  readonly paidCount = computed(() =>
+    this.receivables().filter((r) => r.pendingAmount <= 0 || r.status === 'Pagado').length,
+  );
+
   // Filters & Search
   searchQuery = signal<string>('');
   selectedStatus = signal<string>('');
@@ -67,11 +79,19 @@ export class ReceivablesComponent implements OnInit {
   // Computed Filtered and Sorted Receivables
   readonly filteredReceivables = computed(() => {
     let list = [...this.receivables()];
+    const tab = this.selectedTab();
     const query = this.searchQuery().toLowerCase().trim();
     const status = this.selectedStatus();
     const sort = this.selectedSort();
 
-    // 1. Search Query
+    // 1. Tab filtering (Pendientes vs Saldadas por completo)
+    if (tab === 'pending') {
+      list = list.filter((r) => r.pendingAmount > 0 && r.status !== 'Pagado');
+    } else {
+      list = list.filter((r) => r.pendingAmount <= 0 || r.status === 'Pagado');
+    }
+
+    // 2. Search Query
     if (query) {
       list = list.filter(
         (r) =>
@@ -83,12 +103,12 @@ export class ReceivablesComponent implements OnInit {
       );
     }
 
-    // 2. Status Filter
+    // 3. Status Filter (if specific status is chosen)
     if (status) {
       list = list.filter((r) => r.status === status);
     }
 
-    // 3. Sorting
+    // 4. Sorting
     list.sort((a, b) => {
       switch (sort) {
         case 'oldest':
@@ -122,6 +142,35 @@ export class ReceivablesComponent implements OnInit {
 
   ngOnInit() {
     this.loadReceivables();
+  }
+
+  setTab(tab: 'pending' | 'paid') {
+    this.selectedTab.set(tab);
+    this.currentPage.set(1);
+  }
+
+  async reopenReceivable(item: ReceivableDto) {
+    const confirmed = await this.confirmService.confirm({
+      title: '¿Reabrir cuenta por cobrar?',
+      message: `¿Desea reactivar la cuenta por cobrar de "${item.customerName}" (${item.invoiceNumber}) para permitir nuevos ajustes o correcciones de saldo?`,
+      confirmText: 'Sí, reactivar',
+      variant: 'warning',
+    });
+
+    if (confirmed) {
+      this.isLoading.set(true);
+      try {
+        const res = await this.receivableService.reopenReceivable(item.id);
+        if (res.success) {
+          this.notificationService.success(`Cuenta ${item.invoiceNumber} reactivada correctamente.`);
+          await this.loadReceivables();
+        }
+      } catch (e: any) {
+        this.notificationService.showApiError(e);
+      } finally {
+        this.isLoading.set(false);
+      }
+    }
   }
 
   async loadReceivables() {

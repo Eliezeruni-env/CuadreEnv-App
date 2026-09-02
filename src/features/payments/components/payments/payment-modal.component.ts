@@ -31,72 +31,7 @@ import {
     SpinnerComponent,
     FormSelectDirective
   ],
-  template: `
-    @if (visible) {
-      <div class="custom-modal-backdrop" (click)="close()">
-        <div class="custom-modal-content" (click)="$event.stopPropagation()">
-          <div class="custom-modal-header">
-            <h5 class="fw-bold">{{ translationService.t('payments.modal.createTitle') }}</h5>
-            <button type="button" class="btn-close" (click)="close()" aria-label="Close"></button>
-          </div>
-          
-          <div class="custom-modal-body">
-            <form cForm [formGroup]="paymentForm">
-              <c-row>
-                <c-col md="6" class="mb-3">
-                  <label class="small fw-semibold text-secondary mb-1">{{ translationService.t('sales.table.saleId') }}</label>
-                  <select cSelect formControlName="saleId">
-                    <option value="">{{ translationService.t('common.select') }}</option>
-                    @for (s of sales(); track s.id) {
-                      <option [value]="s.id">#{{ s.id }} (\${{ s.total | number:'1.2-2' }})</option>
-                    }
-                  </select>
-                </c-col>
-
-                <c-col md="6" class="mb-3">
-                  <label class="small fw-semibold text-secondary mb-1">{{ translationService.t('purchases.table.purchaseId') }}</label>
-                  <input type="number" formControlName="purchaseId" cFormControl placeholder="ID" />
-                </c-col>
-              </c-row>
-
-              <c-row>
-                <c-col md="6" class="mb-3">
-                  <label class="small fw-semibold text-secondary mb-1">{{ translationService.t('payments.modal.amountLabel') }} *</label>
-                  <input type="number" formControlName="amount" cFormControl />
-                </c-col>
-
-                <c-col md="6" class="mb-3">
-                  <label class="small fw-semibold text-secondary mb-1">{{ translationService.t('payments.modal.methodLabel') }} *</label>
-                  <select cSelect formControlName="method">
-                    <option value="Cash">Cash</option>
-                    <option value="Card">Card</option>
-                    <option value="Transfer">Bank Transfer</option>
-                  </select>
-                </c-col>
-              </c-row>
-
-              <div class="mb-3">
-                <label class="small fw-semibold text-secondary mb-1">{{ translationService.t('payments.modal.refLabel') }}</label>
-                <input formControlName="reference" cFormControl [placeholder]="translationService.t('payments.modal.refLabel')" />
-              </div>
-            </form>
-          </div>
-
-          <div class="custom-modal-footer">
-            <button cButton color="light" class="border" (click)="close()">{{ translationService.t('common.cancel') }}</button>
-            <button cButton color="primary" [disabled]="isLoading() || paymentForm.invalid" (click)="savePayment()">
-              @if (isLoading()) {
-                <c-spinner size="sm" class="me-2"></c-spinner>
-                {{ translationService.t('common.loading') }}
-              } @else {
-                {{ translationService.t('payments.modal.saveBtn') }}
-              }
-            </button>
-          </div>
-        </div>
-      </div>
-    }
-  `
+  templateUrl: './payment-modal.component.html',
 })
 export class PaymentModalComponent implements OnInit {
   readonly translationService = inject(TranslationService);
@@ -181,7 +116,7 @@ export class PaymentModalComponent implements OnInit {
         this.saved.emit();
         this.close();
       } else {
-        this.notificationService.error(res.message || 'Error al registrar pago.');
+        this.notificationService.error(res.message || 'Error al crear el pago.');
       }
     } catch (e: any) {
       const mapped = this.notificationService.showApiError(e);
@@ -193,4 +128,3 @@ export class PaymentModalComponent implements OnInit {
     }
   }
 }
-

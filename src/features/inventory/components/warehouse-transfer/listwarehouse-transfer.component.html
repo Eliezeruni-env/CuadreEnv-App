@@ -1,0 +1,184 @@
+<div class="container-fluid py-3">
+  <!-- Header -->
+  <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-4">
+    <div>
+      <h3 class="fw-bold text-dark mb-1">Transferencias entre Almacenes</h3>
+      <p class="text-secondary small mb-0">Historial de reubicaciones de stock entre sucursales y depósitos</p>
+    </div>
+    <button type="button" class="btn btn-primary fw-semibold d-flex align-items-center gap-2 shadow-sm" (click)="goToCreate()">
+      <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <line x1="12" y1="5" x2="12" y2="19"></line>
+        <line x1="5" y1="12" x2="19" y2="12"></line>
+      </svg>
+      Nueva Transferencia
+    </button>
+  </div>
+
+  <!-- Table Card -->
+  <div class="card border-0 shadow-sm rounded-4 overflow-hidden mb-4">
+    <div class="p-3 border-bottom d-flex justify-content-between align-items-center bg-white">
+      <h6 class="fw-bold text-dark mb-0">Historial de Transferencias Realizadas</h6>
+      <input
+        type="text"
+        class="form-control form-control-sm"
+        placeholder="Buscar por número, origen, destino..."
+        style="width: 280px;"
+        [(ngModel)]="searchTerm"
+      />
+    </div>
+
+    <div class="table-responsive">
+      <table class="table align-middle mb-0 small">
+        <thead class="table-light">
+          <tr>
+            <th class="ps-4">No. Transferencia</th>
+            <th>Origen (Emisor)</th>
+            <th class="text-center" style="width: 40px;">➔</th>
+            <th>Destino (Receptor)</th>
+            <th>Fecha</th>
+            <th class="text-center">Total Uds</th>
+            <th class="text-center">Estado</th>
+            <th class="text-center pe-4">Acciones</th>
+          </tr>
+        </thead>
+        <tbody>
+          @if (isLoading()) {
+            <tr>
+              <td colspan="8" class="text-center py-5 text-secondary">
+                <span class="spinner-border spinner-border-sm me-2"></span>
+                Cargando transferencias...
+              </td>
+            </tr>
+          } @else if (filteredTransfers().length === 0) {
+            <tr>
+              <td colspan="8" class="text-center py-5 text-secondary">
+                No se encontraron transferencias registradas.
+              </td>
+            </tr>
+          } @else {
+            @for (t of pagedTransfers(); track t.id) {
+              <tr>
+                <td class="ps-4">
+                  <div class="fw-bold font-monospace text-primary">{{ t.movementNumber || ('TRF-' + t.id) }}</div>
+                  <span class="text-secondary font-monospace" style="font-size: 0.72rem;">
+                    {{ t.productDetails.length }} renglones
+                  </span>
+                </td>
+                <td>
+                  <span class="badge bg-light text-secondary border font-monospace">{{ t.warehouseOfOriginName }}</span>
+                </td>
+                <td class="text-center text-secondary">➔</td>
+                <td>
+                  <span class="badge bg-primary-subtle text-primary border border-primary-subtle font-monospace">{{ t.destinationWarehouseName }}</span>
+                </td>
+                <td class="text-secondary">
+                  {{ t.createDate | date:'dd/MM/yyyy hh:mm a' }}
+                </td>
+                <td class="text-center font-monospace fw-bold text-dark fs-6">
+                  {{ t.totalQuantity }} uds
+                </td>
+                <td class="text-center">
+                  <span class="badge bg-success-subtle text-success border border-success-subtle">
+                    {{ t.statusName || 'Aplicado' }}
+                  </span>
+                </td>
+                <td class="text-center pe-4">
+                  <button type="button" class="btn btn-sm btn-light border text-secondary" (click)="viewDetail(t)" title="Ver Detalle">
+                    👁
+                  </button>
+                </td>
+              </tr>
+            }
+          }
+        </tbody>
+      </table>
+    </div>
+
+    <app-list-pagination
+      [currentPage]="currentPage()"
+      [pageSize]="pageSize()"
+      [totalItems]="filteredTransfers().length"
+      label="transferencias"
+      (pageChange)="onPageChange($event)"
+    ></app-list-pagination>
+  </div>
+</div>
+
+<!-- Modal Detail Voucher -->
+@if (selectedTransfer) {
+  <div class="custom-modal-backdrop" (click)="selectedTransfer = null">
+    <div class="custom-modal-content" (click)="$event.stopPropagation()" style="max-width: 650px;">
+      <div class="p-3 border-bottom d-flex justify-content-between align-items-center bg-light d-print-none">
+        <h6 class="fw-bold mb-0 text-dark">Comprobante de Transferencia Inter-Sucursales</h6>
+        <button type="button" class="btn-close" (click)="selectedTransfer = null"></button>
+      </div>
+      <div class="p-4" id="transferVoucherPrint">
+        <div class="d-flex justify-content-between border-bottom pb-3 mb-3">
+          <div>
+            <h5 class="fw-bold mb-0 font-monospace text-primary">{{ selectedTransfer.movementNumber }}</h5>
+            <div class="text-secondary small">Fecha: {{ selectedTransfer.createDate | date:'dd/MM/yyyy hh:mm a' }}</div>
+          </div>
+          <div class="text-end">
+            <span class="badge bg-primary-subtle text-primary border border-primary-subtle">
+              Transferencia Aplicada
+            </span>
+          </div>
+        </div>
+
+        <div class="row g-2 mb-3 small">
+          <div class="col-6">
+            <div class="p-2 bg-light rounded-2 border">
+              <span class="text-secondary d-block">Almacén Origen (Emisor):</span>
+              <strong class="text-dark">{{ selectedTransfer.warehouseOfOriginName }}</strong>
+            </div>
+          </div>
+          <div class="col-6">
+            <div class="p-2 bg-light rounded-2 border">
+              <span class="text-secondary d-block">Almacén Destino (Receptor):</span>
+              <strong class="text-primary">{{ selectedTransfer.destinationWarehouseName }}</strong>
+            </div>
+          </div>
+        </div>
+
+        @if (selectedTransfer.commentary) {
+          <div class="p-2 bg-light rounded-2 border mb-3 small">
+            <strong>Observaciones:</strong> {{ selectedTransfer.commentary }}
+          </div>
+        }
+
+        <div class="table-responsive border rounded-2 mb-3">
+          <table class="table table-sm align-middle mb-0 small">
+            <thead class="table-light">
+              <tr>
+                <th class="ps-3">Producto</th>
+                <th>Código</th>
+                <th class="text-center">Cant. Transferida</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (item of selectedTransfer.productDetails; track $index) {
+                <tr>
+                  <td class="ps-3 fw-semibold">{{ item.productName }}</td>
+                  <td class="font-monospace text-secondary">{{ item.barCode || '-' }}</td>
+                  <td class="text-center font-monospace fw-bold text-primary fs-6">{{ item.quantity }} uds</td>
+                </tr>
+              }
+            </tbody>
+            <tfoot class="table-light">
+              <tr>
+                <td colspan="2" class="ps-3 fw-bold">Total Unidades Transferidas:</td>
+                <td class="text-center font-monospace fw-bold text-primary fs-6">
+                  {{ selectedTransfer.totalQuantity }} uds
+                </td>
+              </tr>
+            </tfoot>
+          </table>
+        </div>
+      </div>
+      <div class="p-3 border-top bg-light d-flex justify-content-end gap-2 d-print-none">
+        <button type="button" class="btn btn-light border" (click)="selectedTransfer = null">Cerrar</button>
+        <button type="button" class="btn btn-primary fw-semibold" (click)="printVoucher()">Imprimir Comprobante</button>
+      </div>
+    </div>
+  </div>
+}

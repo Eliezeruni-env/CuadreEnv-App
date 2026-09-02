@@ -1,0 +1,92 @@
+<div class="card border shadow-xs rounded-3 overflow-hidden bg-white mb-3">
+  <div class="table-responsive">
+    <table class="table table-hover align-middle mb-0 small">
+      <thead class="table-light">
+        <tr>
+          <th class="ps-3" style="width: 45px;">#</th>
+          <th>Producto / Descripción</th>
+          <th>Código</th>
+          <th class="text-center" style="width: 120px;">Cantidad</th>
+          <th class="text-end" style="width: 140px;">
+            {{ mode === 'entry' ? 'Costo Unit.' : 'Precio Ref.' }}
+          </th>
+          <th class="text-end pe-3" style="width: 140px;">Subtotal</th>
+          <th class="text-center pe-3" style="width: 100px;">Acciones</th>
+        </tr>
+      </thead>
+      <tbody>
+        @if (loading) {
+          <tr>
+            <td colspan="7" class="text-center py-4 text-secondary">
+              <span class="spinner-border spinner-border-sm me-2"></span>
+              Cargando productos...
+            </td>
+          </tr>
+        } @else if (items.length === 0) {
+          <tr>
+            <td colspan="7" class="text-center py-4 text-secondary">
+              {{ emptyMessage }}
+            </td>
+          </tr>
+        } @else {
+          @for (item of items; track $index; let idx = $index) {
+            <tr>
+              <td class="ps-3 font-monospace text-secondary">{{ idx + 1 }}</td>
+              <td>
+                <div class="fw-bold text-dark">{{ item.productName }}</div>
+                @if (item.stockAvailable !== undefined) {
+                  <span class="text-secondary font-monospace" style="font-size: 0.75rem;">
+                    Stock en almacén: {{ item.stockAvailable }} uds
+                  </span>
+                }
+              </td>
+              <td class="font-monospace text-secondary">{{ item.barCode || '-' }}</td>
+              <td class="text-center font-monospace fw-bold fs-6">
+                {{ item.quantity }}
+              </td>
+              <td class="text-end font-monospace">
+                RD$ {{ (item.cost || item.price || 0) | number:'1.2-2' }}
+              </td>
+              <td class="text-end pe-3 font-monospace fw-bold text-primary">
+                RD$ {{ (item.quantity * (item.cost || item.price || 0)) | number:'1.2-2' }}
+              </td>
+              <td class="text-center pe-3">
+                <div class="btn-group btn-group-sm">
+                  <button
+                    type="button"
+                    class="btn btn-light btn-sm border text-primary"
+                    (click)="onEdit(idx)"
+                    title="Editar renglón"
+                  >
+                    ✎
+                  </button>
+                  <button
+                    type="button"
+                    class="btn btn-light btn-sm border text-danger"
+                    (click)="onDelete(idx)"
+                    title="Eliminar renglón"
+                  >
+                    🗑
+                  </button>
+                </div>
+              </td>
+            </tr>
+          }
+        }
+      </tbody>
+      @if (items.length > 0) {
+        <tfoot class="table-light border-top">
+          <tr>
+            <td colspan="3" class="ps-3 fw-bold text-dark">Totales del Movimiento:</td>
+            <td class="text-center font-monospace fw-bold fs-6 text-dark">{{ totalQuantity }} uds</td>
+            <td></td>
+            <td class="text-end pe-3 font-monospace fw-bold text-primary fs-6">
+              RD$ {{ totalCost | number:'1.2-2' }}
+            </td>
+            <td></td>
+          </tr>
+        </tfoot>
+      }
+    </table>
+  </div>
+</div>

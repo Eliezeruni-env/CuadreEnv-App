@@ -28,56 +28,7 @@ import {
     ColComponent,
     SpinnerComponent
   ],
-  template: `
-    @if (visible) {
-      <div class="custom-modal-backdrop" (click)="close()">
-        <div class="custom-modal-content" (click)="$event.stopPropagation()">
-          <div class="custom-modal-header">
-            <h5 class="fw-bold">{{ isEditMode ? translationService.t('customers.modal.editTitle') : translationService.t('customers.modal.createTitle') }}</h5>
-            <button type="button" class="btn-close" (click)="close()" aria-label="Close"></button>
-          </div>
-          <div class="custom-modal-body">
-            <form cForm [formGroup]="customerForm">
-              <div class="mb-3">
-                <label class="small fw-semibold text-secondary mb-1">{{ translationService.t('customers.modal.nameLabel') }} *</label>
-                <input formControlName="name" cFormControl [placeholder]="translationService.t('customers.modal.nameLabel')" />
-                @if (customerForm.get('name')?.touched && customerForm.get('name')?.invalid) {
-                  <div class="text-danger small mt-1">{{ translationService.t('common.error') }}</div>
-                }
-              </div>
-
-              <div class="mb-3">
-                <label class="small fw-semibold text-secondary mb-1">{{ translationService.t('customers.modal.idLabel') }}</label>
-                <input formControlName="identification" cFormControl [placeholder]="translationService.t('customers.modal.idLabel')" />
-              </div>
-
-              <c-row>
-                <c-col md="6" class="mb-3">
-                  <label class="small fw-semibold text-secondary mb-1">{{ translationService.t('customers.modal.emailLabel') }}</label>
-                  <input formControlName="email" cFormControl [placeholder]="translationService.t('customers.modal.emailLabel')" />
-                </c-col>
-                <c-col md="6" class="mb-3">
-                  <label class="small fw-semibold text-secondary mb-1">{{ translationService.t('customers.modal.phoneLabel') }}</label>
-                  <input formControlName="phone" cFormControl [placeholder]="translationService.t('customers.modal.phoneLabel')" />
-                </c-col>
-              </c-row>
-            </form>
-          </div>
-          <div class="custom-modal-footer">
-            <button cButton color="light" class="border" (click)="close()">{{ translationService.t('customers.modal.cancelBtn') }}</button>
-            <button cButton color="primary" [disabled]="isLoading() || customerForm.invalid" (click)="saveCustomer()">
-              @if (isLoading()) {
-                <c-spinner size="sm" class="me-2"></c-spinner>
-                {{ translationService.t('common.loading') }}
-              } @else {
-                {{ translationService.t('customers.modal.saveBtn') }}
-              }
-            </button>
-          </div>
-        </div>
-      </div>
-    }
-  `
+  templateUrl: './customer-modal.component.html',
 })
 export class CustomerModalComponent {
   readonly translationService = inject(TranslationService);
@@ -167,4 +118,3 @@ export class CustomerModalComponent {
     }
   }
 }
-

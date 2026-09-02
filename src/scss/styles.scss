@@ -95,3 +95,108 @@
     text-align: left;
   }
 }
+
+// Global Print Isolation Stylesheet
+@media print {
+  @page {
+    margin: 5mm;
+    size: auto;
+  }
+
+  html, body {
+    margin: 0 !important;
+    padding: 0 !important;
+    background: #ffffff !important;
+    color: #000000 !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  /* Completely hide application layout, sidebars, headers, footers, toasts, dialog action buttons, pagination, filters */
+  c-sidebar,
+  .sidebar,
+  c-header,
+  .header,
+  c-footer,
+  .footer,
+  .modal-top-bar,
+  .custom-modal-footer,
+  .modal-footer,
+  .btn,
+  .btn-close,
+  .toaster-container,
+  .toast,
+  c-toaster,
+  .filter-panel,
+  .filter-toolbar-card,
+  .search-input-wrapper,
+  .pagination-container,
+  kt-paginator,
+  app-list-pagination,
+  .no-print,
+  .d-print-none {
+    display: none !important;
+    visibility: hidden !important;
+  }
+
+  /* Make ONLY the active printable document sheet visible */
+  body * {
+    visibility: hidden;
+  }
+
+  #invoicePrintArea,
+  #invoicePrintArea *,
+  #billingPrintArea,
+  #billingPrintArea *,
+  #entryVoucherPrint,
+  #entryVoucherPrint *,
+  #outletVoucherPrint,
+  #outletVoucherPrint *,
+  #transferVoucherPrint,
+  #transferVoucherPrint *,
+  #cashReceiptPrintArea,
+  #cashReceiptPrintArea *,
+  .printable-sheet,
+  .printable-sheet * {
+    visibility: visible !important;
+  }
+
+  #invoicePrintArea,
+  #billingPrintArea,
+  #entryVoucherPrint,
+  #outletVoucherPrint,
+  #transferVoucherPrint,
+  #cashReceiptPrintArea,
+  .printable-sheet {
+    position: absolute !important;
+    left: 0 !important;
+    top: 0 !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    margin: 0 !important;
+    padding: 10px !important;
+    background: #ffffff !important;
+    box-shadow: none !important;
+    border: none !important;
+  }
+
+  .custom-modal-backdrop {
+    position: static !important;
+    background: transparent !important;
+    backdrop-filter: none !important;
+    padding: 0 !important;
+    width: 100% !important;
+    height: auto !important;
+    inset: auto !important;
+  }
+
+  .custom-modal-content,
+  .completed-modal-container,
+  .invoice-modal-container {
+    max-width: 100% !important;
+    width: 100% !important;
+    box-shadow: none !important;
+    border: none !important;
+    background: transparent !important;
+  }
+}

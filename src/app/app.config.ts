@@ -1,5 +1,5 @@
 import { ApplicationConfig, ErrorHandler, Injectable } from '@angular/core';
-import { provideHttpClient } from '@angular/common/http';
+import { provideHttpClient, withInterceptors } from '@angular/common/http';
 import { provideAnimationsAsync } from '@angular/platform-browser/animations/async';
 import {
   provideRouter,
@@ -10,6 +10,7 @@ import {
 } from '@angular/router';
 import { IconSetService } from '@coreui/icons-angular';
 import { routes } from './app.routes';
+import { authInterceptor, appHttpInterceptor } from './interceptor';
 
 @Injectable()
 export class GlobalErrorHandler implements ErrorHandler {
@@ -51,7 +52,7 @@ export const appConfig: ApplicationConfig = {
       withHashLocation(),
     ),
     IconSetService,
-    provideHttpClient(),
+    provideHttpClient(withInterceptors([authInterceptor, appHttpInterceptor])),
     provideAnimationsAsync(),
     { provide: ErrorHandler, useClass: GlobalErrorHandler },
   ],

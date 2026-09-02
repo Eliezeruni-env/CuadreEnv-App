@@ -167,6 +167,12 @@ export class ProductSettingsComponent implements OnInit {
     this.isCategoryModalVisible = true;
   }
 
+  openEditCategory(cat: any) {
+    this.editingCategory = cat;
+    this.categoryForm.patchValue({ description: cat.description || '' });
+    this.isCategoryModalVisible = true;
+  }
+
   closeCategoryModal() {
     this.isCategoryModalVisible = false;
     this.editingCategory = null;
@@ -183,12 +189,23 @@ export class ProductSettingsComponent implements OnInit {
     const description = String(formVal.description || '').trim();
 
     try {
-      // Create category
-      const res = await this.categoryService.createCategory({ description });
-      if (res.success) {
-        this.notificationService.success('Categoría creada exitosamente.');
-        await this.loadCategories();
-        this.closeCategoryModal();
+      if (this.editingCategory) {
+        const res = await this.categoryService.updateCategory(this.editingCategory.id, {
+          id: this.editingCategory.id,
+          description,
+        });
+        if (res.success) {
+          this.notificationService.success('Categoría actualizada exitosamente.');
+          await this.loadCategories();
+          this.closeCategoryModal();
+        }
+      } else {
+        const res = await this.categoryService.createCategory({ description });
+        if (res.success) {
+          this.notificationService.success('Categoría creada exitosamente.');
+          await this.loadCategories();
+          this.closeCategoryModal();
+        }
       }
     } catch (e: any) {
       const mapped = this.notificationService.showApiError(e);

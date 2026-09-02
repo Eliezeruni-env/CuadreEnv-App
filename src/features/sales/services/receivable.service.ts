@@ -39,6 +39,9 @@ export interface ReceivableDto {
   paymentPlan?: PaymentPlanDto | null;
   payments: PaymentRecordDto[];
   avatarColor: string;
+  isReopened?: boolean;
+  reopenedDate?: string;
+  settledDate?: string;
 }
 
 export interface CreateReceivableDto {
@@ -685,5 +688,34 @@ export class ReceivableService {
     }
 
     return { success: true, data: true };
+  }
+
+  async reopenReceivable(id: number, reason?: string): Promise<ApiResponse<ReceivableDto>> {
+    const list = this.getStoredReceivables();
+    const item = list.find((r) => r.id === id);
+    if (!item) {
+      return { success: false, message: 'Cuenta por cobrar no encontrada.' };
+    }
+
+    item.status = item.paidAmount > 0 ? 'Parcial' : 'Pendiente';
+    if (item.pendingAmount <= 0) {
+      item.pendingAmount = Math.max(1, item.totalAmount - item.paidAmount);
+    }
+    item.isReopened = true;
+    item.reopenedDate = new Date().toISOString();
+
+    this.saveStoredReceivables(list);
+
+    try {
+      if (this.api) {
+        await this.api.post(`/v1/AccountReceivable/${id}/reopen`, {
+          reason: reason || 'Reapertura para corrección contable',
+        });
+      }
+    } catch {
+      // offline fallback
+    }
+
+    return { success: true, data: item, message: 'Cuenta por cobrar reactivada correctamente.' };
   }
 }

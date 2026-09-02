@@ -45,6 +45,7 @@
           { field: 'id', label: translationService.t('sales.table.saleId') },
           { field: 'date', label: translationService.t('sales.table.date') },
           { field: 'customer', label: translationService.t('sales.table.customer') },
+          { field: 'origin', label: 'Origen / Caja', align: 'center' },
           { field: 'total', label: translationService.t('sales.table.total'), align: 'end' },
           { field: 'paid', label: translationService.t('sales.table.paid'), align: 'end' },
           { field: 'status', label: translationService.t('sales.table.status'), align: 'center' },
@@ -58,6 +59,18 @@
           <td class="ps-4 font-monospace small">#{{ sale.id }}</td>
           <td>{{ sale.creationDate | date:'short' }}</td>
           <td class="fw-semibold text-dark">{{ getCustomerName(sale.customerId) }}</td>
+          <td class="text-center">
+            @if (sale.cashRegisterId) {
+              <span class="badge bg-info-subtle text-info-emphasis border border-info-subtle px-2 py-1 rounded-pill">
+                <svg cIcon name="cilCart" size="sm" class="me-1"></svg>
+                Caja #{{ sale.cashRegisterId }}
+              </span>
+            } @else {
+              <span class="badge bg-light text-secondary border px-2 py-1 rounded-pill">
+                Directa
+              </span>
+            }
+          </td>
           <td class="text-end">RD$ {{ sale.total | number:'1.2-2' }}</td>
           <td class="text-end text-success fw-semibold">RD$ {{ sale.paidAmount | number:'1.2-2' }}</td>
           <td class="text-center">
@@ -76,9 +89,17 @@
             }
           </td>
           <td class="text-center pe-4">
-            <button cButton color="light" size="sm" class="border shadow-sm text-secondary"
+            <button cButton color="light" size="sm" class="border shadow-sm text-secondary me-1"
+              (click)="openInvoiceForSale(sale)" title="Imprimir / Ver Factura">
+              <svg cIcon name="cilPrint" size="sm"></svg>
+            </button>
+            <button cButton color="light" size="sm" class="border shadow-sm text-secondary me-1"
               (click)="openDetailModal(sale)" [title]="translationService.t('sales.viewDetails')">
               <svg cIcon name="cilZoom" size="sm"></svg>
+            </button>
+            <button cButton color="light" size="sm" class="border shadow-sm text-danger"
+              (click)="openCreditNoteForSale(sale)" title="Emitir Nota de Crédito / Devolución">
+              <svg cIcon name="cilDescription" size="sm"></svg>
             </button>
           </td>
         </tr>
@@ -106,6 +127,7 @@
   #quickSaleModal
   [(visible)]="isQuickSaleModalOpen"
   (completed)="onSaleCreated()"
+  (saleCompleted)="onQuickSaleCompleted($event)"
 ></app-quick-sale-modal>
 
 <!-- Create Receivable Modal (Crédito -> Cobros) -->
@@ -115,8 +137,31 @@
   (saved)="onSaleCreated()"
 ></app-create-receivable-modal>
 
+<!-- Create Service Sale Modal (Servicios / Mano de Obra) -->
+<app-create-service-sale-modal
+  #createServiceSaleModal
+  [(visible)]="isCreateServiceModalOpen"
+  (saved)="onSaleCreated()"
+  (saleCompleted)="onQuickSaleCompleted($event)"
+></app-create-service-sale-modal>
+
 <!-- Modals for details & legacy creation -->
 <app-create-sale-modal #createSaleModal [(visible)]="isCreateModalOpen"
   (saleCreated)="onSaleCreated()"></app-create-sale-modal>
 <app-sale-detail-modal #saleDetailModal [(visible)]="isDetailModalOpen" [sale]="selectedSale"
   (closed)="selectedSale = null"></app-sale-detail-modal>
+
+<!-- Completed Sale / Invoice View & Printable Modal -->
+<app-sale-completed-modal
+  #saleCompletedModal
+  [(visible)]="isSaleCompletedModalOpen"
+  [saleData]="lastCompletedSale"
+  (newSaleRequested)="openCreateModal()"
+  (closed)="loadData()"
+></app-sale-completed-modal>
+
+<!-- Credit Note & Return Modal Form -->
+<app-credit-note-form
+  #creditNoteFormModal
+  (creditNoteCreated)="loadData()"
+></app-credit-note-form>

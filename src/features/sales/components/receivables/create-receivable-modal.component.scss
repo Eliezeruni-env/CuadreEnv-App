@@ -1,0 +1,81 @@
+.receivable-modal-container {
+  max-width: 580px;
+  width: 100%;
+  border-radius: 16px;
+}
+.modal-header-icon-box {
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+  background: rgba(79, 70, 229, 0.08);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.section-title {
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--cui-body-color, #1e293b);
+  margin-bottom: 0.85rem;
+}
+.required-label::after {
+  content: ' *';
+  color: #ef4444;
+}
+.form-label {
+  font-size: 0.83rem;
+  font-weight: 600;
+  color: var(--cui-secondary-color, #64748b);
+  margin-bottom: 0.35rem;
+}
+.currency-addon {
+  background-color: var(--cui-tertiary-bg, #f8fafc);
+  color: var(--cui-secondary-color, #475569);
+  font-size: 0.85rem;
+}
+.payment-plan-card {
+  background: #f8faff;
+  border: 1.5px solid #e0e7ff;
+  border-radius: 12px;
+  padding: 1.25rem;
+}
+:host-context([data-coreui-theme='dark']) .payment-plan-card {
+  background: rgba(79, 70, 229, 0.05);
+  border-color: rgba(99, 102, 241, 0.2);
+}
+.plan-card-title {
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: #4338ca;
+  margin-bottom: 1rem;
+}
+:host-context([data-coreui-theme='dark']) .plan-card-title {
+  color: #818cf8;
+}
+.plan-info-alert {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  padding: 0.75rem 1rem;
+  border-radius: 8px;
+  background: #eef2ff;
+  color: #4f46e5;
+  font-size: 0.82rem;
+  font-weight: 500;
+}
+:host-context([data-coreui-theme='dark']) .plan-info-alert {
+  background: rgba(79, 70, 229, 0.15);
+  color: #a5b4fc;
+}
+.btn-primary-custom {
+  background: #4f46e5 !important;
+  border-color: #4f46e5 !important;
+  color: #ffffff !important;
+  font-weight: 600;
+  border-radius: 8px;
+  transition: all 0.2s ease-in-out;
+}
+.btn-primary-custom:hover {
+  background: #4338ca !important;
+  border-color: #4338ca !important;
+}

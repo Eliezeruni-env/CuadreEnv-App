@@ -1,0 +1,166 @@
+<div class="container-fluid py-3">
+  <!-- Header -->
+  <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-4">
+    <div>
+      <h3 class="fw-bold text-dark mb-1">Recepciones de Órdenes de Compra</h3>
+      <p class="text-secondary small mb-0">Control de entradas de mercancía física recibida de suplidores</p>
+    </div>
+    <button type="button" class="btn btn-primary fw-semibold d-flex align-items-center gap-2 shadow-sm" (click)="goToNewReceipt()">
+      <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <line x1="12" y1="5" x2="12" y2="19"></line>
+        <line x1="5" y1="12" x2="19" y2="12"></line>
+      </svg>
+      Nueva Recepción de Mercancía
+    </button>
+  </div>
+
+  <!-- Table Card -->
+  <div class="card border-0 shadow-sm rounded-4 overflow-hidden mb-4">
+    <div class="p-3 border-bottom d-flex justify-content-between align-items-center bg-white">
+      <h6 class="fw-bold text-dark mb-0">Historial de Recepciones Físicas</h6>
+      <input
+        type="text"
+        class="form-control form-control-sm"
+        placeholder="Buscar por número, OC, suplidor..."
+        style="width: 280px;"
+        [(ngModel)]="searchTerm"
+      />
+    </div>
+
+    <div class="table-responsive">
+      <table class="table align-middle mb-0 small">
+        <thead class="table-light">
+          <tr>
+            <th class="ps-4">No. Recepción</th>
+            <th>Orden Origen</th>
+            <th>Proveedor / Suplidor</th>
+            <th>Almacén Destino</th>
+            <th>Fecha</th>
+            <th class="text-center">Variaciones</th>
+            <th class="text-center">Estado</th>
+            <th class="text-center pe-4">Acciones</th>
+          </tr>
+        </thead>
+        <tbody>
+          @if (isLoading()) {
+            <tr>
+              <td colspan="8" class="text-center py-5 text-secondary">
+                <span class="spinner-border spinner-border-sm me-2"></span>
+                Cargando recepciones...
+              </td>
+            </tr>
+          } @else if (filteredReceipts().length === 0) {
+            <tr>
+              <td colspan="8" class="text-center py-5 text-secondary">
+                No se encontraron recepciones de compra registradas.
+              </td>
+            </tr>
+          } @else {
+            @for (r of pagedReceipts(); track r.id) {
+              <tr>
+                <td class="ps-4">
+                  <div class="fw-bold font-monospace text-dark">{{ r.receiptNumber }}</div>
+                </td>
+                <td>
+                  <span class="badge bg-light text-primary border font-monospace">{{ r.purchaseOrderNumber }}</span>
+                </td>
+                <td class="fw-semibold text-dark">{{ r.supplierName }}</td>
+                <td>
+                  <span class="badge bg-light text-secondary border font-monospace">{{ r.warehouseName }}</span>
+                </td>
+                <td class="text-secondary">
+                  {{ r.receiptDate | date:'dd/MM/yyyy hh:mm a' }}
+                </td>
+                <td class="text-center">
+                  @if (r.hasDiscrepancies) {
+                    <span class="badge bg-warning-subtle text-warning-emphasis border border-warning-subtle">
+                      ⚠️ Con Variaciones
+                    </span>
+                  } @else {
+                    <span class="badge bg-success-subtle text-success border border-success-subtle">
+                      ✓ Exacto
+                    </span>
+                  }
+                </td>
+                <td class="text-center">
+                  <span
+                    class="badge"
+                    [ngClass]="r.statusId === 1 ? 'bg-success-subtle text-success border border-success-subtle' : 'bg-warning-subtle text-warning-emphasis border border-warning-subtle'"
+                  >
+                    {{ r.statusName || 'Aplicado' }}
+                  </span>
+                </td>
+                <td class="text-center pe-4">
+                  <button type="button" class="btn btn-sm btn-light border text-secondary" (click)="viewReceipt(r)" title="Ver Comprobante">
+                    👁
+                  </button>
+                </td>
+              </tr>
+            }
+          }
+        </tbody>
+      </table>
+    </div>
+
+    <app-list-pagination
+      [currentPage]="currentPage()"
+      [pageSize]="pageSize()"
+      [totalItems]="filteredReceipts().length"
+      label="recepciones"
+      (pageChange)="onPageChange($event)"
+    ></app-list-pagination>
+  </div>
+</div>
+
+<!-- Modal Detail Voucher -->
+@if (selectedReceipt) {
+  <div class="custom-modal-backdrop" (click)="selectedReceipt = null">
+    <div class="custom-modal-content" (click)="$event.stopPropagation()" style="max-width: 650px;">
+      <div class="p-3 border-bottom d-flex justify-content-between align-items-center bg-light">
+        <h6 class="fw-bold mb-0 text-dark">Comprobante de Recepción de Mercancía</h6>
+        <button type="button" class="btn-close" (click)="selectedReceipt = null"></button>
+      </div>
+      <div class="p-4" id="poReceiptPrint">
+        <div class="d-flex justify-content-between border-bottom pb-3 mb-3">
+          <div>
+            <h5 class="fw-bold mb-0 font-monospace text-primary">{{ selectedReceipt.receiptNumber }}</h5>
+            <div class="text-secondary small">Fecha: {{ selectedReceipt.receiptDate | date:'dd/MM/yyyy hh:mm a' }}</div>
+          </div>
+          <div class="text-end">
+            <span class="badge bg-light text-primary border font-monospace mb-1">
+              Ref: {{ selectedReceipt.purchaseOrderNumber }}
+            </span>
+            <div class="text-dark fw-bold small">{{ selectedReceipt.supplierName }}</div>
+          </div>
+        </div>
+
+        <div class="table-responsive border rounded-2 mb-3">
+          <table class="table table-sm align-middle mb-0 small">
+            <thead class="table-light">
+              <tr>
+                <th class="ps-3">Producto</th>
+                <th class="text-center">Cant. Ordenada</th>
+                <th class="text-center">Cant. Recibida</th>
+                <th class="text-end pe-3">Costo Unit.</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (item of selectedReceipt.productDetails; track $index) {
+                <tr>
+                  <td class="ps-3 fw-semibold">{{ item.productName }}</td>
+                  <td class="text-center font-monospace text-secondary">{{ item.quantityOrdered }} uds</td>
+                  <td class="text-center font-monospace fw-bold text-primary">{{ item.quantityReceived }} uds</td>
+                  <td class="text-end pe-3 font-monospace">RD$ {{ item.unitCost | number:'1.2-2' }}</td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+      </div>
+      <div class="p-3 border-top bg-light d-flex justify-content-end gap-2">
+        <button type="button" class="btn btn-light border" (click)="selectedReceipt = null">Cerrar</button>
+        <button type="button" class="btn btn-primary fw-semibold" (click)="printVoucher()">Imprimir Comprobante</button>
+      </div>
+    </div>
+  </div>
+}

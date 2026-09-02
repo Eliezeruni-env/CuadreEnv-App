@@ -14,7 +14,7 @@ import {
 @Component({
   selector: 'app-page404',
   templateUrl: './page404.component.html',
-  imports: [ContainerComponent, RowComponent, ColComponent, InputGroupComponent, InputGroupTextDirective, IconDirective, FormControlDirective, ButtonDirective]
+  imports: [ContainerComponent, RowComponent, ColComponent]
 })
 export class Page404Component {
   readonly translationService = inject(TranslationService);

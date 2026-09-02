@@ -71,9 +71,14 @@
                     <td class="ps-4 font-monospace small">#{{ cat.id }}</td>
                     <td class="fw-semibold text-dark">{{ cat.description }}</td>
                     <td class="text-center">
-                      <button cButton color="danger" size="sm" class="text-white border-0" title="Eliminar" (click)="deleteCategory(cat)">
-                        <svg cIcon name="cilTrash" size="sm"></svg>
-                      </button>
+                      <div class="d-flex justify-content-center gap-1">
+                        <button cButton color="light" size="sm" class="border" title="Editar" (click)="openEditCategory(cat)">
+                          <svg cIcon name="cilPencil" size="sm" class="text-primary"></svg>
+                        </button>
+                        <button cButton color="danger" size="sm" class="text-white border-0" title="Eliminar" (click)="deleteCategory(cat)">
+                          <svg cIcon name="cilTrash" size="sm"></svg>
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 }
@@ -112,7 +117,7 @@
           <div class="text-center py-5 px-4">
             <svg cIcon name="cilStorage" size="xl" class="text-body-secondary mb-3" style="width: 48px; height: 48px;"></svg>
             <h5 class="fw-bold text-dark">No hay tipos de producto registrados</h5>
-            <p class="text-body-secondary mt-1">Crea tipos de producto para clasificar la naturaleza de tus artículos.</p>
+            <p class="text-body-secondary mt-1">Crea un tipo para clasificar cómo se comportan tus productos.</p>
           </div>
         } @else {
           <div class="table-responsive">
@@ -132,7 +137,7 @@
                     <td class="text-center">
                       <div class="d-flex justify-content-center gap-1">
                         <button cButton color="light" size="sm" class="border" title="Editar" (click)="openEditType(type)">
-                          <svg cIcon name="cilPencil" size="sm"></svg>
+                          <svg cIcon name="cilPencil" size="sm" class="text-primary"></svg>
                         </button>
                         <button cButton color="danger" size="sm" class="text-white border-0" title="Eliminar" (click)="deleteType(type)">
                           <svg cIcon name="cilTrash" size="sm"></svg>
@@ -160,12 +165,12 @@
 
 <!-- Modals -->
 
-<!-- 1. Category Create Modal -->
+<!-- 1. Category Create/Edit Modal -->
 @if (isCategoryModalVisible) {
   <div class="custom-modal-backdrop" (click)="closeCategoryModal()">
     <div class="custom-modal-content" (click)="$event.stopPropagation()">
       <div class="custom-modal-header">
-        <h5 class="fw-bold">Nueva Categoría</h5>
+        <h5 class="fw-bold">{{ editingCategory ? 'Editar Categoría' : 'Nueva Categoría' }}</h5>
         <button type="button" class="btn-close" (click)="closeCategoryModal()" aria-label="Close"></button>
       </div>
       <div class="custom-modal-body">
@@ -185,7 +190,7 @@
           @if (isLoading()) {
             <c-spinner size="sm" class="me-2"></c-spinner> Guardando...
           } @else {
-            Guardar
+            {{ editingCategory ? 'Guardar Cambios' : 'Crear Categoría' }}
           }
         </button>
       </div>

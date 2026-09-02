@@ -4,72 +4,112 @@ export const navItems: INavData[] = [
   {
     name: 'Dashboard',
     url: '/dashboard',
-    iconComponent: { name: 'cil-speedometer' }
+    iconComponent: { name: 'cil-speedometer' },
   },
   {
     title: true,
-    name: 'Operaciones Comerciales'
+    name: 'Operaciones Comerciales',
   },
   {
     name: 'Ventas',
     url: '/sales',
-    iconComponent: { name: 'cil-cart' }
+    iconComponent: { name: 'cil-cart' },
+  },
+  {
+    name: 'Facturación & NCF',
+    url: '/billing',
+    iconComponent: { name: 'cil-notes' },
   },
   {
     name: 'Caja',
     url: '/cash-register',
-    iconComponent: { name: 'cil-calculator' }
+    iconComponent: { name: 'cil-calculator' },
   },
   {
     name: 'Cobros',
     url: '/receivables',
-    iconComponent: { name: 'cil-dollar' }
+    iconComponent: { name: 'cil-dollar' },
+  },
+  {
+    name: 'Notas de Crédito',
+    url: '/credit-notes',
+    iconComponent: { name: 'cil-description' },
   },
   {
     name: 'Clientes',
     url: '/customers',
-    iconComponent: { name: 'cil-user' }
+    iconComponent: { name: 'cil-user' },
   },
   {
     title: true,
-    name: 'Catálogo e Inventario'
+    name: 'Inventario & Almacenes',
   },
   {
-    name: 'Inventario y Almacenes',
-    url: '/inventory',
-    iconComponent: { name: 'cil-swap-horizontal' }
+    name: 'Control de Stock',
+    url: '/inventory/stock',
+    iconComponent: { name: 'cil-storage' },
   },
   {
-    name: 'Productos',
+    name: 'Entradas de Almacén',
+    url: '/inventory/entries',
+    iconComponent: { name: 'cil-arrow-right' },
+  },
+  {
+    name: 'Salidas de Almacén',
+    url: '/inventory/outlets',
+    iconComponent: { name: 'cil-arrow-left' },
+  },
+  {
+    name: 'Transferencias',
+    url: '/inventory/transfers',
+    iconComponent: { name: 'cil-swap-horizontal' },
+  },
+  {
+    name: 'Almacenes & Depósitos',
+    url: '/inventory/warehouses',
+    iconComponent: { name: 'cil-home' },
+  },
+  {
+    name: 'Autorizaciones / Auditoría',
+    url: '/inventory/manage-requests',
+    iconComponent: { name: 'cil-check-circle' },
+  },
+  {
+    name: 'Catálogo de Productos',
     url: '/products',
-    iconComponent: { name: 'cil-storage' }
+    iconComponent: { name: 'cil-layers' },
   },
   {
     name: 'Categorías y Tipos',
     url: '/products/settings',
-    iconComponent: { name: 'cil-settings' }
+    iconComponent: { name: 'cil-settings' },
   },
   {
     title: true,
-    name: 'Contabilidad y Proveedores'
+    name: 'Compras & Proveedores',
   },
   {
-    name: 'Compras',
+    name: 'Órdenes de Compra',
     url: '/purchases',
-    iconComponent: { name: 'cil-truck' }
+    iconComponent: { name: 'cil-truck' },
+  },
+  {
+    name: 'Recepciones de Mercancía',
+    url: '/purchases/receipts',
+    iconComponent: { name: 'cil-task' },
   },
   {
     name: 'Pagos a Proveedores',
     url: '/payments',
-    iconComponent: { name: 'cil-credit-card' }
+    iconComponent: { name: 'cil-credit-card' },
   },
   {
     title: true,
-    name: 'Administración'
+    name: 'Administración',
   },
   {
     name: 'Usuarios y Equipo',
     url: '/users',
-    iconComponent: { name: 'cil-people' }
-  }
+    iconComponent: { name: 'cil-people' },
+  },
 ];

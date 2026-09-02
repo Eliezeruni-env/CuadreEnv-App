@@ -4,15 +4,67 @@ import { CashRegisterService } from './cash-register.service';
 
 describe('CashRegisterService', () => {
   let service: CashRegisterService;
+  let mockRegisters: any[] = [];
+  let mockMovements: any[] = [];
 
   beforeEach(() => {
     if (typeof window !== 'undefined' && window.localStorage) {
       window.localStorage.clear();
     }
 
+    mockRegisters = [];
+    mockMovements = [];
+
     const mockApi: any = {
-      get: vi.fn().mockResolvedValue([]),
-      post: vi.fn().mockResolvedValue({ id: 10, success: true }),
+      get: vi.fn().mockImplementation((url: string) => {
+        if (url === '/CashRegister') {
+          return Promise.resolve(mockRegisters);
+        }
+        if (url === '/CashMovement') {
+          return Promise.resolve(mockMovements);
+        }
+        return Promise.resolve([]);
+      }),
+      post: vi.fn().mockImplementation((url: string, body?: any) => {
+        if (url === '/CashRegister/open') {
+          const reg = {
+            id: 1,
+            name: body?.name || 'Caja Principal',
+            balance: body?.balance || 0,
+            isOpen: true,
+            createdDate: new Date().toISOString(),
+          };
+          mockRegisters.push(reg);
+          return Promise.resolve(reg);
+        }
+        if (url.includes('/close')) {
+          const reg = mockRegisters.find((r) => r.isOpen);
+          if (reg) {
+            reg.isOpen = false;
+            const match = url.match(/closingAmount=([0-9.]+)/);
+            if (match) {
+              reg.balance = Number(match[1]);
+            }
+            reg.updatedDate = new Date().toISOString();
+          }
+          return Promise.resolve({ success: true });
+        }
+        if (url === '/CashMovement') {
+          const mov = {
+            id: mockMovements.length + 1,
+            amount: body?.amount || 0,
+            type: body?.type || 'In',
+            description: body?.description || '',
+            createdDate: new Date().toISOString(),
+          };
+          mockMovements.push(mov);
+          return Promise.resolve(mov);
+        }
+        if (url === '/Sale') {
+          return Promise.resolve({ id: 101, success: true });
+        }
+        return Promise.resolve({ success: true });
+      }),
       put: vi.fn().mockResolvedValue({ success: true }),
       delete: vi.fn().mockResolvedValue({ success: true }),
     };

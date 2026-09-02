@@ -272,6 +272,9 @@ export interface CashRegisterDto {
   isOpen: boolean;
   balance: number;
   companyId?: number;
+  cashierId?: number;
+  createdDate?: string;
+  updatedDate?: string;
 }
 
 // CashMovement

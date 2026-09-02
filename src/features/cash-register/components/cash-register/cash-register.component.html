@@ -149,7 +149,7 @@
                 </tr>
               </thead>
               <tbody>
-                @for (h of sessionHistory(); track h.id) {
+                @for (h of pagedHistory(); track h.id) {
                   <tr>
                     <td class="font-monospace small fw-bold">#{{ h.id }}</td>
                     <td class="fw-semibold text-body">{{ h.name }}</td>
@@ -182,6 +182,13 @@
               </tbody>
             </table>
           </div>
+          <app-list-pagination
+            [currentPage]="historyPage()"
+            [pageSize]="historyPageSize()"
+            [totalItems]="sessionHistory().length"
+            label="turnos anteriores"
+            (pageChange)="onHistoryPageChange($event)"
+          ></app-list-pagination>
         </div>
       </div>
     }
@@ -479,7 +486,7 @@
             </tr>
           </thead>
           <tbody>
-            @for (m of filteredMovements(); track m.id) {
+            @for (m of pagedMovements(); track m.id) {
               <tr>
                 <td class="small text-muted">{{ m.date }}</td>
                 <td>
@@ -522,6 +529,13 @@
           </tbody>
         </table>
       </div>
+      <app-list-pagination
+        [currentPage]="movementsPage()"
+        [pageSize]="movementsPageSize()"
+        [totalItems]="filteredMovements().length"
+        label="movimientos"
+        (pageChange)="onMovementsPageChange($event)"
+      ></app-list-pagination>
     </div>
 
     <!-- 5. Bottom Summary Bar (3 columns in a rounded soft card) -->
@@ -560,6 +574,7 @@
   #quickSaleModal
   [(visible)]="isQuickSaleModalOpen"
   (completed)="loadData()"
+  (saleCompleted)="onQuickSaleCompleted($event)"
 ></app-quick-sale-modal>
 
 <app-manual-movement-modal
@@ -574,3 +589,12 @@
   [session]="activeSession()"
   (closed)="loadData()"
 ></app-close-register-modal>
+
+<!-- Sale Completed / Invoice Printable Receipt Modal -->
+<app-sale-completed-modal
+  #saleCompletedModal
+  [(visible)]="isSaleCompletedModalOpen"
+  [saleData]="lastCompletedSale"
+  (newSaleRequested)="openQuickSaleModal()"
+  (closed)="loadData()"
+></app-sale-completed-modal>

@@ -291,19 +291,21 @@
                     <div class="saas-timeline-content">
                       <div class="d-flex justify-content-between align-items-baseline">
                         <span class="fw-semibold text-dark">
-                          {{ movement.type === 'Inbound' ? 'Registro de Entrada' : (movement.type === 'Outbound' ? 'Registro de Salida' : (movement.type === 'Transfer' ? 'Transferencia' : 'Acción Auditada')) }}
+                          {{ getMovementTypeLabel(movement.type) }}
                         </span>
-                        <span class="text-secondary small font-size-xs">{{ getDaysAgoMock(idx) }}</span>
+                        <span class="text-secondary small font-size-xs">{{ formatMovementTime(movement) }}</span>
                       </div>
                       <p class="text-body-secondary small mb-1 mt-0.5">
-                        Creación/movimiento de <strong>{{ movement.quantity }} unidad(es)</strong> de <strong>{{ getProductName(movement.productId) }}</strong>.
+                        <strong>{{ movement.quantity }} unidad(es)</strong> de <strong>{{ getProductName(movement.productId) }}</strong>.
                         @if (movement.toWarehouseId) {
                           Destino: <span class="fw-semibold">{{ getWarehouseName(movement.toWarehouseId) }}</span>.
                         }
                       </p>
                       <div class="d-flex align-items-center gap-2">
-                        <span class="badge bg-light text-secondary font-monospace border font-size-xs">AUDIT ID #{{ movement.id }}</span>
-                        <span class="text-secondary font-size-xs">Empresa Inquilina: Autenticada</span>
+                        <span class="badge bg-light text-secondary font-monospace border font-size-xs">MOV #{{ movement.id }}</span>
+                        @if (movement.fromWarehouseId) {
+                          <span class="text-secondary font-size-xs">Origen: {{ getWarehouseName(movement.fromWarehouseId) }}</span>
+                        }
                       </div>
                     </div>
                   </div>

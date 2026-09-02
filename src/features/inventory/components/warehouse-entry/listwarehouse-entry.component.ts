@@ -1,0 +1,80 @@
+import { Component, OnInit, signal, computed, inject } from '@angular/core';
+import { CommonModule } from '@angular/common';
+import { FormsModule } from '@angular/forms';
+import { Router } from '@angular/router';
+import { WarehouseEntryService } from '../../services/warehouse-entry.service';
+import { ListPaginationComponent } from '../../../cuadreEnv/components/list-pagination/list-pagination.component';
+import type { WarehouseEntry } from '../../../../app/models/movement';
+
+@Component({
+  selector: 'app-listwarehouse-entry',
+  standalone: true,
+  imports: [CommonModule, FormsModule, ListPaginationComponent],
+  templateUrl: './listwarehouse-entry.component.html',
+  styleUrls: ['./listwarehouse-entry.component.scss'],
+})
+export class ListwarehouseEntryComponent implements OnInit {
+  private entryService = inject(WarehouseEntryService);
+  private router = inject(Router);
+
+  entries = signal<WarehouseEntry[]>([]);
+  isLoading = signal<boolean>(false);
+  searchTerm = '';
+
+  currentPage = signal<number>(1);
+  pageSize = signal<number>(10);
+
+  selectedEntry: WarehouseEntry | null = null;
+
+  readonly filteredEntries = computed(() => {
+    const q = this.searchTerm.toLowerCase().trim();
+    if (!q) return this.entries();
+    return this.entries().filter(
+      (e) =>
+        (e.movementNumber || '').toLowerCase().includes(q) ||
+        (e.warehouseName || '').toLowerCase().includes(q) ||
+        (e.conceptName || '').toLowerCase().includes(q) ||
+        (e.commentary || '').toLowerCase().includes(q),
+    );
+  });
+
+  readonly pagedEntries = computed(() => {
+    const list = this.filteredEntries();
+    const start = (this.currentPage() - 1) * this.pageSize();
+    return list.slice(start, start + this.pageSize());
+  });
+
+  ngOnInit() {
+    this.loadEntries();
+  }
+
+  async loadEntries() {
+    this.isLoading.set(true);
+    try {
+      const res = await this.entryService.getEntries();
+      if (res?.success && res.data) {
+        this.entries.set(res.data);
+      }
+    } catch {
+      // ignore
+    } finally {
+      this.isLoading.set(false);
+    }
+  }
+
+  onPageChange(page: number) {
+    this.currentPage.set(page);
+  }
+
+  goToCreate() {
+    this.router.navigate(['/inventory/entries/create']);
+  }
+
+  viewDetail(entry: WarehouseEntry) {
+    this.selectedEntry = entry;
+  }
+
+  printVoucher() {
+    window.print();
+  }
+}

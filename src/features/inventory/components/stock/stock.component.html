@@ -1,0 +1,161 @@
+<div class="container-fluid py-3">
+  <!-- Header -->
+  <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-4">
+    <div>
+      <h3 class="fw-bold text-dark mb-1">Control de Stock y Existencias</h3>
+      <p class="text-secondary small mb-0">Monitoreo de inventario en tiempo real por almacén con semáforos de nivel</p>
+    </div>
+    <div class="d-flex gap-2">
+      <button type="button" class="btn btn-light border d-flex align-items-center gap-1.5" (click)="loadData()">
+        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <polyline points="23 4 23 10 17 10"></polyline>
+          <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"></path>
+        </svg>
+        Actualizar
+      </button>
+    </div>
+  </div>
+
+  <!-- KPI Summary Cards -->
+  <div class="row g-3 mb-4">
+    <div class="col-sm-6 col-xl-3">
+      <div class="card border rounded-3 p-3 bg-white shadow-sm h-100">
+        <div class="text-secondary small fw-semibold">Unidades en Inventario</div>
+        <h3 class="fw-bold text-dark mb-0 font-monospace">{{ totalUnits() }} uds</h3>
+      </div>
+    </div>
+    <div class="col-sm-6 col-xl-3">
+      <div class="card border rounded-3 p-3 bg-white shadow-sm h-100">
+        <div class="text-secondary small fw-semibold">Valorización de Stock</div>
+        <h3 class="fw-bold text-primary mb-0 font-monospace">RD$ {{ totalValuation() | number:'1.2-2' }}</h3>
+      </div>
+    </div>
+    <div class="col-sm-6 col-xl-3">
+      <div class="card border rounded-3 p-3 bg-white shadow-sm h-100">
+        <div class="text-secondary small fw-semibold">Agotados / Críticos</div>
+        <h3 class="fw-bold text-danger mb-0 font-monospace">{{ criticalCount() }}</h3>
+      </div>
+    </div>
+    <div class="col-sm-6 col-xl-3">
+      <div class="card border rounded-3 p-3 bg-white shadow-sm h-100">
+        <div class="text-secondary small fw-semibold">Bajo Stock Mínimo</div>
+        <h3 class="fw-bold text-warning-emphasis mb-0 font-monospace">{{ lowCount() }}</h3>
+      </div>
+    </div>
+  </div>
+
+  <!-- Filter & Table Card -->
+  <div class="card border-0 shadow-sm rounded-4 overflow-hidden mb-4">
+    <!-- Filters Toolbar -->
+    <div class="p-3 border-bottom bg-white d-flex justify-content-between align-items-center flex-wrap gap-2">
+      <div class="d-flex align-items-center flex-wrap gap-2">
+        <!-- Warehouse Selector -->
+        <select
+          class="form-select form-select-sm"
+          style="width: 220px;"
+          [(ngModel)]="selectedWarehouseId"
+          (ngModelChange)="onFilterChange()"
+        >
+          <option value="">Todos los Almacenes</option>
+          @for (w of warehouses(); track w.id) {
+            <option [ngValue]="w.id">{{ w.name }}</option>
+          }
+        </select>
+
+        <!-- Status Filter -->
+        <select
+          class="form-select form-select-sm"
+          style="width: 180px;"
+          [(ngModel)]="statusFilter"
+          (ngModelChange)="onFilterChange()"
+        >
+          <option value="ALL">Todos los Estados</option>
+          <option value="CRITICAL">🔴 Agotado (≤ 0)</option>
+          <option value="LOW">🟡 Stock Mínimo</option>
+          <option value="NORMAL">🟢 Normal</option>
+          <option value="OVERSTOCK">🟣 Sobre-stock</option>
+        </select>
+      </div>
+
+      <!-- Search Input -->
+      <input
+        type="text"
+        class="form-control form-control-sm"
+        placeholder="Buscar por producto, código, almacén..."
+        style="width: 260px;"
+        [(ngModel)]="searchTerm"
+        (input)="onFilterChange()"
+      />
+    </div>
+
+    <!-- Table -->
+    <div class="table-responsive">
+      <table class="table table-hover align-middle mb-0 small">
+        <thead class="table-light">
+          <tr>
+            <th class="ps-4">Producto</th>
+            <th>Código</th>
+            <th>Almacén</th>
+            <th class="text-center">Existencia</th>
+            <th class="text-center">Mín / Máx</th>
+            <th class="text-end">Costo Ref.</th>
+            <th class="text-end">Valor Total</th>
+            <th class="text-center pe-4">Estado</th>
+          </tr>
+        </thead>
+        <tbody>
+          @if (isLoading()) {
+            <tr>
+              <td colspan="8" class="text-center py-5 text-secondary">
+                <span class="spinner-border spinner-border-sm me-2"></span>
+                Cargando existencias...
+              </td>
+            </tr>
+          } @else if (filteredStock().length === 0) {
+            <tr>
+              <td colspan="8" class="text-center py-5 text-secondary">
+                No se encontraron registros de stock con los filtros aplicados.
+              </td>
+            </tr>
+          } @else {
+            @for (s of pagedStock(); track s.id) {
+              @let status = stockService.getStockStatus(s.quantity, s.minimumQuantity || 5, s.maximumQuantity || 100);
+              <tr>
+                <td class="ps-4">
+                  <div class="fw-bold text-dark">{{ s.productName }}</div>
+                </td>
+                <td class="font-monospace text-secondary">{{ s.barcode || '-' }}</td>
+                <td>
+                  <span class="badge bg-light text-secondary border font-monospace">{{ s.warehouseName }}</span>
+                </td>
+                <td class="text-center font-monospace fw-bold fs-6" [style.color]="status.color">
+                  {{ s.quantity }} uds
+                </td>
+                <td class="text-center font-monospace text-secondary" style="font-size: 0.75rem;">
+                  {{ s.minimumQuantity || 5 }} / {{ s.maximumQuantity || 100 }}
+                </td>
+                <td class="text-end font-monospace">RD$ {{ (s.cost || s.price || 0) | number:'1.2-2' }}</td>
+                <td class="text-end font-monospace fw-bold text-primary">
+                  RD$ {{ (s.quantity * (s.cost || s.price || 0)) | number:'1.2-2' }}
+                </td>
+                <td class="text-center pe-4">
+                  <span class="badge" [ngClass]="status.badgeClass">
+                    {{ status.label }}
+                  </span>
+                </td>
+              </tr>
+            }
+          }
+        </tbody>
+      </table>
+    </div>
+
+    <app-list-pagination
+      [currentPage]="currentPage()"
+      [pageSize]="pageSize()"
+      [totalItems]="filteredStock().length"
+      label="registros de stock"
+      (pageChange)="onPageChange($event)"
+    ></app-list-pagination>
+  </div>
+</div>

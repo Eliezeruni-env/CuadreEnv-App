@@ -1,0 +1,52 @@
+.close-register-container {
+  max-width: 540px;
+  width: 100%;
+  border-radius: 16px;
+}
+.close-icon-box {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background: #fee2e2;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.cuadre-summary-card {
+  background: var(--cui-tertiary-bg, #f8fafc);
+  border: 1px solid var(--cui-border-color, #e2e8f0);
+  border-radius: 12px;
+  padding: 1.1rem;
+}
+.required-label::after {
+  content: ' *';
+  color: #ef4444;
+}
+.form-label {
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--cui-secondary-color, #64748b);
+  margin-bottom: 0.3rem;
+}
+.currency-addon {
+  background-color: var(--cui-tertiary-bg, #f8fafc);
+}
+.diff-indicator-box {
+  border-radius: 8px;
+  padding: 0.75rem 1rem;
+}
+.box-exact {
+  background: #f0fdf4;
+  border: 1px solid #bbf7d0;
+}
+.box-shortage {
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+}
+.box-surplus {
+  background: #eff6ff;
+  border: 1px solid #bfdbfe;
+}
+.font-size-xs {
+  font-size: 0.72rem;
+}
