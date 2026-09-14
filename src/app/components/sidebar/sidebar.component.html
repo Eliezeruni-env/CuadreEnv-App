@@ -6,9 +6,10 @@
   <!-- Brand Header -->
   <div class="sidebar-header d-flex align-items-center justify-content-between px-3">
     <a [routerLink]="['/dashboard']" class="brand-link d-flex align-items-center gap-2 text-decoration-none">
-      <img src="assets/brand/cuadreEnv-logo.png" alt="Logo" class="brand-logo" />
       @if (sidebarVisible) {
-        <span class="brand-text fw-bold text-white fs-5 tracking-tight">CuadreEnv</span>
+        <img src="assets/brand/cuadreEnv-logo-white.png" alt="CuadreEnv" style="height: 42px; width: auto; max-width: 180px; object-fit: contain;" />
+      } @else {
+        <img src="assets/brand/cuadreEnv-signet-white.png" alt="CuadreEnv" style="height: 36px; width: auto; object-fit: contain;" />
       }
     </a>
     <button

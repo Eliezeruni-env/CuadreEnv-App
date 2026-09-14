@@ -5,12 +5,15 @@ import {
   EventEmitter,
   inject,
   ViewChild,
+  signal,
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { NotificationService } from '../../../cuadreEnv/services/notification.service';
 import { TranslationService } from '../../../cuadreEnv/services/translation.service';
 import { IconDirective } from '@coreui/icons-angular';
 import { SendInvoiceEmailModalComponent } from '../../../../app/shared/components/send-invoice-email-modal/send-invoice-email-modal.component';
+
+import { CompanyService } from '../../../companies/services/company.service';
 
 export interface CompletedSaleItem {
   productId?: number;
@@ -52,6 +55,7 @@ export class SaleCompletedModalComponent {
 
   readonly translationService = inject(TranslationService);
   private notificationService = inject(NotificationService);
+  readonly companyService = inject(CompanyService);
 
   @Input() visible = false;
   @Input() saleData: CompletedSaleDto | null = null;
@@ -61,6 +65,7 @@ export class SaleCompletedModalComponent {
   @Output() closed = new EventEmitter<void>();
 
   isEmailModalOpen = false;
+  isTicketMode = signal<boolean>(false);
 
   get formattedDate(): string {
     if (this.saleData?.date) {
@@ -103,20 +108,58 @@ export class SaleCompletedModalComponent {
   }
 
   printInvoice() {
+    this.isTicketMode.set(false);
     setTimeout(() => {
       window.print();
+    }, 150);
+  }
+
+  printTicket() {
+    this.isTicketMode.set(true);
+    setTimeout(() => {
+      window.print();
+      setTimeout(() => {
+        this.isTicketMode.set(false);
+      }, 500);
     }, 150);
   }
 
   sendEmail() {
     if (!this.saleData) return;
     const invNumber = this.saleData.invoiceNumber || ('VTA-' + (this.saleData.id || '000123'));
+    const company = this.companyService.currentSettings();
+    const emailData = {
+      saleId: this.saleData.id,
+      invoiceNumber: invNumber,
+      customerName: this.saleData.customerName || 'Consumidor final',
+      customerRnc: this.saleData.customerRnc || '000-0000000-0',
+      cashRegisterName: this.saleData.cashRegisterName || 'Caja Principal',
+      cashierName: this.saleData.cashierName || 'Admin',
+      paymentMethod: this.saleData.paymentMethod || 'Efectivo',
+      totalAmount: this.saleData.total || 0,
+      subtotal: this.saleData.subtotal || 0,
+      discount: this.saleData.discount || 0,
+      itbis: this.saleData.itbis || 0,
+      notes: this.saleData.notes || '',
+      date: this.formattedDate,
+      items: (this.saleData.items || []).map((i) => ({
+        productName: i.productName,
+        productCode: i.productCode,
+        quantity: i.quantity,
+        unitPrice: i.unitPrice,
+        total: i.total,
+      })),
+      companyName: company?.companyName || 'CuadreEnv, SRL',
+      commercialName: company?.commercialName || 'Soluciones de Facturación & Control',
+      companyRnc: company?.rnc || '1-01-00000-0',
+      companyAddress: company?.address || 'Santo Domingo, República Dominicana',
+      companyPhone: company?.phone || '(809) 555-0199',
+      logoUrl: company?.logoUrl || '',
+      invoiceFooterPhrase: company?.invoiceFooterPhrase || '¡Gracias por su preferencia!',
+    };
+
     if (this.sendEmailModal) {
-      this.sendEmailModal.open({
-        invoiceNumber: invNumber,
-        customerName: this.saleData.customerName || 'Consumidor Final',
-        totalAmount: this.saleData.total || 0,
-      });
+      this.sendEmailModal.open(emailData);
     } else {
       this.isEmailModalOpen = true;
     }

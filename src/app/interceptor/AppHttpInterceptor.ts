@@ -10,8 +10,11 @@ import {
 import { Observable, catchError, throwError } from 'rxjs';
 import { NotificationService } from '../features/erp/services/notification.service';
 
+import { Router } from '@angular/router';
+
 export const appHttpInterceptorFn: HttpInterceptorFn = (req, next) => {
   const notificationService = inject(NotificationService, { optional: true });
+  const router = inject(Router, { optional: true });
 
   return next(req).pipe(
     catchError((error: HttpErrorResponse) => {
@@ -22,6 +25,9 @@ export const appHttpInterceptorFn: HttpInterceptorFn = (req, next) => {
       } else {
         if (error.status === 401) {
           errorMessage = 'Sesión expirada o no autorizada. Por favor inicie sesión nuevamente.';
+          if (router && !router.url.includes('/login')) {
+            router.navigate(['/login']);
+          }
         } else if (error.status === 403) {
           errorMessage = 'No tiene permisos suficientes para realizar esta acción.';
         } else if (error.status === 404) {
@@ -33,7 +39,15 @@ export const appHttpInterceptorFn: HttpInterceptorFn = (req, next) => {
         }
       }
 
-      if (notificationService && error.status !== 401) {
+      const isMuted =
+        req.headers.has('X-Silent-Error') ||
+        (req.method === 'GET' &&
+          (req.url.includes('/CashRegister') ||
+            req.url.includes('/users') ||
+            req.url.includes('/Warehouse') ||
+            req.url.includes('/PurchaseOrderReceipt')));
+
+      if (notificationService && error.status !== 401 && !isMuted) {
         notificationService.error(errorMessage);
       }
 
@@ -72,7 +86,11 @@ export class AppHttpInterceptor implements HttpInterceptor {
           }
         }
 
-        if (this.notificationService && error.status !== 401) {
+        const isMuted =
+          req.headers.has('X-Silent-Error') ||
+          (req.method === 'GET' && (req.url.includes('/CashRegister') || req.url.includes('/users')));
+
+        if (this.notificationService && error.status !== 401 && !isMuted) {
           this.notificationService.error(errorMessage);
         }
 

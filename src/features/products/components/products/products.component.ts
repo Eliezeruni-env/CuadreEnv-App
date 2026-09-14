@@ -6,7 +6,6 @@ import { TranslationService } from '../../../cuadreEnv/services/translation.serv
 import { NotificationService } from '../../../cuadreEnv/services/notification.service';
 import { ConfirmDialogService } from '../../../cuadreEnv/services/confirm-dialog.service';
 import type { ProductDto } from '../../../cuadreEnv/types/api';
-import { IconDirective } from '@coreui/icons-angular';
 import { ProductModalComponent } from './product-modal.component';
 import {
   FilterPanelComponent,
@@ -14,19 +13,11 @@ import {
   type FilterValues,
 } from '../../../cuadreEnv/components/filter-panel/filter-panel.component';
 import {
-  ButtonDirective,
-  CardBodyComponent,
-  CardComponent,
-  ContainerComponent,
   AlertComponent,
   SpinnerComponent,
-  PaginationComponent,
-  PageItemDirective,
-  PageLinkDirective,
 } from '@coreui/angular';
 
-import { TableComponent } from '../../../cuadreEnv/components/table/table.component';
-import { ListPaginationComponent } from '../../../cuadreEnv/components/list-pagination/list-pagination.component';
+import { KtPaginatorComponent } from '../../../billing/components/kt-paginator/kt-paginator.component';
 
 @Component({
   selector: 'app-products',
@@ -35,29 +26,34 @@ import { ListPaginationComponent } from '../../../cuadreEnv/components/list-pagi
   standalone: true,
   imports: [
     CommonModule,
-    ContainerComponent,
-    CardComponent,
-    CardBodyComponent,
-    TableComponent,
-    ButtonDirective,
-    IconDirective,
     AlertComponent,
     SpinnerComponent,
     ProductModalComponent,
     FilterPanelComponent,
-    ListPaginationComponent,
+    KtPaginatorComponent,
   ],
 })
 export class ProductsComponent implements OnInit {
   @ViewChild('productModal') productModal!: ProductModalComponent;
 
   readonly translationService = inject(TranslationService);
+  readonly authService = inject(AuthService);
   private confirmService = inject(ConfirmDialogService);
   private notificationService = inject(NotificationService);
 
   products = signal<ProductDto[]>([]);
   isLoading = signal<boolean>(false);
   errorMessage = signal<string | null>(null);
+
+  lowStockCount = computed(() =>
+    this.products().filter((p) => this.getStockState(p) !== 'healthy').length,
+  );
+  totalInventoryValue = computed(() =>
+    this.products().reduce(
+      (sum, p) => sum + (p.cost || 0) * (p.stock || 0),
+      0,
+    ),
+  );
 
   // Pagination
   currentPage = signal<number>(1);
@@ -128,7 +124,6 @@ export class ProductsComponent implements OnInit {
 
   constructor(
     private productService: ProductService,
-    public authService: AuthService,
   ) {}
 
   ngOnInit() {
@@ -177,6 +172,56 @@ export class ProductsComponent implements OnInit {
     return 'healthy';
   }
 
+  getExpirationInfo(product: ProductDto): {
+    status: 'expired' | 'today' | 'warning' | 'ok' | 'none';
+    label: string;
+    badgeClass: string;
+  } {
+    if (!product.expirationDate) {
+      return { status: 'none', label: '', badgeClass: '' };
+    }
+
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    const expDate = new Date(product.expirationDate);
+    expDate.setHours(0, 0, 0, 0);
+
+    if (isNaN(expDate.getTime())) {
+      return { status: 'none', label: '', badgeClass: '' };
+    }
+
+    const diffMs = expDate.getTime() - today.getTime();
+    const diffDays = Math.round(diffMs / (1000 * 60 * 60 * 24));
+
+    if (diffDays < 0) {
+      const daysAgo = Math.abs(diffDays);
+      return {
+        status: 'expired',
+        label: `Vencido hace ${daysAgo} d`,
+        badgeClass: 'bg-danger text-white',
+      };
+    } else if (diffDays === 0) {
+      return {
+        status: 'today',
+        label: 'Vence hoy',
+        badgeClass: 'bg-danger-subtle text-danger border border-danger',
+      };
+    } else if (diffDays <= 7) {
+      return {
+        status: 'warning',
+        label: `Por vencer (${diffDays} d)`,
+        badgeClass: 'bg-warning-subtle text-warning-emphasis border border-warning',
+      };
+    }
+
+    return {
+      status: 'ok',
+      label: `Vence: ${product.expirationDate.split('T')[0]}`,
+      badgeClass: 'bg-light text-secondary border',
+    };
+  }
+
   readonly filteredProducts = computed(() => {
     const activeFilters = this.filters();
     const search = String((activeFilters['search'] as string | undefined) || '')
@@ -223,6 +268,13 @@ export class ProductsComponent implements OnInit {
         matchesSearch && matchesStockFrom && matchesStockTo && matchesStatus
       );
     });
+  });
+
+  readonly filteredProductsCount = computed(() => this.filteredProducts().length);
+
+  readonly pagedProducts = computed(() => {
+    // If backend pagination is already active, return the filtered products
+    return this.filteredProducts();
   });
 
   getFilteredProducts(): ProductDto[] {

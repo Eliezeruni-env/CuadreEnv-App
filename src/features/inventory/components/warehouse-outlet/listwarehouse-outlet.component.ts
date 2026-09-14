@@ -3,13 +3,13 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
 import { WarehouseOutletService } from '../../services/warehouse-outlet.service';
-import { ListPaginationComponent } from '../../../cuadreEnv/components/list-pagination/list-pagination.component';
+import { KtPaginatorComponent } from '../../../billing/components/kt-paginator/kt-paginator.component';
 import type { WarehouseOutlet } from '../../../../app/models/movement';
 
 @Component({
   selector: 'app-listwarehouse-outlet',
   standalone: true,
-  imports: [CommonModule, FormsModule, ListPaginationComponent],
+  imports: [CommonModule, FormsModule, KtPaginatorComponent],
   templateUrl: './listwarehouse-outlet.component.html',
   styleUrls: ['./listwarehouse-outlet.component.scss'],
 })
@@ -23,6 +23,7 @@ export class ListwarehouseOutletComponent implements OnInit {
 
   currentPage = signal<number>(1);
   pageSize = signal<number>(10);
+  expandedOutletId = signal<number | null>(null);
 
   selectedOutlet: WarehouseOutlet | null = null;
 
@@ -66,15 +67,39 @@ export class ListwarehouseOutletComponent implements OnInit {
     this.currentPage.set(page);
   }
 
-  goToCreate() {
+  toggleDetail(outlet: WarehouseOutlet) {
+    if (outlet.id != null) {
+      if (this.expandedOutletId() === outlet.id) {
+        this.expandedOutletId.set(null);
+      } else {
+        this.expandedOutletId.set(outlet.id);
+      }
+    }
+  }
+
+  isOutletExpanded(outletId?: number): boolean {
+    return outletId != null && this.expandedOutletId() === outletId;
+  }
+
+  goToNewOutlet() {
     this.router.navigate(['/inventory/outlets/create']);
   }
 
-  viewDetail(outlet: WarehouseOutlet) {
+  goToCreate() {
+    this.goToNewOutlet();
+  }
+
+  viewOutlet(outlet: WarehouseOutlet) {
     this.selectedOutlet = outlet;
   }
 
+  viewDetail(outlet: WarehouseOutlet) {
+    this.viewOutlet(outlet);
+  }
+
   printVoucher() {
-    window.print();
+    setTimeout(() => {
+      window.print();
+    }, 150);
   }
 }

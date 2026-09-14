@@ -227,7 +227,6 @@ export class CashierService {
     );
   }
 
-  // 7. Create Sale (Idempotent POS/Caja sale) in DB
   createCajaSale(dto: {
     idempotencyKey: string;
     customerId?: number;
@@ -237,7 +236,11 @@ export class CashierService {
     createBy?: string;
     items: { productId: number; quantity: number; unitPrice: number }[];
   }): Observable<any> {
-    return this.http.post<any>(`${this.baseUrl}/caja/sales`, dto).pipe(
+    const payload = {
+      ...dto,
+      createBy: dto.createBy || 'system',
+    };
+    return this.http.post<any>(`${this.baseUrl}/caja/sales`, payload).pipe(
       map((res) => res?.data || res),
       catchError(() =>
         this.http.post<any>(`${this.baseUrl}/Sale`, {

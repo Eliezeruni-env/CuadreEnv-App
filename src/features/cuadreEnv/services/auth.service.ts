@@ -1,4 +1,4 @@
-import { Injectable, signal, inject } from '@angular/core';
+import { Injectable, signal, computed, inject } from '@angular/core';
 import { Router } from '@angular/router';
 import {
   ApiClientService,
@@ -17,14 +17,19 @@ import type {
   UserResponseDto,
   ApiResponse,
 } from '../types/api';
+import { API_CONSTANTS } from '../../../app/constants';
 
 interface DecodedToken {
   email?: string;
   sub?: string; // userId
+  name?: string;
+  fullName?: string;
   role?: string;
-  'http://schemas.microsoft.com/ws/2008/06/identity/claims/role'?: string;
+  roles?: string[] | string;
+  'http://schemas.microsoft.com/ws/2008/06/identity/claims/role'?: string | string[];
   companyId?: string | number;
   CompanyId?: string | number;
+  isSuperUser?: boolean;
   exp?: number;
 }
 
@@ -33,13 +38,19 @@ interface DecodedToken {
 })
 export class AuthService {
   private readonly api = inject(ApiClientService);
-  currentUser = signal<{ email: string; id: number } | null>(null);
+  private readonly router = inject(Router);
+
+  currentUser = signal<{ email: string; id: number; fullName?: string } | null>(null);
   currentRole = signal<string | null>(null);
+  currentRoles = computed<string[]>(() => {
+    const r = this.currentRole();
+    return r ? [r] : [];
+  });
   companyId = signal<number | null>(null);
   isAuthenticated = signal<boolean>(false);
   isInitializing = signal<boolean>(true);
 
-  constructor(private router: Router) {
+  constructor() {
     this.initializeSession();
   }
 
@@ -54,7 +65,28 @@ export class AuthService {
         setRefreshToken(null);
         this.clearSession();
       }
+    } else {
+      const at = getAccessToken();
+      if (at) {
+        const decoded = this.decodeJwt(at);
+        if (decoded && (!decoded.exp || decoded.exp * 1000 > Date.now())) {
+          this.applyDecodedToken(decoded);
+        } else {
+          this.clearSession();
+        }
+      }
     }
+
+    if (typeof window !== 'undefined' && window.localStorage) {
+      const storedCompId = localStorage.getItem(API_CONSTANTS.COMPANY_ID_KEY);
+      if (storedCompId && !this.companyId()) {
+        const parsed = parseInt(storedCompId, 10);
+        if (!isNaN(parsed)) {
+          this.companyId.set(parsed);
+        }
+      }
+    }
+
     this.isInitializing.set(false);
   }
 
@@ -75,26 +107,43 @@ export class AuthService {
     }
   }
 
+  private applyDecodedToken(decoded: DecodedToken) {
+    const email = decoded.email || decoded.sub || '';
+    const id = decoded.sub ? parseInt(decoded.sub, 10) : 0;
+    const fullName = decoded.name || decoded.fullName;
+    
+    let rawRole =
+      decoded.role ||
+      decoded['http://schemas.microsoft.com/ws/2008/06/identity/claims/role'] ||
+      null;
+
+    if (Array.isArray(rawRole)) {
+      rawRole = rawRole[0] || null;
+    }
+
+    const rawCompanyId = decoded.companyId || decoded.CompanyId;
+    const compId = rawCompanyId
+      ? parseInt(rawCompanyId.toString(), 10)
+      : null;
+
+    this.currentUser.set({ email, id, fullName });
+    this.currentRole.set(rawRole);
+    this.companyId.set(compId);
+    this.isAuthenticated.set(true);
+
+    if (typeof window !== 'undefined' && window.localStorage) {
+      if (compId) {
+        localStorage.setItem(API_CONSTANTS.COMPANY_ID_KEY, String(compId));
+      } else {
+        localStorage.removeItem(API_CONSTANTS.COMPANY_ID_KEY);
+      }
+    }
+  }
+
   private handleTokenResponse(tokens: TokenResponseDto) {
     const decoded = this.decodeJwt(tokens.accessToken);
     if (decoded) {
-      const email = decoded.email || decoded.sub || '';
-      const id = decoded.sub ? parseInt(decoded.sub, 10) : 0;
-      const role =
-        decoded.role ||
-        decoded[
-          'http://schemas.microsoft.com/ws/2008/06/identity/claims/role'
-        ] ||
-        null;
-      const rawCompanyId = decoded.companyId || decoded.CompanyId;
-      const compId = rawCompanyId
-        ? parseInt(rawCompanyId.toString(), 10)
-        : null;
-
-      this.currentUser.set({ email, id });
-      this.currentRole.set(role);
-      this.companyId.set(compId);
-      this.isAuthenticated.set(true);
+      this.applyDecodedToken(decoded);
     }
   }
 
@@ -155,10 +204,18 @@ export class AuthService {
     this.currentRole.set(null);
     this.companyId.set(null);
     this.isAuthenticated.set(false);
+    if (typeof window !== 'undefined' && window.localStorage) {
+      localStorage.removeItem(API_CONSTANTS.COMPANY_ID_KEY);
+    }
   }
 
   hasRole(roles: string[]): boolean {
     const userRole = this.currentRole();
-    return userRole ? roles.includes(userRole) : false;
+    return userRole ? roles.map((r) => r.toLowerCase()).includes(userRole.toLowerCase()) : false;
+  }
+
+  isSuperUser(): boolean {
+    const role = (this.currentRole() || '').toLowerCase();
+    return role === 'admin' || role === 'superuser' || role === 'superadmin' || role === 'sysadmin';
   }
 }

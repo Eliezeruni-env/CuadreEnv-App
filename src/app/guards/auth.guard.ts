@@ -51,7 +51,10 @@ export const adminGuard: CanActivateFn = () => {
   const authService = inject(AuthService);
   const router = inject(Router);
 
-  if (authService.isAuthenticated() && authService.hasRole(['Admin', 'Manager'])) {
+  if (
+    authService.isAuthenticated() &&
+    (authService.isSuperUser() || authService.hasRole(['Admin', 'SuperUser', 'SuperAdmin', 'SysAdmin', 'Manager']))
+  ) {
     return true;
   }
   router.navigate(['/dashboard']);

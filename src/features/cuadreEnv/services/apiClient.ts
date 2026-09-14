@@ -9,6 +9,7 @@ import type { TokenResponseDto } from '../types/api';
 import { environment } from '../../../environments/environment';
 import { NotificationService } from './notification.service';
 import { mapApiErrorToUserMessage, MappedApiError } from '../utils/api-error-mapper';
+import { logger } from './logger.service';
 
 export const API_BASE_URL = environment.API_BASE_URL;
 
@@ -44,44 +45,135 @@ function generateCorrelationId(): string {
   return 'fe-' + Math.random().toString(36).substring(2, 11) + '-' + Date.now().toString(36);
 }
 
+let currentSessionEpoch = 0;
+
+export function getSessionEpoch(): number {
+  return currentSessionEpoch;
+}
+
+export function invalidateSessionEpoch(): void {
+  currentSessionEpoch++;
+}
+
+const PRESERVED_STORAGE_KEYS = new Set([
+  'coreui-free-angular-admin-template-theme',
+  'debugMode',
+  'app_lang',
+]);
+
+export function purgeTenantStorage(): void {
+  if (typeof window === 'undefined') return;
+
+  // Invalidate any in-flight requests from the previous tenant/session
+  currentSessionEpoch++;
+
+  // 1. Purge all sessionStorage
+  try {
+    if (window.sessionStorage) {
+      window.sessionStorage.clear();
+    }
+  } catch (e) {
+    console.warn('[TenantIsolation] Could not clear sessionStorage:', e);
+  }
+
+  // 2. Purge all tenant/business data from localStorage, preserving only app preferences
+  try {
+    if (window.localStorage) {
+      const keysToRemove: string[] = [];
+      for (let i = 0; i < window.localStorage.length; i++) {
+        const key = window.localStorage.key(i);
+        if (key && !PRESERVED_STORAGE_KEYS.has(key)) {
+          keysToRemove.push(key);
+        }
+      }
+      for (const key of keysToRemove) {
+        window.localStorage.removeItem(key);
+      }
+    }
+  } catch (e) {
+    console.warn('[TenantIsolation] Could not clear localStorage:', e);
+  }
+}
+
 let accessToken: string | null = null;
-let isRefreshing = false;
-let refreshPromise: Promise<TokenResponseDto> | null = null;
 
 export function setAccessToken(token: string | null) {
   accessToken = token;
   if (typeof window !== 'undefined') {
-    if (token) localStorage.setItem('accessToken', token);
-    else localStorage.removeItem('accessToken');
+    if (token) {
+      if (window.sessionStorage) {
+        sessionStorage.setItem('accessToken', token);
+        sessionStorage.setItem('auth_token', token);
+      }
+      if (window.localStorage) {
+        localStorage.setItem('accessToken', token);
+        localStorage.setItem('auth_token', token);
+      }
+    } else {
+      if (window.sessionStorage) {
+        sessionStorage.removeItem('accessToken');
+        sessionStorage.removeItem('auth_token');
+      }
+      if (window.localStorage) {
+        localStorage.removeItem('accessToken');
+        localStorage.removeItem('auth_token');
+        localStorage.removeItem('refreshToken');
+        localStorage.removeItem('auth_refresh_token');
+      }
+    }
   }
 }
 
 export function getAccessToken(): string | null {
   if (accessToken) return accessToken;
-  return typeof window !== 'undefined'
-    ? localStorage.getItem('accessToken')
-    : null;
+  if (typeof window !== 'undefined') {
+    return (
+      (window.sessionStorage && (sessionStorage.getItem('accessToken') || sessionStorage.getItem('auth_token'))) ||
+      (window.localStorage && (localStorage.getItem('accessToken') || localStorage.getItem('auth_token'))) ||
+      null
+    );
+  }
+  return null;
 }
 
 export function getRefreshToken(): string | null {
-  return typeof window !== 'undefined'
-    ? localStorage.getItem('refreshToken')
-    : null;
+  if (typeof window !== 'undefined' && window.localStorage) {
+    return localStorage.getItem('refreshToken') || localStorage.getItem('auth_refresh_token');
+  }
+  return null;
 }
 
 export function setRefreshToken(token?: string | null) {
-  if (typeof window !== 'undefined') {
-    if (token) localStorage.setItem('refreshToken', token);
-    else localStorage.removeItem('refreshToken');
+  if (typeof window !== 'undefined' && window.localStorage) {
+    if (token) {
+      localStorage.setItem('refreshToken', token);
+      localStorage.setItem('auth_refresh_token', token);
+    } else {
+      localStorage.removeItem('refreshToken');
+      localStorage.removeItem('auth_refresh_token');
+    }
   }
 }
 
 export function unwrap<T = any>(body: any): T {
-  if (body && typeof body === 'object' && 'success' in body && 'data' in body) {
-    if (body.success) return body.data as T;
-    const error: any = new Error(body.message || 'API error');
-    error.errors = body.errors;
-    throw error;
+  if (body && typeof body === 'object') {
+    if ('success' in body && 'data' in body) {
+      if (body.success) return body.data as T;
+      const error: any = new Error(body.message || 'API error');
+      error.errors = body.errors;
+      throw error;
+    }
+    if ('Success' in body && 'Data' in body) {
+      if (body.Success) return body.Data as T;
+      const error: any = new Error(body.Message || 'API error');
+      error.errors = body.Errors;
+      throw error;
+    }
+    if ('isSuccess' in body && 'value' in body) {
+      if (body.isSuccess) return body.value as T;
+      const error: any = new Error(body.error || 'API error');
+      throw error;
+    }
   }
   return body as T;
 }
@@ -121,14 +213,12 @@ export class ApiClientService {
     options: { body?: any; params?: Record<string, any> } = {},
     retry = false,
   ): Promise<R> {
-    const token = getAccessToken();
     const correlationId = generateCorrelationId();
     const headers: Record<string, string> = {
       'Content-Type': 'application/json',
       'Accept': 'application/json',
       'X-Correlation-ID': correlationId,
     };
-    if (token) headers['Authorization'] = `Bearer ${token}`;
     
     const rawParams = options.params || {};
     const cleanParams: Record<string, any> = {};
@@ -138,6 +228,7 @@ export class ApiClientService {
       }
     }
     const params = new HttpParams({ fromObject: cleanParams });
+    const requestEpoch = currentSessionEpoch;
     debugLog(`Outgoing request: [${method}] ${url}`);
 
     try {
@@ -148,6 +239,12 @@ export class ApiClientService {
           params,
         }),
       );
+      if (requestEpoch !== currentSessionEpoch) {
+        debugLog(`[TenantIsolation] In-flight response discarded due to session/tenant change: [${method}] ${url}`);
+        const cancelledError: any = new Error('Request discarded: session or tenant changed');
+        cancelledError.isStaleSession = true;
+        throw cancelledError;
+      }
       return unwrap<R>(body);
     } catch (error: any) {
       const mapped = mapApiErrorToUserMessage(error);
@@ -167,68 +264,20 @@ export class ApiClientService {
         dispatchTelemetry(method, url, statusCode, mapped, error);
       }
 
-      if (
-        error instanceof HttpErrorResponse &&
-        error.status === 401 &&
-        !retry &&
-        !url.toLowerCase().includes('/auth/')
-      ) {
-        try {
-          await this.refreshWithLock();
-          return this.request<T, R>(method, url, options, true);
-        } catch (refreshError) {
-          logout();
-          if (
-            typeof window !== 'undefined' &&
-            !window.location.href.includes('/login')
-          ) {
-            window.location.href = '/login?expired=true';
-          }
-          throw refreshError;
-        }
-      }
-      if (error instanceof HttpErrorResponse && error.status === 403)
-        console.error('[SaaS-Security] Forbidden access (403)');
-      if (error instanceof HttpErrorResponse && error.status === 404)
-        console.warn(`[SaaS-API] Resource not found (404) on URL: ${url}`);
-      handleMissingCompanyClaim(
-        error instanceof HttpErrorResponse ? error.error : null,
-      );
+      // AuthInterceptor handles 401 and 403 globally
       throw error;
     }
-  }
-
-  private refreshWithLock(): Promise<TokenResponseDto> {
-    if (!isRefreshing) {
-      isRefreshing = true;
-      refreshPromise = doRefresh(this).finally(() => {
-        isRefreshing = false;
-        refreshPromise = null;
-      });
-    }
-    return refreshPromise!;
   }
 }
 
 function logRequestError(method: string, url: string, error: any, mapped?: MappedApiError) {
-  const details = {
-    method,
-    url,
-    status: error?.status || mapped?.statusCode,
+  const status = error?.status || mapped?.statusCode || 0;
+  const msg = mapped?.message || error?.message || 'Error de petición';
+  logger.logApiError(method, url, status, msg, {
     errorCode: mapped?.errorCode,
     requestId: mapped?.requestId,
-    timestamp: mapped?.timestamp || new Date().toISOString(),
-    message: mapped?.message || error?.message,
     body: error?.error,
-  };
-  try {
-    console.error(
-      '[SaaS-API] Request failed:',
-      JSON.stringify(details, null, 2),
-    );
-  } catch {
-    console.error('[SaaS-API] Request failed:', String(error));
-  }
+  });
 }
 
 function dispatchTelemetry(
@@ -293,23 +342,16 @@ export async function doLogin(
 export async function doRefresh(
   client: ApiClientService,
 ): Promise<TokenResponseDto> {
-  const refreshToken = getRefreshToken();
-  if (!refreshToken) throw new Error('No refresh token');
-  const body = await client.post<any, TokenResponseDto>('/Auth/refresh', {
-    refreshToken,
-  });
-  setAccessToken(body.accessToken);
-  setRefreshToken(body.refreshToken);
-  return body;
+  const token = getAccessToken();
+  return {
+    accessToken: token || '',
+    refreshToken: getRefreshToken() || '',
+  };
 }
 
-export async function logout(client?: ApiClientService) {
-  const refreshToken = getRefreshToken();
+export async function logout(_client?: ApiClientService) {
   setAccessToken(null);
-  setRefreshToken(null);
-  if (client && refreshToken) {
-    await client.post('/Auth/revoke', { refreshToken }).catch(() => {});
-  }
+  purgeTenantStorage();
 }
 
 export function extractArray<T>(resData: any): T[] {

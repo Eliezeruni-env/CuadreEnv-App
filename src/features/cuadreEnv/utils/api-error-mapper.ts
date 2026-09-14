@@ -129,6 +129,20 @@ export function mapApiErrorToUserMessage(rawError: any): MappedApiError {
   }
 
   // 6. Security / Auth Errors
+  if (errorCode === 'USER_INACTIVE' || rawMessage.toLowerCase().includes('desactivad')) {
+    return {
+      type: 'danger',
+      title: 'Usuario Desactivado',
+      message: rawMessage || 'Este usuario está desactivado. Comuníquese con el administrador para reactivar su cuenta.',
+      errorCode: 'USER_INACTIVE',
+      statusCode: statusCode || 403,
+      requestId,
+      timestamp,
+      path,
+      isCritical: false,
+    };
+  }
+
   if (statusCode === 401 || errorCode === 'UNAUTHORIZED') {
     return {
       type: 'danger',

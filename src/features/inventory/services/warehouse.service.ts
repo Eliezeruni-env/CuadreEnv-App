@@ -5,41 +5,7 @@ import type { Warehouse, WarehouseConcept } from '../../../app/models/warehouse'
 
 const WAREHOUSES_STORAGE_KEY = 'cuadreenv_warehouses_db';
 
-const DEFAULT_WAREHOUSES: Warehouse[] = [
-  {
-    id: 1,
-    name: 'Almacén Principal Central',
-    code: 'ALM-01',
-    address: 'Av. Luperón #102, Santo Domingo',
-    phone: '(809) 555-0101',
-    managerName: 'Carlos Ramírez',
-    isMain: true,
-    isActive: true,
-    createdAt: new Date().toISOString(),
-  },
-  {
-    id: 2,
-    name: 'Sucursal Santiago Norte',
-    code: 'ALM-02',
-    address: 'Autopista Duarte Km 4, Santiago',
-    phone: '(809) 555-0102',
-    managerName: 'Ana Peña',
-    isMain: false,
-    isActive: true,
-    createdAt: new Date().toISOString(),
-  },
-  {
-    id: 3,
-    name: 'Depósito Este - Punta Cana',
-    code: 'ALM-03',
-    address: 'Blvd. Turístico del Este #45, Bávaro',
-    phone: '(809) 555-0103',
-    managerName: 'Miguel Soto',
-    isMain: false,
-    isActive: true,
-    createdAt: new Date().toISOString(),
-  },
-];
+const DEFAULT_WAREHOUSES: Warehouse[] = [];
 
 const DEFAULT_CONCEPTS: WarehouseConcept[] = [
   { id: 1, name: 'Compra / Recepción de Mercancía', type: 'ENTRY', description: 'Ingreso directo por compras a proveedores' },
@@ -62,12 +28,11 @@ export class WarehouseService {
     try {
       const raw = localStorage.getItem(WAREHOUSES_STORAGE_KEY);
       if (!raw) {
-        this.saveLocalWarehouses(DEFAULT_WAREHOUSES);
-        return DEFAULT_WAREHOUSES;
+        return [];
       }
       return JSON.parse(raw);
     } catch {
-      return DEFAULT_WAREHOUSES;
+      return [];
     }
   }
 

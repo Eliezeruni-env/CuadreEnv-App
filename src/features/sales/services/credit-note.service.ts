@@ -47,27 +47,13 @@ export class CreditNoteService {
   }
 
   async getCreditNotes(): Promise<ApiResponse<CreditNote[]>> {
-    try {
-      const res = await this.api.get<any, any>('/CreditNote');
-      const list = extractArray<CreditNote>(res);
-      if (list && list.length > 0) {
-        return { success: true, data: list };
-      }
-    } catch {
-      // fallback to local storage
-    }
     return { success: true, data: this.getLocalCreditNotes() };
   }
 
   async getCreditNote(id: number): Promise<ApiResponse<CreditNote>> {
-    try {
-      const res = await this.api.get<any, any>(`/CreditNote/${id}`);
-      return { success: true, data: res as CreditNote };
-    } catch {
-      const local = this.getLocalCreditNotes().find((cn) => cn.id === id);
-      if (local) return { success: true, data: local };
-      return { success: false, message: 'Nota de crédito no encontrada.' };
-    }
+    const local = this.getLocalCreditNotes().find((cn) => cn.id === id);
+    if (local) return { success: true, data: local };
+    return { success: false, message: 'Nota de crédito no encontrada.' };
   }
 
   async searchInvoiceForCreditNote(invoiceNumberOrId: string): Promise<ApiResponse<{
@@ -96,7 +82,7 @@ export class CreditNoteService {
     let foundInvoice: any = null;
     let isFromBillingModule = false;
 
-    // 1. Try search in Billing module (local & API)
+    // 1. Try search in Billing module (local)
     const localBillings = this.getLocalBillings();
     const matchedBilling = localBillings.find(
       (b) =>
@@ -109,25 +95,6 @@ export class CreditNoteService {
     if (matchedBilling) {
       foundInvoice = matchedBilling;
       isFromBillingModule = true;
-    }
-
-    if (!foundInvoice) {
-      try {
-        const billingRes = await this.api.get<any, any>('/Billing');
-        const apiBillings = extractArray<Billing>(billingRes);
-        const matchApi = apiBillings.find(
-          (b) =>
-            b.id === targetId ||
-            (b.billingNumber && b.billingNumber.toLowerCase() === clean.toLowerCase()) ||
-            (b.ncf && b.ncf.toLowerCase() === clean.toLowerCase()),
-        );
-        if (matchApi) {
-          foundInvoice = matchApi;
-          isFromBillingModule = true;
-        }
-      } catch {
-        // ignore
-      }
     }
 
     // 2. Try search in Sales POS module

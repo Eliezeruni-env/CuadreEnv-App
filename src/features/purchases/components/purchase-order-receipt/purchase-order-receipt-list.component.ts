@@ -3,13 +3,13 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
 import { PurchaseOrderReceiptService } from '../../services/purchase-order-receipt.service';
-import { ListPaginationComponent } from '../../../cuadreEnv/components/list-pagination/list-pagination.component';
+import { KtPaginatorComponent } from '../../../billing/components/kt-paginator/kt-paginator.component';
 import type { PurchaseOrderReceipt } from '../../../../app/models/purchase-order';
 
 @Component({
   selector: 'app-purchase-order-receipt-list',
   standalone: true,
-  imports: [CommonModule, FormsModule, ListPaginationComponent],
+  imports: [CommonModule, FormsModule, KtPaginatorComponent],
   templateUrl: './purchase-order-receipt-list.component.html',
   styleUrls: ['./purchase-order-receipt-list.component.scss'],
 })
@@ -23,6 +23,7 @@ export class PurchaseOrderReceiptListComponent implements OnInit {
 
   currentPage = signal<number>(1);
   pageSize = signal<number>(10);
+  expandedReceiptId = signal<number | null>(null);
 
   selectedReceipt: PurchaseOrderReceipt | null = null;
 
@@ -66,6 +67,18 @@ export class PurchaseOrderReceiptListComponent implements OnInit {
     this.currentPage.set(page);
   }
 
+  toggleDetail(receipt: PurchaseOrderReceipt) {
+    if (this.expandedReceiptId() === receipt.id) {
+      this.expandedReceiptId.set(null);
+    } else {
+      this.expandedReceiptId.set(receipt.id);
+    }
+  }
+
+  isReceiptExpanded(receiptId: number): boolean {
+    return this.expandedReceiptId() === receiptId;
+  }
+
   goToNewReceipt() {
     this.router.navigate(['/purchases/receipts/create']);
   }
@@ -74,7 +87,13 @@ export class PurchaseOrderReceiptListComponent implements OnInit {
     this.selectedReceipt = receipt;
   }
 
+  printReceipt() {
+    setTimeout(() => {
+      window.print();
+    }, 150);
+  }
+
   printVoucher() {
-    window.print();
+    this.printReceipt();
   }
 }

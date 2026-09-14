@@ -96,13 +96,18 @@ export interface CreateCompanyRequest {
 export interface CompanySettingsDto {
   id?: number;
   companyId?: number;
+  companyName?: string | null;
+  commercialName?: string | null;
+  rnc?: string | null;
+  address?: string | null;
+  phone?: string | null;
+  logoUrl?: string | null;
+  invoiceFooterPhrase?: string | null;
   creditDaysLimit?: number;
   blockSalesIfOverdue?: boolean;
   currency?: string;
   timeZone?: string;
   invoiceNumberFormat?: string;
-  logoUrl?: string | null;
-  commercialName?: string | null;
   defaultStockAlertThreshold?: number;
   defaultTaxPercentage?: number;
 }
@@ -110,12 +115,21 @@ export interface CompanySettingsDto {
 export interface Company {
   id: number;
   name: string;
+  rnc?: string | null;
   address?: string | null;
   phone?: string | null;
   settings?: CompanySettingsDto | null;
 }
 
 // User / Domain mapping
+export interface UserPagedResponse {
+  items: UserDto[];
+  total: number;
+  page: number;
+  pageSize: number;
+  totalPages: number;
+}
+
 export interface UserDto {
   id?: number;
   firstName: string;
@@ -123,13 +137,77 @@ export interface UserDto {
   identification?: string | null;
   gender?: string; // "M"|"F" or single char
   email: string;
+  password?: string | null;
   passwordHash?: string | null; // backend expects PasswordHash for Admin create; prefer Register flow
   phoneNumber?: string | null;
+  emergencyContact?: string | null;
+  cvFileUrl?: string | null;
+  cvFileName?: string | null;
+  identificationFileUrl?: string | null;
+  identificationFileName?: string | null;
   birthDate?: string | null; // date ISO
   userName?: string | null;
   companyId?: number;
+  companyName?: string | null;
   role?: string; // "Admin" | "Manager" | "Employee"
+  roles?: string[]; // Multiple roles assigned to employee
+  roleIds?: number[];
   active?: boolean;
+  isSuperUser?: boolean;
+  temporaryPassword?: string | null;
+  tempPasswordSent?: boolean;
+}
+
+export interface CreateUserPayload {
+  email: string;
+  firstName?: string | null;
+  lastName?: string | null;
+  userName?: string | null;
+  role?: string;
+  companyId?: number | null;
+  temporaryPassword?: string | null;
+  sendByEmail?: boolean;
+}
+
+export interface UpdateUserPayload {
+  firstName?: string | null;
+  lastName?: string | null;
+  userName?: string | null;
+  role?: string;
+  companyId?: number | null;
+}
+
+export interface ResetUserPasswordRequest {
+  temporaryPassword?: string | null;
+  sendByEmail?: boolean;
+}
+
+export interface SendInvoiceEmailItem {
+  productName: string;
+  productCode?: string;
+  quantity: number;
+  unitPrice: number;
+  total: number;
+}
+
+export interface SendInvoiceEmailRequest {
+  email: string;
+  subject?: string | null;
+  message?: string | null;
+  attachPdf: boolean;
+  invoiceHtml?: string | null;
+  invoiceNumber?: string | null;
+  customerName?: string | null;
+  customerRnc?: string | null;
+  cashierName?: string | null;
+  cashRegisterName?: string | null;
+  paymentMethod?: string | null;
+  items?: SendInvoiceEmailItem[] | null;
+  subtotal?: number | null;
+  discount?: number | null;
+  itbis?: number | null;
+  total?: number | null;
+  notes?: string | null;
 }
 
 // Invitation
@@ -163,6 +241,8 @@ export interface ProductDto {
   categoryId?: number;
   unitOfMeasurementId?: number;
   invoiceWithoutStock?: boolean;
+  expirationDate?: string | null;
+  isOrganic?: boolean;
 }
 
 // Warehouse / Inventory
@@ -327,4 +407,61 @@ export interface PayInstallmentRequestDto {
   method?: string;
   cashRegisterId?: number | null;
 }
+
+// ---------------------------------------------------------------------------
+// Roles, Permissions & Deletion Approval Contracts (Multi-Tenant RBAC)
+// ---------------------------------------------------------------------------
+
+export interface PermissionDto {
+  id: number;
+  module: 'Sales' | 'Inventory' | 'Billing' | 'CashRegister' | 'Receivables' | 'Customers' | 'Audit' | 'Reports' | 'Company';
+  action: 'View' | 'Create' | 'Edit' | 'Delete' | 'Approve' | 'Export';
+  description?: string;
+}
+
+export interface RoleDto {
+  id: number;
+  companyId?: number;
+  name: string;
+  description?: string;
+  isSystem?: boolean;
+  isSystemRole?: boolean;
+  userCount?: number;
+  assignedUsersCount?: number;
+  permissions?: PermissionDto[];
+  permissionIds?: number[];
+  createdAt?: string;
+}
+
+export interface CreateRoleRequest {
+  name: string;
+  description?: string;
+  permissionIds?: number[];
+}
+
+export interface UpdateRoleRequest {
+  name?: string;
+  description?: string;
+  permissionIds?: number[];
+}
+
+export interface DeletionApprovalDto {
+  id: number;
+  companyId?: number;
+  entityType: string;
+  entityId: number;
+  entityCode?: string;
+  entityDescription?: string;
+  requestedByUserId: number;
+  requestedByUserName: string;
+  requestedAt: string;
+  reason: string;
+  status: 'PENDING' | 'APPROVED' | 'REJECTED' | 'Pending' | 'Approved' | 'Rejected';
+  reviewedByUserId?: number;
+  reviewedByUserName?: string;
+  reviewedAt?: string;
+  reviewNotes?: string;
+  rejectionReason?: string;
+}
+
 

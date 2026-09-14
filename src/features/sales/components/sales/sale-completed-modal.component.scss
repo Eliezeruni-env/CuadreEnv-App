@@ -70,6 +70,10 @@
   font-size: 0.72rem;
 }
 
+.thermal-ticket-container {
+  display: none;
+}
+
 /* Print Styles */
 @media print {
   html, body {
@@ -80,24 +84,6 @@
 
   body * {
     visibility: hidden;
-  }
-
-  #invoicePrintArea,
-  #invoicePrintArea * {
-    visibility: visible;
-  }
-
-  #invoicePrintArea {
-    position: absolute;
-    left: 0;
-    top: 0;
-    width: 100% !important;
-    max-width: 100% !important;
-    margin: 0 !important;
-    padding: 24px !important;
-    border: none !important;
-    box-shadow: none !important;
-    border-radius: 0 !important;
   }
 
   .custom-modal-backdrop {
@@ -124,4 +110,68 @@
   .invoice-card-title {
     display: none !important;
   }
+
+  // Standard Letter / Full Invoice Mode
+  .completed-modal-container:not(.print-ticket-mode) {
+    #thermalTicketPrintArea {
+      display: none !important;
+    }
+
+    #invoicePrintArea,
+    #invoicePrintArea * {
+      visibility: visible !important;
+    }
+
+    #invoicePrintArea {
+      position: absolute;
+      left: 0;
+      top: 0;
+      width: 100% !important;
+      max-width: 100% !important;
+      margin: 0 !important;
+      padding: 24px !important;
+      border: none !important;
+      box-shadow: none !important;
+      border-radius: 0 !important;
+    }
+  }
+
+  // Thermal Ticket Mode (80mm / 58mm POS Printer)
+  .completed-modal-container.print-ticket-mode {
+    #invoicePrintArea {
+      display: none !important;
+    }
+
+    #thermalTicketPrintArea,
+    #thermalTicketPrintArea * {
+      visibility: visible !important;
+    }
+
+    #thermalTicketPrintArea {
+      display: block !important;
+      position: absolute;
+      left: 0;
+      top: 0;
+      width: 80mm !important;
+      max-width: 80mm !important;
+      margin: 0 !important;
+      padding: 4mm 6mm !important;
+      background: #ffffff !important;
+      color: #000000 !important;
+      font-size: 11px !important;
+      line-height: 1.25 !important;
+      font-family: 'Courier New', Courier, monospace !important;
+
+      .ticket-divider {
+        white-space: pre;
+        letter-spacing: -0.5px;
+        color: #333333;
+      }
+
+      .ticket-item-title {
+        word-break: break-word;
+      }
+    }
+  }
 }
+

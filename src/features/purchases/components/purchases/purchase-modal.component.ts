@@ -17,6 +17,7 @@ import {
 } from '@angular/forms';
 import { PurchaseService } from '../../services/purchase.service';
 import { ProductService } from '../../../products/services/product.service';
+import { SupplierService } from '../../services/supplier.service';
 import { NotificationService } from '../../../cuadreEnv/services/notification.service';
 import type { PurchaseDto, ProductDto } from '../../../cuadreEnv/types/api';
 import { TranslationService } from '../../../cuadreEnv/services/translation.service';
@@ -52,6 +53,7 @@ import {
 })
 export class PurchaseModalComponent implements OnInit {
   readonly translationService = inject(TranslationService);
+  private readonly supplierService = inject(SupplierService);
 
   @Input() visible = false;
   @Output() visibleChange = new EventEmitter<boolean>();
@@ -59,6 +61,7 @@ export class PurchaseModalComponent implements OnInit {
 
   selectedPurchase: PurchaseDto | null = null;
   products = signal<ProductDto[]>([]);
+  suppliers = signal<any[]>([]);
   isLoading = signal<boolean>(false);
 
   purchaseForm: FormGroup;
@@ -77,6 +80,20 @@ export class PurchaseModalComponent implements OnInit {
 
   ngOnInit() {
     this.loadProducts();
+    this.loadSuppliers();
+  }
+
+  async loadSuppliers() {
+    try {
+      const res = await this.supplierService.getSuppliers();
+      if (res?.success && res.data) {
+        this.suppliers.set(res.data);
+      } else {
+        this.suppliers.set([]);
+      }
+    } catch {
+      this.suppliers.set([]);
+    }
   }
 
   get items(): FormArray {
@@ -125,11 +142,12 @@ export class PurchaseModalComponent implements OnInit {
     }
   }
 
-  openCreate() {
+  async openCreate() {
     this.selectedPurchase = null;
     this.purchaseForm.reset({ supplierId: '' });
     this.items.clear();
     this.addItem();
+    await this.loadSuppliers();
     this.visible = true;
     this.visibleChange.emit(true);
   }

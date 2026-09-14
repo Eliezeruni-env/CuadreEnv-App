@@ -96,13 +96,13 @@
             <div class="text-end">
               <div class="d-flex align-items-center gap-2 mb-1 justify-content-end">
                 @if (financialStatus().type === 'pagada') {
-                  <span class="badge badge-financial badge-pagada">🟢 Pagada (100%)</span>
+                  <span class="badge badge-financial badge-pagada">Pagada (100%)</span>
                 } @else if (financialStatus().type === 'parcial') {
-                  <span class="badge badge-financial badge-parcial">🟠 Parcial ({{ paymentProgress() }}%)</span>
+                  <span class="badge badge-financial badge-parcial">Parcial ({{ paymentProgress() }}%)</span>
                 } @else if (financialStatus().type === 'vencida') {
-                  <span class="badge badge-financial badge-vencida">🔴 Vencida ({{ financialStatus().daysOverdue }} días de atraso)</span>
+                  <span class="badge badge-financial badge-vencida">Vencida ({{ financialStatus().daysOverdue }} días de atraso)</span>
                 } @else {
-                  <span class="badge badge-financial badge-pendiente">🟡 Pendiente (0%)</span>
+                  <span class="badge badge-financial badge-pendiente">Pendiente (0%)</span>
                 }
               </div>
               <div class="small text-muted">
@@ -183,7 +183,7 @@
               </p>
               <div>
                 <button type="button" class="btn btn-outline-warning fw-semibold shadow-sm" (click)="reopenAccount()">
-                  🔄 Reabrir / Reactivar Cuenta
+                  Reabrir / Reactivar Cuenta
                 </button>
               </div>
             </div>
@@ -256,10 +256,10 @@
                     >Método de pago (Se reflejará en Caja)</label
                   >
                   <select cSelect formControlName="method">
-                    <option value="Efectivo">💵 Efectivo (Registra en Caja)</option>
-                    <option value="Transferencia">🏦 Transferencia Bancaria</option>
-                    <option value="Tarjeta">💳 Tarjeta de Crédito / Débito</option>
-                    <option value="Cheque">📄 Cheque</option>
+                    <option value="Efectivo">Efectivo (Registra en Caja)</option>
+                    <option value="Transferencia">Transferencia Bancaria</option>
+                    <option value="Tarjeta">Tarjeta de Crédito / Débito</option>
+                    <option value="Cheque">Cheque</option>
                   </select>
                 </div>
                 <div class="col-md-6">

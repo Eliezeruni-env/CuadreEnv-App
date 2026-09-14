@@ -42,123 +42,130 @@
       <!-- Body -->
       <div class="custom-modal-body pt-3">
         <form cForm [formGroup]="receivableForm">
-          <!-- Section 1: Información del cliente -->
-          <div class="form-section mb-4">
-            <h6 class="section-title">Información del cliente</h6>
+          <!-- Top Row: Client & Sale Details (2 Columns) -->
+          <div class="row g-3 mb-4">
+            <!-- Section 1: Información del cliente -->
+            <div class="col-lg-6">
+              <div class="form-section p-3 bg-light bg-opacity-50 rounded-3 border h-100">
+                <h6 class="section-title d-flex align-items-center gap-2">
+                  <span>1. Información del cliente</span>
+                </h6>
 
-            <!-- Cliente Search / Select Row -->
-            <div class="mb-3">
-              <label class="form-label required-label">Cliente</label>
-              <div class="input-group">
-                <span class="input-group-text bg-light border-end-0">
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    width="15"
-                    height="15"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    stroke-width="2"
-                    stroke-linecap="round"
-                    stroke-linejoin="round"
-                    class="text-muted"
-                  >
-                    <circle cx="11" cy="11" r="8"></circle>
-                    <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
-                  </svg>
-                </span>
-                <select
-                  cSelect
-                  formControlName="customerId"
-                  class="border-start-0 border-end-0"
-                  (change)="onCustomerSelect($event)"
-                >
-                  <option value="">Buscar cliente...</option>
-                  @for (c of customers(); track c.id) {
-                    <option [value]="c.id">
-                      {{ c.name }} {{ c.identification ? '(' + c.identification + ')' : '' }}
-                    </option>
-                  }
-                </select>
-                <button
-                  type="button"
-                  class="btn btn-outline-secondary px-3"
-                  title="Nuevo cliente rápido"
-                  (click)="toggleQuickCustomer()"
-                >
-                  +
-                </button>
+                <!-- Cliente Search / Select Row -->
+                <div class="mb-3">
+                  <label class="form-label required-label">Cliente</label>
+                  <div class="input-group">
+                    <span class="input-group-text bg-light border-end-0">
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        width="15"
+                        height="15"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        stroke-width="2"
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                        class="text-muted"
+                      >
+                        <circle cx="11" cy="11" r="8"></circle>
+                        <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+                      </svg>
+                    </span>
+                    <select
+                      cSelect
+                      formControlName="customerId"
+                      class="border-start-0 border-end-0"
+                      (change)="onCustomerSelect($event)"
+                    >
+                      <option value="">Buscar cliente...</option>
+                      @for (c of customers(); track c.id) {
+                        <option [value]="c.id">
+                          {{ c.name }} {{ c.identification ? '(' + c.identification + ')' : '' }}
+                        </option>
+                      }
+                    </select>
+                    <button
+                      type="button"
+                      class="btn btn-outline-secondary px-3"
+                      title="Nuevo cliente rápido"
+                      (click)="toggleQuickCustomer()"
+                    >
+                      +
+                    </button>
+                  </div>
+                </div>
+
+                @if (isQuickCustomer()) {
+                  <div class="mb-3 p-2 bg-light rounded-3 border">
+                    <label class="form-label required-label">Nombre del nuevo cliente</label>
+                    <input
+                      type="text"
+                      cFormControl
+                      formControlName="quickCustomerName"
+                      placeholder="Ej. Roberto Sánchez"
+                    />
+                  </div>
+                }
+
+                <!-- Phone & Email 2-column -->
+                <div class="row g-2">
+                  <div class="col-sm-6">
+                    <label class="form-label">Teléfono</label>
+                    <input
+                      type="text"
+                      cFormControl
+                      formControlName="customerPhone"
+                      placeholder="809-000-0000"
+                    />
+                  </div>
+                  <div class="col-sm-6">
+                    <label class="form-label">Correo electrónico</label>
+                    <input
+                      type="email"
+                      cFormControl
+                      formControlName="customerEmail"
+                      placeholder="cliente@correo.com"
+                    />
+                  </div>
+                </div>
               </div>
             </div>
 
-            @if (isQuickCustomer()) {
-              <div class="mb-3 p-3 bg-light rounded-3 border">
-                <label class="form-label required-label">Nombre del nuevo cliente</label>
-                <input
-                  type="text"
-                  cFormControl
-                  formControlName="quickCustomerName"
-                  placeholder="Ej. Roberto Sánchez"
-                />
-              </div>
-            }
+            <!-- Section 2: Detalles de la venta -->
+            <div class="col-lg-6">
+              <div class="form-section p-3 bg-light bg-opacity-50 rounded-3 border h-100">
+                <h6 class="section-title d-flex align-items-center gap-2">
+                  <span>2. Detalles de la venta</span>
+                </h6>
 
-            <!-- Phone & Email 2-column -->
-            <div class="row g-3">
-              <div class="col-md-6">
-                <label class="form-label">Teléfono</label>
-                <input
-                  type="text"
-                  cFormControl
-                  formControlName="customerPhone"
-                  placeholder="809-000-0000"
-                />
-              </div>
-              <div class="col-md-6">
-                <label class="form-label">Correo electrónico</label>
-                <input
-                  type="email"
-                  cFormControl
-                  formControlName="customerEmail"
-                  placeholder="cliente@correo.com"
-                />
-              </div>
-            </div>
-          </div>
+                <div class="mb-3">
+                  <label class="form-label required-label">Descripción / Concepto</label>
+                  <input
+                    type="text"
+                    cFormControl
+                    formControlName="description"
+                    placeholder="Ej. Venta de mercadería, servicios, etc."
+                  />
+                </div>
 
-          <!-- Section 2: Detalles de la venta -->
-          <div class="form-section mb-4">
-            <h6 class="section-title">Detalles de la venta</h6>
-
-            <div class="mb-3">
-              <label class="form-label required-label"
-                >Descripción / Concepto</label
-              >
-              <input
-                type="text"
-                cFormControl
-                formControlName="description"
-                placeholder="Ej. Venta de mercadería, servicios, etc."
-              />
-            </div>
-
-            <div class="mb-3">
-              <label class="form-label required-label"
-                >Monto total de la deuda</label
-              >
-              <div class="input-group">
-                <span class="input-group-text currency-addon fw-semibold"
-                  >RD$</span
-                >
-                <input
-                  type="number"
-                  step="0.01"
-                  min="0.01"
-                  cFormControl
-                  formControlName="totalAmount"
-                  placeholder="0.00"
-                  (input)="calculateInstallments()"
-                />
+                <div class="mb-3">
+                  <label class="form-label required-label">Monto total de la deuda</label>
+                  <div class="input-group">
+                    <span class="input-group-text currency-addon fw-bold text-primary">RD$</span>
+                    <input
+                      type="number"
+                      step="0.01"
+                      min="0.01"
+                      cFormControl
+                      class="form-control-lg fw-bold font-monospace"
+                      formControlName="totalAmount"
+                      placeholder="0.00"
+                      (input)="calculateInstallments()"
+                    />
+                  </div>
+                  <small class="text-muted">Monto total a financiar en cuotas</small>
+                </div>
               </div>
             </div>
           </div>

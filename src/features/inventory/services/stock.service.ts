@@ -171,7 +171,7 @@ export class StockService {
     if (quantity <= 0) {
       return {
         label: 'Agotado / Crítico',
-        badgeClass: 'bg-danger-subtle text-danger border border-danger-subtle',
+        badgeClass: 'status-badge-danger px-2.5 py-1 rounded-pill',
         color: '#dc3545',
         type: 'CRITICAL',
       };
@@ -179,7 +179,7 @@ export class StockService {
     if (quantity <= minQty) {
       return {
         label: 'Stock Mínimo',
-        badgeClass: 'bg-warning-subtle text-warning-emphasis border border-warning-subtle',
+        badgeClass: 'status-badge-warning px-2.5 py-1 rounded-pill',
         color: '#f59e0b',
         type: 'LOW',
       };
@@ -187,15 +187,15 @@ export class StockService {
     if (quantity >= maxQty) {
       return {
         label: 'Sobre-stock',
-        badgeClass: 'bg-info-subtle text-info-emphasis border border-info-subtle',
-        color: '#6366f1',
+        badgeClass: 'status-badge-subtle-primary px-2.5 py-1 rounded-pill',
+        color: '#252b46',
         type: 'OVERSTOCK',
       };
     }
     return {
       label: 'Normal',
-      badgeClass: 'bg-success-subtle text-success border border-success-subtle',
-      color: '#10b981',
+      badgeClass: 'status-badge-success px-2.5 py-1 rounded-pill',
+      color: '#198754',
       type: 'NORMAL',
     };
   }

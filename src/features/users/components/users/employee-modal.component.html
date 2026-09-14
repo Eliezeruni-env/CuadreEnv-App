@@ -1,0 +1,244 @@
+@if (visible) {
+  <div class="custom-modal-backdrop" (click)="close()">
+    <div class="custom-modal-content employee-modal-dialog" (click)="$event.stopPropagation()">
+      <!-- Modal Header -->
+      <div class="modal-header d-flex justify-content-between align-items-center py-2.5 px-3 border-bottom bg-white">
+        <div class="d-flex align-items-center gap-2">
+          <div class="badge-icon bg-primary-subtle text-primary p-2 rounded-3 d-flex align-items-center justify-content-center" style="width: 34px; height: 34px;">
+            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+              <circle cx="12" cy="7" r="4"></circle>
+            </svg>
+          </div>
+          <div>
+            <h5 class="fw-bold text-dark mb-0 fs-6">
+              {{ editingUserId() ? 'Editar Colaborador' : 'Registrar Nuevo Empleado' }}
+            </h5>
+            <small class="text-secondary" style="font-size: 0.76rem;">
+              {{ editingUserId() ? 'Actualizar información del colaborador' : 'Crear cuenta de acceso para un colaborador de tu empresa' }}
+            </small>
+          </div>
+        </div>
+        <button type="button" class="btn-close" (click)="close()" aria-label="Cerrar"></button>
+      </div>
+
+      <!-- Modal Body -->
+      <form [formGroup]="form" (ngSubmit)="onSubmit()">
+        <div class="modal-body p-3">
+          <!-- Indicador Claro de Empresa / Tenant Activo -->
+          <div class="alert alert-primary-subtle border border-primary-subtle py-2 px-3 small d-flex align-items-center gap-2 rounded-3 mb-3 text-primary-emphasis">
+            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="flex-shrink-0 text-primary">
+              <rect x="2" y="7" width="20" height="14" rx="2" ry="2"></rect>
+              <path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"></path>
+            </svg>
+            <div>
+              <span class="fw-bold">Empresa activa:</span> {{ activeCompanyName() }}
+              <div class="text-secondary" style="font-size: 0.72rem;">El colaborador pertenecerá y tendrá acceso exclusivamente a esta empresa.</div>
+            </div>
+          </div>
+
+          <div class="row g-2">
+            <!-- Nombres & Apellidos -->
+            <div class="col-md-6">
+              <label class="form-label fw-semibold text-secondary small mb-0.5">
+                Nombre <span class="text-danger">*</span>
+              </label>
+              <input
+                type="text"
+                class="form-control form-control-sm"
+                formControlName="firstName"
+                placeholder="ej. Juan"
+                [class.is-invalid]="form.get('firstName')?.invalid && form.get('firstName')?.touched"
+              />
+              @if (form.get('firstName')?.invalid && form.get('firstName')?.touched) {
+                <small class="text-danger d-block" style="font-size: 0.7rem;">El nombre es obligatorio.</small>
+              }
+            </div>
+
+            <div class="col-md-6">
+              <label class="form-label fw-semibold text-secondary small mb-0.5">
+                Apellido <span class="text-danger">*</span>
+              </label>
+              <input
+                type="text"
+                class="form-control form-control-sm"
+                formControlName="lastName"
+                placeholder="ej. Pérez"
+                [class.is-invalid]="form.get('lastName')?.invalid && form.get('lastName')?.touched"
+              />
+              @if (form.get('lastName')?.invalid && form.get('lastName')?.touched) {
+                <small class="text-danger d-block" style="font-size: 0.7rem;">El apellido es obligatorio.</small>
+              }
+            </div>
+
+            <!-- Cédula & Teléfono -->
+            <div class="col-md-6">
+              <label class="form-label fw-semibold text-secondary small mb-0.5">
+                Número de Cédula <span class="text-danger">*</span>
+              </label>
+              <input
+                type="text"
+                class="form-control form-control-sm font-monospace"
+                formControlName="identification"
+                appCedulaMask
+                placeholder="000-0000000-0"
+                [class.is-invalid]="form.get('identification')?.invalid && form.get('identification')?.touched"
+              />
+              @if (form.get('identification')?.invalid && form.get('identification')?.touched) {
+                <small class="text-danger d-block" style="font-size: 0.7rem;">La cédula es requerida (11 dígitos).</small>
+              }
+            </div>
+
+            <div class="col-md-6">
+              <label class="form-label fw-semibold text-secondary small mb-0.5">
+                Número de Teléfono <span class="text-danger">*</span>
+              </label>
+              <input
+                type="text"
+                class="form-control form-control-sm font-monospace"
+                formControlName="phoneNumber"
+                appPhoneMask
+                placeholder="(809) 000-0000"
+                [class.is-invalid]="form.get('phoneNumber')?.invalid && form.get('phoneNumber')?.touched"
+              />
+              @if (form.get('phoneNumber')?.invalid && form.get('phoneNumber')?.touched) {
+                <small class="text-danger d-block" style="font-size: 0.7rem;">El teléfono es requerido (10 dígitos).</small>
+              }
+            </div>
+
+            <!-- Roles en la Empresa (Selector Múltiple de Roles de la Empresa) -->
+            <div class="col-12">
+              <div class="d-flex justify-content-between align-items-center mb-1">
+                <label class="form-label fw-semibold text-secondary small mb-0">
+                  Roles de Acceso en la Empresa <span class="text-danger">*</span>
+                </label>
+                <span class="badge bg-primary-subtle text-primary border border-primary-subtle rounded-pill" style="font-size: 0.68rem;">
+                  {{ selectedRoles().length }} {{ selectedRoles().length === 1 ? 'rol asignado' : 'roles asignados' }}
+                </span>
+              </div>
+              <div class="p-2 border rounded-3 bg-light-subtle d-flex flex-wrap gap-2 align-items-center">
+                @for (role of companyRoles(); track role.id) {
+                  <button
+                    type="button"
+                    class="btn btn-sm py-1 px-2.5 rounded-pill d-flex align-items-center gap-1.5 transition-all"
+                    [ngClass]="isRoleSelected(role.name) ? 'btn-primary text-white shadow-2xs' : 'btn-outline-secondary bg-white text-secondary border'"
+                    (click)="toggleRole(role.name)"
+                  >
+                    @if (isRoleSelected(role.name)) {
+                      <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                        <polyline points="20 6 9 17 4 12"></polyline>
+                      </svg>
+                    } @else {
+                      <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <circle cx="12" cy="12" r="9"></circle>
+                      </svg>
+                    }
+                    <span style="font-size: 0.76rem;">{{ role.name }}</span>
+                  </button>
+                }
+              </div>
+              <small class="text-secondary d-block mt-1" style="font-size: 0.7rem;">
+                Puedes asignar múltiples roles al colaborador (ej. Cajero y Vendedor). Los permisos se acumularán automáticamente.
+              </small>
+            </div>
+
+            <!-- Contacto de Emergencia -->
+            <div class="col-md-6">
+              <label class="form-label fw-semibold text-secondary small mb-0.5">
+                Contacto de Emergencia <span class="text-muted fw-normal">(Opcional)</span>
+              </label>
+              <input
+                type="text"
+                class="form-control form-control-sm"
+                formControlName="emergencyContact"
+                placeholder="ej. Familiar - (809) 555-1234"
+              />
+            </div>
+
+            <!-- Adjuntos Opcionales: CV y Cédula Escaneada -->
+            <div class="col-md-6">
+              <label class="form-label fw-semibold text-secondary small mb-0.5">
+                CV / Currículum <span class="text-muted fw-normal">(Opcional)</span>
+              </label>
+              <input
+                type="file"
+                class="form-control form-control-sm"
+                accept=".pdf,.doc,.docx,image/*"
+                (change)="onCvSelected($event)"
+              />
+              @if (cvFileName()) {
+                <small class="text-success d-block" style="font-size: 0.7rem;">✓ Archivo: {{ cvFileName() }}</small>
+              }
+            </div>
+
+            <div class="col-md-6">
+              <label class="form-label fw-semibold text-secondary small mb-0.5">
+                Copia de Cédula <span class="text-muted fw-normal">(Opcional)</span>
+              </label>
+              <input
+                type="file"
+                class="form-control form-control-sm"
+                accept=".pdf,.doc,.docx,image/*"
+                (change)="onIdDocSelected($event)"
+              />
+              @if (idDocFileName()) {
+                <small class="text-success d-block" style="font-size: 0.7rem;">✓ Archivo: {{ idDocFileName() }}</small>
+              }
+            </div>
+
+            <!-- Credenciales de Inicio de Sesión -->
+            <div class="col-md-6">
+              <label class="form-label fw-semibold text-secondary small mb-0.5">
+                Correo Electrónico (Login) <span class="text-danger">*</span>
+              </label>
+              <input
+                type="email"
+                class="form-control form-control-sm"
+                formControlName="email"
+                placeholder="empleado@empresa.com"
+                [class.is-invalid]="form.get('email')?.invalid && form.get('email')?.touched"
+              />
+              @if (form.get('email')?.invalid && form.get('email')?.touched) {
+                <small class="text-danger d-block" style="font-size: 0.7rem;">Ingrese un correo electrónico válido.</small>
+              }
+            </div>
+
+            <div class="col-md-6">
+              <label class="form-label fw-semibold text-secondary small mb-0.5">
+                {{ editingUserId() ? 'Nueva Contraseña (Opcional)' : 'Contraseña Temporal' }} 
+                @if (!editingUserId()) {
+                  <span class="text-danger">*</span>
+                }
+              </label>
+              <input
+                type="password"
+                class="form-control form-control-sm font-monospace"
+                formControlName="password"
+                placeholder="Mínimo 6 caracteres"
+                [class.is-invalid]="form.get('password')?.invalid && form.get('password')?.touched"
+              />
+              @if (form.get('password')?.invalid && form.get('password')?.touched) {
+                <small class="text-danger d-block" style="font-size: 0.7rem;">Mínimo 6 caracteres.</small>
+              }
+            </div>
+          </div>
+        </div>
+
+        <!-- Modal Footer -->
+        <div class="modal-footer py-2 px-3 border-top bg-light d-flex justify-content-end gap-2">
+          <button type="button" class="btn btn-sm btn-outline-secondary px-3" (click)="close()" [disabled]="isLoading()">
+            Cancelar
+          </button>
+          <button type="submit" class="btn btn-sm btn-cuadre-primary fw-bold px-4" [disabled]="isLoading() || (form.invalid && form.touched)">
+            @if (isLoading()) {
+              <span class="spinner-border spinner-border-sm me-1"></span>
+              <span>Guardando...</span>
+            } @else {
+              <span>{{ editingUserId() ? 'Guardar Cambios' : '+ Guardar Empleado' }}</span>
+            }
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+}

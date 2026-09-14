@@ -8,6 +8,7 @@ import { SaleService } from '../../../sales/services/sale.service';
 import { CashRegisterService } from '../../../cash-register/services/cash-register.service';
 import { AccountReceivableService } from '../../../payments/services/account-receivable.service';
 import { AuthService } from '../../../cuadreEnv/services/auth.service';
+import { PermissionService } from '../../../roles/services/permission.service';
 import type {
   MovementDto,
   ProductDto,
@@ -17,15 +18,9 @@ import { IconDirective } from '@coreui/icons-angular';
 import { RouterLink } from '@angular/router';
 import { TranslationService } from '../../../cuadreEnv/services/translation.service';
 import {
-  CardBodyComponent,
-  CardComponent,
-  ColComponent,
   ContainerComponent,
-  RowComponent,
   SpinnerComponent,
   AlertComponent,
-  ButtonDirective,
-  FormModule,
 } from '@coreui/angular';
 
 @Component({
@@ -36,15 +31,9 @@ import {
     CommonModule,
     FormsModule,
     ContainerComponent,
-    RowComponent,
-    ColComponent,
-    CardComponent,
-    CardBodyComponent,
     IconDirective,
     SpinnerComponent,
     AlertComponent,
-    ButtonDirective,
-    FormModule,
     RouterLink,
   ],
 })
@@ -56,6 +45,7 @@ export class DashboardComponent implements OnInit {
   private cashRegisterService = inject(CashRegisterService);
   private accountReceivableService = inject(AccountReceivableService);
   public authService = inject(AuthService);
+  public permissionService = inject(PermissionService);
   public translationService = inject(TranslationService);
 
   // Date Filter Signals
@@ -125,10 +115,32 @@ export class DashboardComponent implements OnInit {
     const to = this.endDate();
 
     try {
-      // 1. Fetch Sales & apply Date Range filter
+      // 1. Fetch Sales & apply Date Range and User filter
       const salesRes = await this.saleService.getSales();
       if (salesRes.success && salesRes.data) {
         let filteredSales = salesRes.data.filter((s: any) => !s.isCancelled);
+
+        const isPrivileged =
+          this.authService.isSuperUser() ||
+          this.authService.hasRole(['Admin', 'SuperUser', 'Auditor', 'Audit']);
+
+        // If not admin/auditor, show only sales by the logged-in collaborator
+        if (!isPrivileged) {
+          const curr = this.authService.currentUser();
+          if (curr) {
+            filteredSales = filteredSales.filter(
+              (s: any) =>
+                s.userId === curr.id ||
+                s.sellerId === curr.id ||
+                s.cashierId === curr.id ||
+                s.createdBy === curr.id ||
+                s.createdBy === curr.email ||
+                (s.cashierName && s.cashierName.toLowerCase() === curr.email.toLowerCase()) ||
+                (s.sellerName && s.sellerName.toLowerCase() === curr.email.toLowerCase()),
+            );
+          }
+        }
+
         if (from) {
           filteredSales = filteredSales.filter((s: any) => {
             const sDate = s.createdAt ? s.createdAt.split('T')[0] : '';
@@ -150,13 +162,17 @@ export class DashboardComponent implements OnInit {
         this.todaySalesCount.set(filteredSales.length);
       }
 
-      // 2. Fetch Active Cash Registers KPI
-      const cashRes = await this.cashRegisterService.getCashRegisters();
-      if (cashRes.success && cashRes.data) {
-        const activeCount = cashRes.data.filter(
-          (c: any) => c.isOpen === true || c.status === 'Open' || c.status === 'Opened',
-        ).length;
-        this.activeCashRegistersCount.set(activeCount);
+      // 2. Fetch Active Cash Registers KPI (safely handled to avoid 403)
+      try {
+        const cashRes = await this.cashRegisterService.getCashRegisters();
+        if (cashRes.success && cashRes.data) {
+          const activeCount = cashRes.data.filter(
+            (c: any) => c.isOpen === true || c.status === 'Open' || c.status === 'Opened',
+          ).length;
+          this.activeCashRegistersCount.set(activeCount);
+        }
+      } catch {
+        // Ignore 403 or network failure gracefully
       }
 
       // 3. Fetch Low Stock Alerts KPI
@@ -184,9 +200,21 @@ export class DashboardComponent implements OnInit {
         this.warehousesList.set(warehousesRes.data);
       }
 
-      const usersRes = await this.userService.getUsers();
-      if (usersRes.success && usersRes.data) {
-        this.usersCount.set(usersRes.data.length);
+      // 5.1 Load Users Count ONLY if user has permissions (avoids 403 Forbidden error)
+      const canViewUsers =
+        this.authService.isSuperUser() ||
+        this.authService.hasRole(['Admin', 'SuperUser', 'Auditor', 'Audit']) ||
+        this.permissionService.hasPermission('Company', 'View');
+
+      if (canViewUsers) {
+        try {
+          const usersRes = await this.userService.getUsers();
+          if (usersRes.success && usersRes.data) {
+            this.usersCount.set(usersRes.data.length);
+          }
+        } catch {
+          // Gracefully ignore 403 or network failure
+        }
       }
 
       // 6. Fetch audit movements feed (Historial de Auditoría)
@@ -246,13 +274,13 @@ export class DashboardComponent implements OnInit {
     return w ? w.name : `Almacén #${warehouseId}`;
   }
 
-  getMovementTypeLabel(type: string): string {
-    const t = (type || '').toLowerCase();
-    if (t === 'inbound' || t === 'in' || t === 'create') return 'Entrada de Stock';
-    if (t === 'outbound' || t === 'out' || t === 'delete') return 'Salida de Stock';
-    if (t === 'transfer') return 'Transferencia entre Almacenes';
-    if (t === 'sale') return 'Salida por Venta';
-    if (t === 'adjustment') return 'Ajuste de Stock';
+  getMovementTypeLabel(type: any): string {
+    const t = String(type ?? '').trim().toLowerCase();
+    if (t === 'inbound' || t === 'in' || t === 'create' || t === '0') return 'Entrada de Stock';
+    if (t === 'outbound' || t === 'out' || t === 'delete' || t === '1') return 'Salida de Stock';
+    if (t === 'transfer' || t === '2') return 'Transferencia entre Almacenes';
+    if (t === 'sale' || t === '3') return 'Salida por Venta';
+    if (t === 'adjustment' || t === '4') return 'Ajuste de Stock';
     return 'Movimiento Registrado';
   }
 

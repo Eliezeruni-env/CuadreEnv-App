@@ -32,10 +32,10 @@
                     class="form-select custom-select-styled"
                     [(ngModel)]="selectedCustomerId"
                   >
-                    <option [ngValue]="null">👤 Consumidor final</option>
+                    <option [ngValue]="null">Consumidor final</option>
                     @for (c of customers(); track c.id) {
                       <option [ngValue]="c.id">
-                        👤 {{ c.name }} {{ c.phone ? '(' + c.phone + ')' : '' }}
+                        {{ c.name }} {{ c.phone ? '(' + c.phone + ')' : '' }}
                       </option>
                     }
                   </select>
@@ -164,8 +164,8 @@
                         step="0.01"
                         min="0"
                         class="form-control font-monospace fw-bold"
-                        [(ngModel)]="amountReceived"
-                        (input)="amountReceived"
+                        [ngModel]="amountReceived()"
+                        (ngModelChange)="amountReceived.set($event)"
                       />
                     </div>
                     <!-- Quick cash chips -->
@@ -250,8 +250,8 @@
                           min="0"
                           class="form-control form-control-sm text-end font-monospace p-1"
                           style="width: 60px;"
-                          [(ngModel)]="discountValue"
-                          (input)="onDiscountChange()"
+                          [ngModel]="discountValue()"
+                          (ngModelChange)="discountValue.set($event); onDiscountChange()"
                         />
                       </div>
                     </div>
@@ -294,13 +294,14 @@
                   type="text"
                   class="form-control border-start-0 ps-0"
                   placeholder="Buscar por nombre, código o barra..."
-                  [(ngModel)]="catalogSearchTerm"
+                  [ngModel]="catalogSearchTerm()"
+                  (ngModelChange)="catalogSearchTerm.set($event)"
                 />
               </div>
 
               <!-- Category Pills -->
               <div class="category-pills-container d-flex gap-1 mb-3 overflow-auto pb-1">
-                @for (cat of categories; track cat.label) {
+                @for (cat of categories(); track cat.id ?? cat.label) {
                   <button
                     type="button"
                     class="btn btn-sm category-chip text-nowrap"
@@ -409,7 +410,7 @@
         <button
           cButton
           class="btn-cobrar px-4 shadow-sm"
-          [disabled]="isLoading() || total() <= 0 || (selectedMethod() === 'Efectivo' && change() < 0)"
+          [disabled]="isLoading() || total() <= 0 || (selectedMethod() === 'Efectivo' && amountReceived() < total())"
           (click)="processQuickSale()"
         >
           @if (isLoading()) {

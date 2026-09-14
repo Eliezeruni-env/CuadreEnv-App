@@ -30,6 +30,7 @@ import {
   SaleCompletedModalComponent,
   type CompletedSaleDto,
 } from '../../../sales/components/sales/sale-completed-modal.component';
+import { AuthPosModalComponent } from './auth-pos-modal.component';
 import { ListPaginationComponent } from '../../../cuadreEnv/components/list-pagination/list-pagination.component';
 import {
   ButtonDirective,
@@ -38,7 +39,9 @@ import {
   SpinnerComponent,
   FormControlDirective,
   FormDirective,
+  FormSelectDirective,
 } from '@coreui/angular';
+import { UserService } from '../../../users/services/user.service';
 
 @Component({
   selector: 'app-cash-register',
@@ -55,10 +58,12 @@ import {
     SpinnerComponent,
     FormControlDirective,
     FormDirective,
+    FormSelectDirective,
     QuickSaleModalComponent,
     ManualMovementModalComponent,
     CloseRegisterModalComponent,
     SaleCompletedModalComponent,
+    AuthPosModalComponent,
     ListPaginationComponent,
   ],
 })
@@ -68,6 +73,7 @@ export class CashRegisterComponent implements OnInit {
   private readonly cashRegisterService = inject(CashRegisterService);
   private readonly notificationService = inject(NotificationService);
   public readonly authService = inject(AuthService);
+  private readonly userService = inject(UserService);
   private readonly route = inject(ActivatedRoute);
   private readonly fb = inject(FormBuilder);
 
@@ -75,16 +81,19 @@ export class CashRegisterComponent implements OnInit {
   @ViewChild('manualMovementModal') manualMovementModal!: ManualMovementModalComponent;
   @ViewChild('closeRegisterModal') closeRegisterModal!: CloseRegisterModalComponent;
   @ViewChild('saleCompletedModal') saleCompletedModal!: SaleCompletedModalComponent;
+  @ViewChild('authPosModal') authPosModal!: AuthPosModalComponent;
 
   activeSession = signal<CashRegisterSessionDto | null>(null);
   movements = signal<CashRegisterMovementItem[]>([]);
   sessionHistory = signal<CashRegisterSessionDto[]>([]);
+  cashiers = signal<{ id: number | string; name: string; email: string }[]>([]);
 
   activeTab = signal<'movimientos' | 'ventas' | 'ingresos' | 'egresos'>('movimientos');
   isLoading = signal<boolean>(false);
   errorMessage = signal<string | null>(null);
 
   showMovementMenu = signal<boolean>(false);
+  isPauseModalOpen = signal<boolean>(false);
 
   // Pagination signals
   movementsPage = signal<number>(1);
@@ -98,8 +107,10 @@ export class CashRegisterComponent implements OnInit {
   isCloseModalOpen = false;
   isSaleCompletedModalOpen = false;
   lastCompletedSale: CompletedSaleDto | null = null;
+  pendingPosAction: 'OPEN' | 'RESUME' | 'CLOSE' | null = null;
 
   openSessionForm: FormGroup;
+  pauseForm: FormGroup;
 
   // Computed properties
   readonly currentDateFormatted = computed(() => {
@@ -167,16 +178,25 @@ export class CashRegisterComponent implements OnInit {
   }
 
   constructor() {
+    const curr = this.authService.currentUser();
+    const defaultName = curr?.email ? curr.email.split('@')[0] : 'Usuario Actual';
+
     this.openSessionForm = this.fb.group({
       initialAmount: [10000, [Validators.required, Validators.min(0)]],
       name: ['Caja Principal 01', [Validators.required]],
-      cashierName: ['Administrador', [Validators.required]],
+      cashierName: [defaultName, [Validators.required]],
       notes: ['Fondo inicial para operaciones diarias'],
+    });
+
+    this.pauseForm = this.fb.group({
+      reason: ['Almuerzo / Receso', [Validators.required]],
+      notes: [''],
     });
   }
 
   ngOnInit() {
     this.loadData();
+    this.loadCashiers();
     this.route.queryParams.subscribe((params) => {
       if (params['requiresOpenSession']) {
         this.notificationService.warning(
@@ -184,6 +204,96 @@ export class CashRegisterComponent implements OnInit {
         );
       }
     });
+  }
+
+  async loadCashiers() {
+    const curr = this.authService.currentUser();
+    const defaultItem = {
+      id: curr?.id || 1,
+      name: curr?.email ? curr.email.split('@')[0] : 'Usuario Actual',
+      email: curr?.email || '',
+    };
+    const list = [defaultItem];
+
+    try {
+      const res = await this.userService.getUsers({ active: true, pageSize: 50 });
+      if (res?.data && Array.isArray(res.data) && res.data.length > 0) {
+        for (const u of res.data) {
+          const fullName = `${u.firstName || ''} ${u.lastName || ''}`.trim() || u.userName || u.email;
+          if (!list.some((existing) => existing.email === u.email)) {
+            list.push({
+              id: u.id ?? 0,
+              name: fullName,
+              email: u.email,
+            });
+          }
+        }
+      }
+    } catch {
+      // If 403 or network issue, fallback quietly to current user
+    }
+
+    this.cashiers.set(list);
+    if (list.length > 0) {
+      this.openSessionForm.patchValue({ cashierName: list[0].name });
+    }
+  }
+
+  openPauseModal() {
+    this.pauseForm.reset({
+      reason: 'Almuerzo / Receso',
+      notes: '',
+    });
+    this.isPauseModalOpen.set(true);
+  }
+
+  closePauseModal() {
+    this.isPauseModalOpen.set(false);
+  }
+
+  async confirmPause() {
+    if (this.pauseForm.invalid) {
+      this.pauseForm.markAllAsTouched();
+      return;
+    }
+    const val = this.pauseForm.value;
+    this.isLoading.set(true);
+    try {
+      const res = await this.cashRegisterService.pauseSession(val.reason, val.notes);
+      if (res.success && res.data) {
+        this.activeSession.set(res.data);
+        this.notificationService.info('La caja ha sido pausada temporalmente.');
+        this.closePauseModal();
+      } else {
+        this.notificationService.error(res.message || 'Error al pausar la caja.');
+      }
+    } catch (e: any) {
+      this.notificationService.showApiError(e);
+    } finally {
+      this.isLoading.set(false);
+    }
+  }
+
+  initiateResumeSession() {
+    this.pendingPosAction = 'RESUME';
+    if (this.authPosModal) this.authPosModal.open('Reanudar Caja');
+  }
+
+  async resumeRegisterSession() {
+    this.isLoading.set(true);
+    try {
+      const res = await this.cashRegisterService.resumeSession();
+      if (res.success && res.data) {
+        this.activeSession.set(res.data);
+        this.notificationService.success('Operaciones de caja reanudadas exitosamente.');
+      } else {
+        this.notificationService.error(res.message || 'Error al reanudar la caja.');
+      }
+    } catch (e: any) {
+      this.notificationService.showApiError(e);
+    } finally {
+      this.isLoading.set(false);
+    }
   }
 
   async loadData() {
@@ -229,6 +339,15 @@ export class CashRegisterComponent implements OnInit {
 
   toggleMovementMenu() {
     this.showMovementMenu.update((v) => !v);
+  }
+
+  initiateOpenSession() {
+    if (this.openSessionForm.invalid) {
+      this.openSessionForm.markAllAsTouched();
+      return;
+    }
+    this.pendingPosAction = 'OPEN';
+    if (this.authPosModal) this.authPosModal.open('Aperturar Caja');
   }
 
   async openRegisterSession() {
@@ -278,9 +397,28 @@ export class CashRegisterComponent implements OnInit {
     }
   }
 
-  openCloseRegisterModal() {
-    if (this.closeRegisterModal && this.activeSession()) {
-      this.closeRegisterModal.open(this.activeSession()!);
+  initiateCloseSession() {
+    this.pendingPosAction = 'CLOSE';
+    if (this.authPosModal) this.authPosModal.open('Cerrar Caja');
+  }
+
+  async openCloseRegisterModal() {
+    if (!this.closeRegisterModal) return;
+    this.isLoading.set(true);
+    try {
+      const sessionRes = await this.cashRegisterService.getActiveSession();
+      if (sessionRes?.success && sessionRes.data) {
+        this.activeSession.set(sessionRes.data);
+        this.closeRegisterModal.open(sessionRes.data);
+      } else if (this.activeSession()) {
+        this.closeRegisterModal.open(this.activeSession()!);
+      } else {
+        this.notificationService.warning('No se encontró una sesión de caja activa para cerrar.');
+      }
+    } catch (e: any) {
+      this.notificationService.showApiError(e);
+    } finally {
+      this.isLoading.set(false);
     }
   }
 
@@ -292,5 +430,22 @@ export class CashRegisterComponent implements OnInit {
     } else {
       this.isSaleCompletedModalOpen = true;
     }
+  }
+
+  onPosAuthenticated(event: { success: boolean; pin: string }) {
+    if (event.success) {
+      switch (this.pendingPosAction) {
+        case 'OPEN':
+          this.openRegisterSession();
+          break;
+        case 'RESUME':
+          this.resumeRegisterSession();
+          break;
+        case 'CLOSE':
+          this.openCloseRegisterModal();
+          break;
+      }
+    }
+    this.pendingPosAction = null;
   }
 }

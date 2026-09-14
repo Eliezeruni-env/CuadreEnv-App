@@ -17,19 +17,7 @@
       </c-nav-item>
     </c-header-nav>
 
-    <c-header-nav class="d-none d-md-flex ms-auto ">
-      <a cNavLink>
-        <svg cIcon class="my-1" name="cilBell" size="lg"></svg>
-      </a>
-      <a cNavLink>
-        <svg cIcon class="my-1" name="cilList" size="lg"></svg>
-      </a>
-      <a cNavLink>
-        <svg cIcon class="my-1" name="cilEnvelopeOpen" size="lg"></svg>
-      </a>
-    </c-header-nav>
-
-    <c-header-nav class="ms-auto ms-md-0">
+    <c-header-nav class="ms-auto">
       <div class="nav-item py-1">
         <div class="vr h-100 mx-2 text-body text-opacity-75"></div>
       </div>
@@ -43,7 +31,7 @@
       </div>
     </c-header-nav>
 
-    <c-header-nav class="mx-0">
+    <c-header-nav class="mx-2">
       <ng-container *ngTemplateOutlet="userDropdown" />
     </c-header-nav>
 
@@ -63,11 +51,17 @@
     <ul cDropdownMenu class="pt-0 w-auto shadow border-0" style="min-width: 220px;">
       <li>
         <div class="px-3 py-2 bg-light border-bottom rounded-top">
-          <div class="fw-bold text-dark text-truncate">{{ authService.currentUser()?.email }}</div>
+          <div class="fw-bold text-dark text-truncate">{{ authService.currentUser()?.email || 'Usuario' }}</div>
           <div class="text-secondary small font-size-xs mt-1">Role: <span
               class="badge bg-secondary-subtle text-secondary border font-monospace ms-1">{{ authService.currentRole()
               || 'User' }}</span></div>
         </div>
+      </li>
+      <li>
+        <a cDropdownItem routerLink="/profile">
+          <svg cIcon class="me-2 text-primary" name="cilUser"></svg>
+          Mi Perfil en la Empresa
+        </a>
       </li>
       <li>
         <a cDropdownItem routerLink="/products">
@@ -85,7 +79,7 @@
         <hr cDropdownDivider />
       </li>
       <li>
-        <a cDropdownItem (click)="logout()" style="cursor: pointer;" class="text-danger fw-semibold">
+        <a cDropdownItem (click)="promptLogout()" style="cursor: pointer;" class="text-danger fw-semibold">
           <svg cIcon class="me-2 text-danger" name="cilAccountLogout"></svg>
           {{ translationService.t('header.logout') }}
         </a>
@@ -127,3 +121,53 @@
     </div>
   </c-dropdown>
 </ng-template>
+
+<!-- Confirm Logout Modal -->
+@if (isLogoutModalVisible()) {
+  <div class="custom-logout-modal-backdrop" (click)="cancelLogout()">
+    <div class="custom-logout-modal-content" (click)="$event.stopPropagation()">
+      <div class="modal-body p-4 text-center">
+        @if (hasOpenCashRegister()) {
+          <div class="logout-icon-box bg-warning-subtle text-warning mb-3 mx-auto">
+            <svg cIcon name="cilWarning" style="width: 32px; height: 32px;"></svg>
+          </div>
+          <h5 class="fw-bold text-dark mb-2">Turno de Caja Abierto</h5>
+          <p class="text-secondary small mb-3">
+            Detectamos que la caja <strong>{{ openCashRegisterName() }}</strong> se encuentra actualmente abierta. 
+            Cerrar sesión sin realizar el cuadre y arqueo de caja puede generar descuadres en tu turno.
+          </p>
+          <div class="alert alert-warning py-2 px-3 small text-start mb-4 border-warning">
+            ⚠️ <strong>Recomendación:</strong> Cierra el turno en el módulo de caja antes de retirarte.
+          </div>
+          <div class="d-flex flex-column gap-2">
+            <button type="button" class="btn btn-primary fw-semibold" (click)="goToCashRegisterClose()">
+              Ir al Cierre y Cuadre de Caja
+            </button>
+            <button type="button" class="btn btn-outline-danger fw-semibold" (click)="confirmLogout()">
+              Forzar Cierre de Sesión
+            </button>
+            <button type="button" class="btn btn-light border text-secondary" (click)="cancelLogout()">
+              Cancelar y Continuar Trabajando
+            </button>
+          </div>
+        } @else {
+          <div class="logout-icon-box bg-danger-subtle text-danger mb-3 mx-auto">
+            <svg cIcon name="cilAccountLogout" style="width: 32px; height: 32px;"></svg>
+          </div>
+          <h5 class="fw-bold text-dark mb-2">¿Deseas cerrar sesión?</h5>
+          <p class="text-secondary small mb-4">
+            Estás a punto de salir del sistema CuadreEnv. Tendrás que ingresar tus credenciales nuevamente para acceder.
+          </p>
+          <div class="d-flex justify-content-center gap-2">
+            <button type="button" class="btn btn-light border px-4" (click)="cancelLogout()">
+              Cancelar
+            </button>
+            <button type="button" class="btn btn-danger px-4 fw-semibold shadow-sm" (click)="confirmLogout()">
+              Cerrar Sesión
+            </button>
+          </div>
+        }
+      </div>
+    </div>
+  </div>
+}

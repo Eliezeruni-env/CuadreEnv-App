@@ -28,12 +28,12 @@
               <label class="small fw-semibold text-secondary mb-1"
                 >{{ translationService.t('purchases.modal.supplierLabel') }}</label
               >
-              <input
-                type="number"
-                formControlName="supplierId"
-                cFormControl
-                placeholder="e.g. 5"
-              />
+              <select cSelect formControlName="supplierId" class="form-select">
+                <option value="">-- Seleccionar Proveedor --</option>
+                @for (s of suppliers(); track s.id) {
+                  <option [value]="s.id">{{ s.name }} @if (s.rnc) { ({{ s.rnc }}) }</option>
+                }
+              </select>
             </div>
 
             <!-- Items Section -->

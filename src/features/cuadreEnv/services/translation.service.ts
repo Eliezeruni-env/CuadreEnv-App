@@ -102,6 +102,7 @@ export class TranslationService {
       'nav.cashRegister': 'Caja Chica',
       'nav.administration': 'Administración',
       'nav.teamUsers': 'Equipo y Permisos',
+      'nav.services': 'Servicios',
 
       // Dashboard
       'dashboard.title': 'Resumen del Espacio de Trabajo',
@@ -491,6 +492,7 @@ export class TranslationService {
       'nav.cashRegister': 'Cash Register',
       'nav.administration': 'Administration',
       'nav.teamUsers': 'Team & Permissions',
+      'nav.services': 'Services',
 
       // Dashboard
       'dashboard.title': 'Workspace Overview',
@@ -819,7 +821,13 @@ export class TranslationService {
 
   getTranslatedNavItems(rawItems: INavData[]): INavData[] {
     return rawItems.map((item) => {
-      const copy: INavData = { ...item };
+      const copy: INavData = {
+        ...item,
+        linkProps: {
+          routerLinkActiveOptions: { exact: true },
+          ...(item.linkProps || {})
+        }
+      };
       if (item.name) {
         const key = this.getNavKey(item.name);
         copy.name = this.t(key);
@@ -867,6 +875,8 @@ export class TranslationService {
       case 'Team & Users':
       case 'Equipo y Permisos':
         return 'nav.teamUsers';
+      case 'Servicios':
+        return 'nav.services';
       default:
         return name;
     }

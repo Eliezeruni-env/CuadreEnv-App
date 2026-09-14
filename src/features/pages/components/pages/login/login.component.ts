@@ -8,22 +8,6 @@ import {
 import { Router, RouterLink } from '@angular/router';
 import { AuthService } from '../../../../cuadreEnv/services/auth.service';
 import { TranslationService } from '../../../../cuadreEnv/services/translation.service';
-import { IconDirective } from '@coreui/icons-angular';
-import {
-  ButtonDirective,
-  CardBodyComponent,
-  CardComponent,
-  CardGroupComponent,
-  ColComponent,
-  ContainerComponent,
-  FormControlDirective,
-  FormDirective,
-  InputGroupComponent,
-  InputGroupTextDirective,
-  RowComponent,
-  AlertComponent,
-  SpinnerComponent,
-} from '@coreui/angular';
 
 @Component({
   selector: 'app-login',
@@ -31,21 +15,7 @@ import {
   styleUrls: ['./login.component.scss'],
   standalone: true,
   imports: [
-    ContainerComponent,
-    RowComponent,
-    ColComponent,
-    CardGroupComponent,
-    CardComponent,
-    CardBodyComponent,
-    FormDirective,
-    InputGroupComponent,
-    InputGroupTextDirective,
-    IconDirective,
-    FormControlDirective,
-    ButtonDirective,
     ReactiveFormsModule,
-    AlertComponent,
-    SpinnerComponent,
     RouterLink,
   ],
 })
@@ -54,6 +24,7 @@ export class LoginComponent {
   loginForm: FormGroup;
   isLoading = signal<boolean>(false);
   errorMessage = signal<string | null>(null);
+  showPassword = signal<boolean>(false);
 
   constructor(
     private fb: FormBuilder,
@@ -63,7 +34,12 @@ export class LoginComponent {
     this.loginForm = this.fb.group({
       email: ['', [Validators.required, Validators.email]],
       password: ['', [Validators.required, Validators.minLength(6)]],
+      rememberMe: [false],
     });
+  }
+
+  toggleShowPassword() {
+    this.showPassword.update((val) => !val);
   }
 
   async onSubmit() {
@@ -81,11 +57,10 @@ export class LoginComponent {
         password: this.loginForm.value.password,
         deviceId: 'web-browser',
       });
-      // Route routing is checked by auth guard or router
-      const role = this.authService.currentRole();
       const companyId = this.authService.companyId();
+      const isSuperUser = this.authService.isSuperUser();
 
-      if (!companyId && role === 'Admin') {
+      if (!companyId && !isSuperUser) {
         this.router.navigate(['/companies/create']);
       } else {
         this.router.navigate(['/dashboard']);
@@ -111,13 +86,30 @@ export class LoginComponent {
         console.error('login error details', String(error));
       }
 
-      const serverMsg = responseBody?.message || error?.message;
+      const errorCode = String(responseBody?.errorCode || responseBody?.code || '').trim().toUpperCase();
+      const serverMsg = typeof responseBody?.message === 'string' ? responseBody.message : (error?.message || '');
+
+      // Check specifically if the user is deactivated / inactive
+      if (
+        errorCode === 'USER_INACTIVE' ||
+        serverMsg.toLowerCase().includes('desactivad') ||
+        serverMsg.toLowerCase().includes('inactiv')
+      ) {
+        this.errorMessage.set(
+          serverMsg || 'Este usuario está desactivado. Comuníquese con el administrador para reactivar su cuenta.',
+        );
+        return;
+      }
+
       const errors = responseBody?.errors;
-      if (errors && errors.length > 0) {
+      if (Array.isArray(errors) && errors.length > 0) {
         this.errorMessage.set(errors.join(', '));
+      } else if (errors && typeof errors === 'object') {
+        const errorList = Object.values(errors).flat();
+        this.errorMessage.set(errorList.length > 0 ? errorList.join(', ') : (serverMsg || 'Error al iniciar sesión.'));
       } else {
         this.errorMessage.set(
-          serverMsg || 'Login failed. Please verify credentials.',
+          serverMsg || 'No se pudo iniciar sesión. Por favor verifique sus credenciales.',
         );
       }
     } finally {

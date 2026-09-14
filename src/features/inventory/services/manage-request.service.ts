@@ -9,69 +9,7 @@ import {
 
 const MANAGE_REQUESTS_STORAGE_KEY = 'cuadreenv_manage_requests_db';
 
-const DEFAULT_REQUESTS: ManageRequest[] = [
-  {
-    id: 1,
-    requestNumber: 'REQ-000101',
-    requestType: ManageRequestType.PurchaseReceipt,
-    typeName: 'Recepción con Discrepancias',
-    statusId: 1, // Pendiente
-    statusName: 'Pendiente',
-    creatorName: 'Almacenista Juan Pérez',
-    createdAt: new Date(Date.now() - 3600000 * 3).toISOString(),
-    comment: 'Llegaron 10 unidades adicionales en lote de Coca Cola 2L no contempladas en OC-000101.',
-    payloadJson: JSON.stringify({
-      purchaseOrderId: 101,
-      orderNumber: 'OC-000101',
-      warehouseId: 1,
-      supplierName: 'Distribuidora Nacional C. por A.',
-      items: [
-        { productId: 1, productName: 'Coca Cola 2L Regular', quantityOrdered: 50, quantityReceived: 60, unitCost: 80 },
-      ],
-    }),
-    timeline: [
-      {
-        timestamp: new Date(Date.now() - 3600000 * 3).toISOString(),
-        action: 'Creación de Solicitud',
-        userName: 'Juan Pérez',
-        comment: 'Discrepancia detectada durante conteo físico.',
-      },
-    ],
-  },
-  {
-    id: 2,
-    requestNumber: 'REQ-000102',
-    requestType: ManageRequestType.InventoryAdjustment,
-    typeName: 'Ajuste de Inventario',
-    statusId: 2, // Aprobado
-    statusName: 'Aprobado',
-    creatorName: 'Supervisor Luis Morales',
-    createdAt: new Date(Date.now() - 86400000).toISOString(),
-    reviewedAt: new Date(Date.now() - 86400000 + 3600000).toISOString(),
-    reviewerName: 'Admin Auditor',
-    comment: 'Ajuste por merma de 2 botellas rotas en estantería.',
-    payloadJson: JSON.stringify({
-      warehouseId: 1,
-      items: [{ productId: 3, productName: 'Aceite Vegetal 64oz', quantity: -2 }],
-    }),
-    timeline: [
-      {
-        timestamp: new Date(Date.now() - 86400000).toISOString(),
-        action: 'Creación de Solicitud',
-        userName: 'Luis Morales',
-        comment: 'Merma reportada en turno matutino.',
-      },
-      {
-        timestamp: new Date(Date.now() - 86400000 + 3600000).toISOString(),
-        action: 'Aprobación',
-        userName: 'Admin Auditor',
-        oldStatus: 'Pendiente',
-        newStatus: 'Aprobado',
-        comment: 'Comprobado informe de daño en pasillo 4.',
-      },
-    ],
-  },
-];
+const DEFAULT_REQUESTS: ManageRequest[] = [];
 
 @Injectable({
   providedIn: 'root',
@@ -84,12 +22,11 @@ export class ManageRequestService {
     try {
       const raw = localStorage.getItem(MANAGE_REQUESTS_STORAGE_KEY);
       if (!raw) {
-        this.saveLocalRequests(DEFAULT_REQUESTS);
-        return DEFAULT_REQUESTS;
+        return [];
       }
       return JSON.parse(raw);
     } catch {
-      return DEFAULT_REQUESTS;
+      return [];
     }
   }
 

@@ -94,6 +94,34 @@ export class BillingService {
     };
   }
 
+  private applyCreditNotesToBillings(billings: Billing[]): Billing[] {
+    try {
+      const rawNotes = localStorage.getItem('cuadreenv_credit_notes_db');
+      const creditNotes: any[] = rawNotes ? JSON.parse(rawNotes) : [];
+      if (creditNotes.length === 0) return billings;
+
+      return billings.map((b) => {
+        const fullNote = creditNotes.find(
+          (cn) =>
+            (cn.billingId === b.id ||
+              cn.billingNumber === b.billingNumber ||
+              (cn.originalNcf && b.ncf && cn.originalNcf === b.ncf)) &&
+            (cn.creditNoteType === 1 || cn.amountTotal >= (b.amountTotal || 0)),
+        );
+        if (fullNote) {
+          return {
+            ...b,
+            hasAFullCreditNote: true,
+            statusId: 3, // Anulada/Devuelta
+          };
+        }
+        return b;
+      });
+    } catch {
+      return billings;
+    }
+  }
+
   async getBillings(filters?: {
     startDate?: string;
     endDate?: string;
@@ -103,27 +131,33 @@ export class BillingService {
     pageNumber?: number;
     pageSize?: number;
   }): Promise<ApiResponse<Billing[]>> {
+    let list: Billing[] = [];
     try {
-      const res = await this.api.get<any, any>('/Billing', { params: filters });
-      const list = extractArray<Billing>(res);
-      if (list && list.length > 0) {
-        return { success: true, data: list };
+      const res = await this.api.get<any, any>('/Sale', { params: filters });
+      const apiList = extractArray<any>(res);
+      if (apiList && apiList.length > 0) {
+        list = apiList.map((s: any) => this.mapSaleToBilling(s));
       }
     } catch {
       // fallback
     }
 
-    let local = this.getLocalBillings();
+    if (list.length === 0) {
+      list = this.getLocalBillings();
+    }
+
+    list = this.applyCreditNotesToBillings(list);
+
     if (filters) {
       if (filters.clientId) {
-        local = local.filter((b) => b.clientId === filters.clientId);
+        list = list.filter((b) => b.clientId === filters.clientId);
       }
       if (filters.statusId) {
-        local = local.filter((b) => b.statusId === filters.statusId);
+        list = list.filter((b) => b.statusId === filters.statusId);
       }
       if (filters.documentNumber) {
         const term = filters.documentNumber.toLowerCase();
-        local = local.filter(
+        list = list.filter(
           (b) =>
             (b.billingNumber || '').toLowerCase().includes(term) ||
             (b.ncf || '').toLowerCase().includes(term),
@@ -131,26 +165,60 @@ export class BillingService {
       }
       if (filters.startDate) {
         const start = new Date(filters.startDate).getTime();
-        local = local.filter((b) => new Date(b.creationDate).getTime() >= start);
+        list = list.filter((b) => new Date(b.creationDate).getTime() >= start);
       }
       if (filters.endDate) {
         const end = new Date(filters.endDate).getTime();
-        local = local.filter((b) => new Date(b.creationDate).getTime() <= end);
+        list = list.filter((b) => new Date(b.creationDate).getTime() <= end);
       }
     }
 
-    return { success: true, data: local };
+    return { success: true, data: list };
   }
 
   async getBillingById(id: number): Promise<ApiResponse<Billing>> {
     try {
-      const res = await this.api.get<any, any>(`/Billing/${id}`);
-      return { success: true, data: res as Billing };
+      const res = await this.api.get<any, any>(`/Sale/${id}`);
+      if (res) {
+        const mapped = this.mapSaleToBilling(res?.data || res);
+        return { success: true, data: mapped };
+      }
     } catch {
-      const found = this.getLocalBillings().find((b) => b.id === id);
-      if (found) return { success: true, data: found };
-      return { success: false, message: 'Factura no encontrada.' };
+      // fallback
     }
+    const found = this.getLocalBillings().find((b) => b.id === id);
+    if (found) return { success: true, data: found };
+    return { success: false, message: 'Factura no encontrada.' };
+  }
+
+  private mapSaleToBilling(s: any): Billing {
+    return {
+      id: s.id,
+      billingNumber: s.invoiceFolio || `FAC-${String(s.id).padStart(6, '0')}`,
+      creationDate: s.date || s.creationDate || new Date().toISOString(),
+      clientId: s.customerId || 0,
+      clientName: s.customerName || `Cliente #${s.customerId || ''}`,
+      billingTypeId: s.paymentType === 1 ? 2 : 1,
+      billingTypeName: s.paymentType === 1 ? 'Crédito' : 'Contado',
+      voucherTypeId: 1,
+      voucherTypeName: 'Consumidor Final',
+      ncf: s.invoiceFolio || `B02${String(s.id).padStart(8, '0')}`,
+      statusId: s.status === 2 ? 2 : 1,
+      amountSubTotal: Number(s.subTotal ?? s.total ?? 0),
+      amountDesc: 0,
+      amountItbis: Number(s.tax ?? 0),
+      amountTotal: Number(s.total ?? 0),
+      productDetails: (s.details || []).map((d: any) => ({
+        productId: d.productId,
+        productName: d.productDescription || `Producto #${d.productId}`,
+        quantity: Number(d.quantity) || 1,
+        price: Number(d.unitPrice) || 0,
+        subtotal: (Number(d.quantity) || 1) * (Number(d.unitPrice) || 0),
+        itbis: 0,
+        total: (Number(d.quantity) || 1) * (Number(d.unitPrice) || 0),
+      })),
+      details: s.details || [],
+    };
   }
 
   async createBilling(header: HeaderDto, items: ProductDetails[]): Promise<ApiResponse<Billing>> {

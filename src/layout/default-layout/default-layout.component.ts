@@ -26,6 +26,9 @@ import { NotificationService } from '../../features/cuadreEnv/services/notificat
 import { TranslationService } from '../../features/cuadreEnv/services/translation.service';
 import { ConfirmDialogComponent } from '../../features/cuadreEnv/components/confirm-dialog/confirm-dialog.component';
 
+import { AuthService } from '../../features/cuadreEnv/services/auth.service';
+import { PermissionService } from '../../features/roles/services/permission.service';
+
 @Component({
   selector: 'app-dashboard',
   templateUrl: './default-layout.component.html',
@@ -58,7 +61,36 @@ import { ConfirmDialogComponent } from '../../features/cuadreEnv/components/conf
 export class DefaultLayoutComponent {
   private readonly translationService = inject(TranslationService);
   public notificationService = inject(NotificationService);
-  public readonly navItems = computed(() =>
-    this.translationService.getTranslatedNavItems(staticNavItems),
-  );
+  private readonly authService = inject(AuthService);
+  private readonly permissionService = inject(PermissionService);
+
+  public readonly navItems = computed(() => {
+    const translated = this.translationService.getTranslatedNavItems(staticNavItems);
+    const isAdmin =
+      this.authService.isSuperUser() ||
+      this.authService.hasRole(['Admin', 'SuperUser', 'SuperAdmin', 'SysAdmin']);
+    const isPrivileged =
+      isAdmin ||
+      this.authService.hasRole(['Auditor', 'Audit', 'Supervisor', 'Manager']);
+
+    return translated.filter((item) => {
+      const url = typeof item.url === 'string' ? item.url : (Array.isArray(item.url) ? item.url.join('/') : '');
+      if (url === '/metrics' || url.startsWith('/metrics')) {
+        return isPrivileged;
+      }
+      if (url === '/users' || url.startsWith('/users')) {
+        return isAdmin || this.permissionService.hasPermission('Company', 'View');
+      }
+      if (url.includes('/admin/roles')) {
+        return isAdmin;
+      }
+      if (url.includes('/admin/approvals')) {
+        return isPrivileged || this.permissionService.hasPermission('Audit', 'View');
+      }
+      if (url.includes('/company/settings')) {
+        return isAdmin;
+      }
+      return true;
+    });
+  });
 }

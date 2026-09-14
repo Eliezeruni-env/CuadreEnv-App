@@ -1,5 +1,6 @@
 import { Component, computed, inject, OnInit, signal, ViewChild } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { Router } from '@angular/router';
 import { SaleService } from '../../services/sale.service';
 import { CustomerService } from '../../../customers/services/customer.service';
 import { AuthService } from '../../../cuadreEnv/services/auth.service';
@@ -32,6 +33,7 @@ import {
 } from '@coreui/angular';
 import { TableComponent } from '../../../cuadreEnv/components/table/table.component';
 import { ListPaginationComponent } from '../../../cuadreEnv/components/list-pagination/list-pagination.component';
+import { KtPaginatorComponent } from '../../../billing/components/kt-paginator/kt-paginator.component';
 
 @Component({
   selector: 'app-sales',
@@ -39,12 +41,6 @@ import { ListPaginationComponent } from '../../../cuadreEnv/components/list-pagi
   standalone: true,
   imports: [
     CommonModule,
-    ContainerComponent,
-    CardComponent,
-    CardBodyComponent,
-    TableComponent,
-    ButtonDirective,
-    IconDirective,
     AlertComponent,
     SpinnerComponent,
     CreateSaleModalComponent,
@@ -56,7 +52,7 @@ import { ListPaginationComponent } from '../../../cuadreEnv/components/list-pagi
     SaleCompletedModalComponent,
     CreditNoteFormComponent,
     FilterPanelComponent,
-    ListPaginationComponent,
+    KtPaginatorComponent,
   ],
 })
 export class SalesComponent implements OnInit {
@@ -79,6 +75,7 @@ export class SalesComponent implements OnInit {
   currentPage = signal<number>(1);
   pageSize = 10;
   totalItems = signal<number>(0);
+  expandedSaleId = signal<number | null>(null);
 
   readonly filterConfig = computed<FilterConfig[]>(() => [
     {
@@ -135,6 +132,7 @@ export class SalesComponent implements OnInit {
     private saleService: SaleService,
     private customerService: CustomerService,
     public authService: AuthService,
+    private router: Router,
   ) {}
 
   ngOnInit() {
@@ -239,7 +237,64 @@ export class SalesComponent implements OnInit {
     return this.filteredSalesBase().length;
   }
 
-  getCustomerName(customerId: number): string {
+  toggleDetail(sale: SaleResponseDto) {
+    if (this.expandedSaleId() === sale.id) {
+      this.expandedSaleId.set(null);
+    } else {
+      this.expandedSaleId.set(sale.id);
+    }
+  }
+
+  isSaleExpanded(saleId: number): boolean {
+    return this.expandedSaleId() === saleId;
+  }
+
+  getSaleItems(sale: SaleResponseDto): any[] {
+    const rawItems =
+      sale.details && sale.details.length > 0
+        ? sale.details
+        : (sale as any).items && (sale as any).items.length > 0
+        ? (sale as any).items
+        : (sale as any).saleDetails && (sale as any).saleDetails.length > 0
+        ? (sale as any).saleDetails
+        : (sale as any).productDetails && (sale as any).productDetails.length > 0
+        ? (sale as any).productDetails
+        : [
+            {
+              productId: (sale as any).productId || 1,
+              productName: (sale as any).notes || (sale as any).description || `Producto de Venta #${sale.id}`,
+              productCode: `PROD-${sale.id}`,
+              unitPrice: sale.total,
+              quantity: 1,
+              total: sale.total,
+            },
+          ];
+
+    return rawItems.map((d: any) => {
+      const pName = d.productName || d.description || `Producto #${d.productId || d.id || 1}`;
+      const pCode = d.productCode || d.barcode || `PROD-${d.productId || d.id || 1}`;
+      const qty = Number(d.quantity ?? 1) || 1;
+      const price = Number(d.unitPrice ?? d.price ?? 0) || 0;
+      const discount = Number(d.discountPercentage ?? d.discount ?? 0) || 0;
+      const subtotal = Math.round((qty * price) * 100) / 100;
+      const itbis = Math.round((subtotal * 0.18) * 100) / 100;
+      const total = subtotal + itbis;
+      return {
+        productId: d.productId || d.id || 1,
+        productName: pName,
+        productCode: pCode,
+        quantity: qty,
+        unitPrice: price,
+        discount,
+        subtotal,
+        itbis,
+        total: d.total || total,
+      };
+    });
+  }
+
+  getCustomerName(customerId?: number | null): string {
+    if (!customerId) return this.translationService.t('sales.table.unknownCustomer');
     const customer = this.customers().find((c) => c.id === customerId);
     return customer ? customer.name : this.translationService.t('sales.table.unknownCustomer');
   }
@@ -254,17 +309,13 @@ export class SalesComponent implements OnInit {
 
   onSaleOptionChosen(option: 'quick' | 'credit' | 'service') {
     if (option === 'quick') {
-      if (this.quickSaleModal) {
-        this.quickSaleModal.open();
-      }
+      this.router.navigate(['/sales/quick']);
     } else if (option === 'credit') {
       if (this.createReceivableModal) {
         this.createReceivableModal.open();
       }
     } else if (option === 'service') {
-      if (this.createServiceSaleModal) {
-        this.createServiceSaleModal.open();
-      }
+      this.router.navigate(['/sales/service']);
     }
   }
 

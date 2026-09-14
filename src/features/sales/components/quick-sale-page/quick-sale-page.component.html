@@ -1,0 +1,487 @@
+<div class="container-fluid py-3 quick-sale-page-container">
+  <!-- Top Navigation & Header -->
+  <div class="d-flex align-items-center justify-content-between flex-wrap gap-2 mb-3 bg-white p-3 rounded-4 shadow-sm border">
+    <div class="d-flex align-items-center gap-3">
+      <a [routerLink]="['/sales']" class="btn btn-outline-secondary d-flex align-items-center gap-1 px-3 shadow-xs">
+        <svg cIcon name="cilArrowLeft" style="width: 16px; height: 16px;"></svg>
+        <span>Volver a Ventas</span>
+      </a>
+      <div>
+        <h4 class="fw-bold mb-0 text-dark">Nueva Venta Rápida</h4>
+        <small class="text-secondary">Contado · Cobro en mostrador / caja con salida automática de inventario</small>
+      </div>
+    </div>
+
+    <div class="d-flex align-items-center gap-2">
+      <span class="badge bg-success-subtle text-success border px-3 py-2 fs-6 rounded-pill d-flex align-items-center gap-2">
+        <span class="pulse-dot"></span>
+        <span>{{ activeSessionName() }}</span>
+      </span>
+      <button type="button" class="btn btn-light border text-secondary px-3" (click)="resetForm()" title="Limpiar formulario">
+        <svg cIcon name="cilReload" style="width: 15px; height: 15px;" class="me-1"></svg>
+        <span>Limpiar</span>
+      </button>
+    </div>
+  </div>
+
+  <!-- Main 2-Column POS Layout -->
+  <div class="row g-3">
+    <!-- LEFT SIDE: Sale Form & Cart (Col-lg-7) -->
+    <div class="col-lg-7 col-xl-7 d-flex flex-column gap-3">
+      <!-- 1. Información del Cliente -->
+      <div class="card border rounded-4 shadow-sm bg-white p-3">
+        <div class="d-flex justify-content-between align-items-center mb-2">
+          <label class="form-label fw-bold text-dark mb-0 d-flex align-items-center gap-2">
+            <span class="badge bg-primary rounded-circle px-2">1</span>
+            <span>Información del cliente</span>
+          </label>
+          <span class="text-muted small">Opcional para comprobante con RNC</span>
+        </div>
+        <div class="row g-2 align-items-center">
+          <div class="col-12">
+            <select class="form-select form-select-lg border" [(ngModel)]="selectedCustomerId">
+              <option [ngValue]="null">Consumidor final (General / Sin RNC)</option>
+              @for (c of customers(); track c.id) {
+                <option [ngValue]="c.id">
+                  {{ c.name }} {{ c.identification ? '(' + c.identification + ')' : '' }}
+                </option>
+              }
+            </select>
+          </div>
+        </div>
+      </div>
+
+      <!-- 2. Productos en Venta (Cart Table) -->
+      <div class="card border rounded-4 shadow-sm bg-white p-3 flex-grow-1">
+        <div class="d-flex justify-content-between align-items-center mb-2">
+          <label class="form-label fw-bold text-dark mb-0 d-flex align-items-center gap-2">
+            <span class="badge bg-primary rounded-circle px-2">2</span>
+            <span>Productos en venta</span>
+          </label>
+          @if (cartItems().length > 0) {
+            <button type="button" class="btn btn-sm text-danger border-0 p-0" (click)="clearCart()">
+              Vaciar carrito
+            </button>
+          }
+        </div>
+
+        <div class="table-responsive cart-table-box border rounded-3 mb-2" style="min-height: 180px; max-height: 280px; overflow-y: auto;">
+          <table class="table table-hover align-middle mb-0">
+            <thead class="table-light font-size-xs text-uppercase text-secondary sticky-top">
+              <tr>
+                <th class="ps-3">Producto</th>
+                <th class="text-end" style="width: 110px;">Precio Unit.</th>
+                <th class="text-center" style="width: 140px;">Cantidad</th>
+                <th class="text-end" style="width: 120px;">Total</th>
+                <th style="width: 44px;"></th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (item of cartItems(); track item.productId; let i = $index) {
+                <tr>
+                  <td class="ps-3">
+                    <div class="fw-bold text-dark text-truncate" style="max-width: 220px;" [title]="item.productName">
+                      {{ item.productName }}
+                    </div>
+                    <div class="text-secondary small font-monospace" style="font-size: 0.72rem;">
+                      Código: {{ item.productCode }}
+                    </div>
+                  </td>
+                  <td class="text-end font-monospace">
+                    RD$ {{ item.unitPrice | number:'1.2-2' }}
+                  </td>
+                  <td class="text-center">
+                    <div class="d-inline-flex align-items-center border rounded-2 bg-light">
+                      <button
+                        type="button"
+                        class="btn btn-sm btn-link text-secondary px-2 py-0"
+                        (click)="decrementQuantity(i)"
+                      >
+                        -
+                      </button>
+                      <input
+                        type="number"
+                        min="1"
+                        class="form-control form-control-sm border-0 text-center bg-transparent font-monospace p-0 fw-bold"
+                        style="width: 40px;"
+                        [(ngModel)]="item.quantity"
+                        (input)="updateItemQuantity(i, item.quantity)"
+                      />
+                      <button
+                        type="button"
+                        class="btn btn-sm btn-link text-secondary px-2 py-0"
+                        (click)="incrementQuantity(i)"
+                      >
+                        +
+                      </button>
+                    </div>
+                  </td>
+                  <td class="text-end font-monospace fw-bold text-dark">
+                    RD$ {{ item.total | number:'1.2-2' }}
+                  </td>
+                  <td class="text-center pe-2">
+                    <button
+                      type="button"
+                      class="btn btn-sm text-danger p-0 border-0"
+                      (click)="removeCartItem(i)"
+                      title="Eliminar producto"
+                    >
+                      <svg cIcon name="cilTrash" style="width: 16px; height: 16px;"></svg>
+                    </button>
+                  </td>
+                </tr>
+              }
+              @if (cartItems().length === 0) {
+                <tr>
+                  <td colspan="5" class="text-center py-5 text-secondary">
+                    <svg cIcon name="cilCart" style="width: 36px; height: 36px;" class="mb-2 opacity-50"></svg>
+                    <p class="mb-0 fw-semibold text-dark">El carrito de venta está vacío</p>
+                    <small class="text-muted">Haz clic en los productos del catálogo de la derecha para agregarlos a la orden.</small>
+                  </td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- 3. Método de pago y Resumen de la Venta -->
+      <div class="row g-3">
+        <!-- Método de Pago -->
+        <div class="col-md-6">
+          <div class="card border rounded-4 shadow-sm bg-white p-3 h-100">
+            <label class="form-label fw-bold text-dark mb-2 d-flex align-items-center gap-2">
+              <span class="badge bg-primary rounded-circle px-2">3</span>
+              <span>Método de pago</span>
+            </label>
+
+            <!-- Buttons: Efectivo, Tarjeta, Transferencia, Otro -->
+            <div class="d-flex flex-wrap gap-1 mb-3">
+              @for (m of ['Efectivo', 'Tarjeta', 'Transferencia', 'Otro']; track m) {
+                <button
+                  type="button"
+                  class="btn btn-sm flex-fill"
+                  [class.btn-primary]="selectedMethod() === m"
+                  [class.btn-outline-secondary]="selectedMethod() !== m"
+                  (click)="setMethod(m)"
+                >
+                  {{ m }}
+                </button>
+              }
+            </div>
+
+            @if (selectedMethod() === 'Efectivo') {
+              <div class="mb-3">
+                <label class="form-label small fw-semibold text-secondary mb-1">Monto recibido</label>
+                <div class="input-group input-group-lg mb-2">
+                  <span class="input-group-text bg-light fw-bold">RD$</span>
+                  <input
+                    type="number"
+                    min="0"
+                    step="1"
+                    class="form-control fw-bold font-monospace text-end fs-4"
+                    [ngModel]="amountReceived()"
+                    (ngModelChange)="amountReceived.set($event)"
+                  />
+                </div>
+
+                <!-- Shortcuts -->
+                <div class="d-flex gap-1 mb-2">
+                  <button type="button" class="btn btn-sm btn-outline-secondary flex-fill" (click)="setAmountReceived(total())">
+                    Exacto
+                  </button>
+                  <button type="button" class="btn btn-sm btn-outline-secondary flex-fill" (click)="setAmountReceived(amountReceived() + 100)">
+                    +100
+                  </button>
+                  <button type="button" class="btn btn-sm btn-outline-secondary flex-fill" (click)="setAmountReceived(amountReceived() + 500)">
+                    +500
+                  </button>
+                  <button type="button" class="btn btn-sm btn-outline-secondary flex-fill" (click)="setAmountReceived(amountReceived() + 1000)">
+                    +1000
+                  </button>
+                </div>
+
+                <!-- Cambio -->
+                <div class="p-2-5 rounded-3 border bg-success-subtle d-flex justify-content-between align-items-center">
+                  <span class="fw-bold text-success-emphasis small">Cambio / Devuelta:</span>
+                  <span class="font-monospace fw-bold fs-5 text-success">
+                    RD$ {{ change() | number:'1.2-2' }}
+                  </span>
+                </div>
+              </div>
+            }
+
+            @if (selectedMethod() === 'Tarjeta') {
+              <div class="mb-3 p-3 bg-light rounded-3 border">
+                <div class="d-flex gap-3 mb-2">
+                  <div class="form-check form-check-inline">
+                    <input class="form-check-input" type="radio" id="cardDebit" name="cardType" value="DEBIT" [checked]="cardType() === 'DEBIT'" (change)="cardType.set('DEBIT')">
+                    <label class="form-check-label small fw-semibold" for="cardDebit">Tarjeta Débito</label>
+                  </div>
+                  <div class="form-check form-check-inline">
+                    <input class="form-check-input" type="radio" id="cardCredit" name="cardType" value="CREDIT" [checked]="cardType() === 'CREDIT'" (change)="cardType.set('CREDIT')">
+                    <label class="form-check-label small fw-semibold" for="cardCredit">Tarjeta Crédito</label>
+                  </div>
+                </div>
+                <div class="row g-2">
+                  <div class="col-6">
+                    <label class="form-label small text-secondary mb-1">Últimos 4 dígitos <span class="text-danger">*</span></label>
+                    <input type="text" class="form-control form-control-sm font-monospace" placeholder="1234" maxlength="4" [ngModel]="cardLastFour()" (ngModelChange)="cardLastFour.set($event)" />
+                  </div>
+                  <div class="col-6">
+                    <label class="form-label small text-secondary mb-1">No. Voucher / Auth <span class="text-danger">*</span></label>
+                    <input type="text" class="form-control form-control-sm font-monospace" placeholder="Ej: 009823" [ngModel]="cardAuthVoucher()" (ngModelChange)="cardAuthVoucher.set($event)" />
+                  </div>
+                </div>
+              </div>
+            }
+
+            @if (selectedMethod() === 'Transferencia') {
+              <div class="mb-3 p-3 bg-light rounded-3 border">
+                <div class="row g-2">
+                  <div class="col-6">
+                    <label class="form-label small text-secondary mb-1">Banco <span class="text-danger">*</span></label>
+                    <input type="text" class="form-control form-control-sm" placeholder="Ej: Banreservas, BHD..." [ngModel]="transferBank()" (ngModelChange)="transferBank.set($event)" />
+                  </div>
+                  <div class="col-6">
+                    <label class="form-label small text-secondary mb-1">No. Referencia <span class="text-danger">*</span></label>
+                    <input type="text" class="form-control form-control-sm font-monospace" placeholder="Ej: REF-883921" [ngModel]="transferReference()" (ngModelChange)="transferReference.set($event)" />
+                  </div>
+                </div>
+              </div>
+            }
+          </div>
+        </div>
+
+        <!-- Resumen de la Venta & Cobro -->
+        <div class="col-md-6">
+          <div class="card border rounded-4 shadow-sm bg-white p-3 h-100 d-flex flex-column justify-content-between">
+            <div>
+              <h6 class="fw-bold text-dark mb-3">Resumen de la venta</h6>
+
+              <div class="d-flex justify-content-between align-items-center mb-2 small text-secondary">
+                <span>Subtotal:</span>
+                <span class="font-monospace text-dark">RD$ {{ subtotal() | number:'1.2-2' }}</span>
+              </div>
+
+              <!-- Descuento -->
+              <div class="d-flex justify-content-between align-items-center mb-2 small text-secondary">
+                <span class="d-flex align-items-center gap-1">
+                  Descuento:
+                  <div class="btn-group btn-group-sm ms-1" role="group">
+                    <button
+                      type="button"
+                      class="btn btn-xs py-0 px-1"
+                      [class.btn-dark]="discountType() === 'percent'"
+                      [class.btn-outline-secondary]="discountType() !== 'percent'"
+                      (click)="discountType.set('percent'); onDiscountChange()"
+                    >
+                      %
+                    </button>
+                    <button
+                      type="button"
+                      class="btn btn-xs py-0 px-1"
+                      [class.btn-dark]="discountType() === 'fixed'"
+                      [class.btn-outline-secondary]="discountType() !== 'fixed'"
+                      (click)="discountType.set('fixed'); onDiscountChange()"
+                    >
+                      $
+                    </button>
+                  </div>
+                </span>
+                <div style="width: 80px;">
+                  <input
+                    type="number"
+                    min="0"
+                    class="form-control form-control-sm text-end font-monospace py-0"
+                    [ngModel]="discountValue()"
+                    (ngModelChange)="discountValue.set($event); onDiscountChange()"
+                  />
+                </div>
+              </div>
+
+              <!-- ITBIS -->
+              <div class="d-flex justify-content-between align-items-center mb-3 small text-secondary">
+                <span>ITBIS (18%):</span>
+                <span class="font-monospace text-dark">RD$ {{ itbis() | number:'1.2-2' }}</span>
+              </div>
+
+              <hr class="my-2" />
+
+              <!-- Total Grande -->
+              <div class="d-flex justify-content-between align-items-center mb-3">
+                <span class="fw-bold fs-5 text-dark">Total:</span>
+                <span class="font-monospace fw-bold fs-3 text-primary">
+                  RD$ {{ total() | number:'1.2-2' }}
+                </span>
+              </div>
+            </div>
+
+            <!-- Action Button -->
+            <button
+              type="button"
+              class="btn btn-primary btn-lg w-100 py-3 fw-bold shadow-sm d-flex align-items-center justify-content-center gap-2"
+              [disabled]="isLoading() || cartItems().length === 0 || (selectedMethod() === 'Efectivo' && amountReceived() < total())"
+              (click)="processQuickSale()"
+            >
+              @if (isLoading()) {
+                <c-spinner size="sm" class="me-1"></c-spinner>
+                <span>Procesando cobro...</span>
+              } @else {
+                <svg cIcon name="cilCheck" style="width: 20px; height: 20px;"></svg>
+                <span>Cobrar RD$ {{ total() | number:'1.2-2' }}</span>
+              }
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- RIGHT SIDE: Product Catalog (Col-lg-5) -->
+    <div class="col-lg-5 col-xl-5">
+      <div class="card border rounded-4 shadow-sm p-3 bg-white h-100 d-flex flex-column" style="min-height: 700px;">
+        <div class="d-flex justify-content-between align-items-center mb-2">
+          <h5 class="fw-bold text-dark mb-0">Catálogo de productos</h5>
+          <span class="badge bg-secondary-subtle text-secondary border px-2 py-1">
+            {{ filteredCatalogProducts().length }} productos
+          </span>
+        </div>
+
+        <!-- Search Bar -->
+        <div class="input-group mb-3">
+          <span class="input-group-text bg-light border-end-0">
+            <svg cIcon name="cilSearch" style="width: 16px; height: 16px;"></svg>
+          </span>
+          <input
+            type="text"
+            class="form-control border-start-0 ps-0"
+            placeholder="Buscar por nombre, código o barra..."
+            [ngModel]="catalogSearchTerm()"
+            (ngModelChange)="catalogSearchTerm.set($event)"
+          />
+        </div>
+
+        <!-- Dynamic Category Pills from System Categories -->
+        <div class="category-pills-container d-flex gap-1 mb-3 overflow-auto pb-1">
+          @for (cat of categories(); track cat.id ?? cat.label) {
+            <button
+              type="button"
+              class="btn btn-sm category-chip text-nowrap"
+              [class.active]="selectedCategory() === cat.id"
+              (click)="setCategory(cat.id)"
+            >
+              {{ cat.label }}
+            </button>
+          }
+        </div>
+
+        <!-- Products List -->
+        <div class="catalog-list-box flex-grow-1 overflow-auto pe-1 mb-3">
+          @if (isLoadingProducts()) {
+            <div class="text-center py-5">
+              <c-spinner color="primary"></c-spinner>
+              <p class="small text-secondary mt-2 mb-0">Cargando productos del sistema...</p>
+            </div>
+          } @else if (filteredCatalogProducts().length === 0) {
+            <div class="text-center py-5 text-secondary">
+              <svg cIcon name="cilWarning" style="width: 36px; height: 36px;" class="mb-2 opacity-50"></svg>
+              <p class="small mb-0">No se encontraron productos en esta categoría o búsqueda.</p>
+            </div>
+          } @else {
+            <div class="list-group list-group-flush gap-2">
+              @for (p of pagedCatalogProducts(); track p.id) {
+                <div
+                  class="list-group-item list-group-item-action catalog-item-card border rounded-3 p-3 d-flex justify-content-between align-items-center cursor-pointer shadow-xs"
+                  (click)="addProductToCart(p)"
+                >
+                  <div class="me-2">
+                    <div class="fw-bold text-dark mb-0">{{ p.description || p.shortDescription || 'Producto' }}</div>
+                    <div class="text-secondary small font-monospace" style="font-size: 0.75rem;">
+                      Código: {{ p.barcode || p.reference || 'PROD-' + p.id }}
+                    </div>
+                    <div class="mt-1">
+                      @if (p.productTypeId === 2 || p.invoiceWithoutStock) {
+                        <span class="badge bg-info-subtle text-info border font-size-xs">Servicio</span>
+                      } @else if (p.stock > 10) {
+                        <span class="badge bg-success-subtle text-success border font-size-xs">En stock: {{ p.stock }}</span>
+                      } @else if (p.stock > 0) {
+                        <span class="badge bg-warning-subtle text-warning-emphasis border font-size-xs">Bajo stock: {{ p.stock }}</span>
+                      } @else {
+                        <span class="badge bg-danger-subtle text-danger border font-size-xs">Sin stock</span>
+                      }
+                    </div>
+                  </div>
+
+                  <div class="text-end d-flex flex-column align-items-end gap-1">
+                    <span class="font-monospace fw-bold text-primary fs-5">
+                      RD$ {{ (p.cost ? (+p.cost) : 100) | number:'1.2-2' }}
+                    </span>
+                    <button type="button" class="btn btn-sm btn-outline-primary px-3 py-1 fw-semibold d-flex align-items-center gap-1">
+                      <span>+ Añadir</span>
+                    </button>
+                  </div>
+                </div>
+              }
+            </div>
+          }
+        </div>
+
+        <!-- Catalog Pagination Controls -->
+        <div class="d-flex justify-content-between align-items-center pt-2 border-top">
+          <button
+            type="button"
+            class="btn btn-sm btn-outline-secondary px-3"
+            [disabled]="catalogPage() === 1"
+            (click)="prevCatalogPage()"
+          >
+            ← Anterior
+          </button>
+          <span class="small text-secondary font-monospace">
+            Página {{ catalogPage() }} de {{ totalCatalogPages() }}
+          </span>
+          <button
+            type="button"
+            class="btn btn-sm btn-outline-secondary px-3"
+            [disabled]="catalogPage() >= totalCatalogPages()"
+            (click)="nextCatalogPage()"
+          >
+            Siguiente →
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Receipt / Printable Invoice Modal upon Sale Completion -->
+<app-sale-completed-modal
+  [(visible)]="isSaleCompletedModalOpen"
+  [saleData]="lastCompletedSale"
+  (newSaleRequested)="isSaleCompletedModalOpen = false; resetForm()"
+  (closed)="onSaleModalClosed()"
+></app-sale-completed-modal>
+
+<!-- Open Cash Register Required Modal -->
+@if (isOpenSessionModalVisible()) {
+  <div class="custom-modal-backdrop">
+    <div class="custom-modal-dialog p-4 text-center">
+      <div class="mb-3 text-warning">
+        <svg cIcon name="cilWarning" style="width: 52px; height: 52px;"></svg>
+      </div>
+      <h5 class="fw-bold text-dark mb-2">Turno de Caja Requerido</h5>
+      <p class="text-secondary small mb-4">
+        Para procesar ventas en mostrador, es obligatorio tener un turno de caja abierto en el sistema para registrar las entradas de efectivo y cuadres.
+      </p>
+      <div class="d-flex flex-column gap-2">
+        <button type="button" class="btn btn-primary btn-lg fw-bold d-flex align-items-center justify-content-center gap-2" (click)="goToOpenCashRegister()">
+          <svg cIcon name="cilShieldAlt" style="width: 18px; height: 18px;"></svg>
+          <span>Abrir Turno de Caja Ahora</span>
+        </button>
+        <button type="button" class="btn btn-outline-secondary" (click)="goToSales()">
+          Volver a Ventas
+        </button>
+      </div>
+    </div>
+  </div>
+}
+

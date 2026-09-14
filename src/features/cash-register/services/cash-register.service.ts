@@ -1,21 +1,27 @@
 import { Injectable, inject } from '@angular/core';
 import { ApiClientService, extractArray } from '../../cuadreEnv/services/apiClient';
-import type {
+import {
   CashRegisterDto,
   CashMovementDto,
   ApiResponse,
 } from '../../cuadreEnv/types/api';
+import { logger } from '../../cuadreEnv/services/logger.service';
 
 export interface CashRegisterSessionDto {
   id: number;
   name: string;
   cashierName: string;
+  cashierId?: number | null;
   openedAt: string;
   initialAmount: number;
   currentBalance: number;
   totalIn: number;
   totalOut: number;
   isOpen: boolean;
+  status: 'OPEN' | 'PAUSED' | 'CLOSED';
+  pauseReason?: string | null;
+  pauseNotes?: string | null;
+  pausedAt?: string | null;
   closedAt?: string | null;
   closingAmount?: number | null;
   expectedAmount?: number | null;
@@ -46,8 +52,23 @@ const ACTIVE_SESSION_STORAGE_KEY = 'app_active_cash_register_session';
 export class CashRegisterService {
   constructor(private api: ApiClientService = inject(ApiClientService, { optional: true }) as any) {}
 
+  // Helper to read stored session
+  private getStoredSession(): CashRegisterSessionDto | null {
+    if (typeof window !== 'undefined' && window.localStorage) {
+      try {
+        const raw = window.localStorage.getItem(ACTIVE_SESSION_STORAGE_KEY);
+        if (raw) return JSON.parse(raw);
+      } catch {
+        // ignore JSON parse error
+      }
+    }
+    return null;
+  }
+
   // Active Session & Lifecycle directly against DB
   async getActiveSession(): Promise<ApiResponse<CashRegisterSessionDto | null>> {
+    const stored = this.getStoredSession();
+
     try {
       const regRes = await this.api.get<any, any>('/CashRegister');
       const list = extractArray<CashRegisterDto>(regRes);
@@ -62,7 +83,10 @@ export class CashRegisterService {
 
         let totalIn = 0;
         let totalOut = 0;
-        const initial = openReg.balance || 0;
+        // Preserve initialAmount from stored session or fallback to openReg.balance
+        const initial = (stored && stored.id === openReg.id && stored.initialAmount !== undefined)
+          ? stored.initialAmount
+          : (openReg.balance || 0);
 
         for (const m of movList) {
           const amt = Number(m.amount) || 0;
@@ -78,16 +102,21 @@ export class CashRegisterService {
 
         const session: CashRegisterSessionDto = {
           id: openReg.id || 1,
-          name: openReg.name || 'Caja Principal',
-          cashierName: 'Administrador',
-          openedAt: openReg.createdDate
+          name: openReg.name || stored?.name || 'Caja Principal',
+          cashierName: stored?.cashierName || (openReg as any).cashierName || 'Cajero',
+          cashierId: stored?.cashierId || (openReg as any).cashierId || null,
+          openedAt: stored?.openedAt || (openReg.createdDate
             ? new Date(openReg.createdDate).toLocaleString('es-DO')
-            : new Date().toLocaleString('es-DO'),
+            : new Date().toLocaleString('es-DO')),
           initialAmount: initial,
           currentBalance,
           totalIn,
           totalOut,
           isOpen: true,
+          status: stored?.status || 'OPEN',
+          pauseReason: stored?.pauseReason || null,
+          pauseNotes: stored?.pauseNotes || null,
+          pausedAt: stored?.pausedAt || null,
         };
 
         if (typeof window !== 'undefined' && window.localStorage) {
@@ -100,7 +129,11 @@ export class CashRegisterService {
       // ignore
     }
 
-    // If no open register found in DB
+    // If no open register found in DB but stored exists
+    if (stored && stored.isOpen) {
+      return { success: true, data: stored };
+    }
+
     if (typeof window !== 'undefined' && window.localStorage) {
       window.localStorage.removeItem(ACTIVE_SESSION_STORAGE_KEY);
     }
@@ -111,6 +144,7 @@ export class CashRegisterService {
     name?: string;
     initialAmount: number;
     cashierName?: string;
+    cashierId?: number | null;
     notes?: string;
   }): Promise<ApiResponse<CashRegisterSessionDto>> {
     const regName = params.name?.trim() || 'Caja Principal';
@@ -134,20 +168,73 @@ export class CashRegisterService {
     const session: CashRegisterSessionDto = {
       id: backendId,
       name: regName,
-      cashierName: params.cashierName || 'Administrador',
+      cashierName: params.cashierName || 'Cajero',
+      cashierId: params.cashierId || null,
       openedAt: formattedDate,
       initialAmount: initialAmt,
       currentBalance: initialAmt,
       totalIn: 0,
       totalOut: 0,
       isOpen: true,
+      status: 'OPEN',
     };
 
     if (typeof window !== 'undefined' && window.localStorage) {
       window.localStorage.setItem(ACTIVE_SESSION_STORAGE_KEY, JSON.stringify(session));
     }
 
+    logger.info(`Caja "${regName}" aperturada por ${params.cashierName || 'Cajero'}. Fondo Inicial: RD$ ${initialAmt}`, 'Caja Registradora', { cashierId: params.cashierId });
+
     return { success: true, data: session };
+  }
+
+  async pauseSession(reason: string, notes?: string): Promise<ApiResponse<CashRegisterSessionDto>> {
+    const sessionRes = await this.getActiveSession();
+    const session = sessionRes?.data;
+    if (!session) {
+      return { success: false, message: 'No hay una sesión de caja activa para pausar.' };
+    }
+
+    const now = new Date().toLocaleTimeString('es-DO', { hour: '2-digit', minute: '2-digit' });
+    const updatedSession: CashRegisterSessionDto = {
+      ...session,
+      status: 'PAUSED',
+      pauseReason: reason,
+      pauseNotes: notes || null,
+      pausedAt: now,
+    };
+
+    if (typeof window !== 'undefined' && window.localStorage) {
+      window.localStorage.setItem(ACTIVE_SESSION_STORAGE_KEY, JSON.stringify(updatedSession));
+    }
+
+    logger.info(`Caja "${session.name}" pausada. Motivo: ${reason}`, 'Caja Registradora', { notes });
+
+    return { success: true, data: updatedSession };
+  }
+
+  async resumeSession(): Promise<ApiResponse<CashRegisterSessionDto>> {
+    const sessionRes = await this.getActiveSession();
+    const session = sessionRes?.data;
+    if (!session) {
+      return { success: false, message: 'No hay una sesión de caja para reanudar.' };
+    }
+
+    const updatedSession: CashRegisterSessionDto = {
+      ...session,
+      status: 'OPEN',
+      pauseReason: null,
+      pauseNotes: null,
+      pausedAt: null,
+    };
+
+    if (typeof window !== 'undefined' && window.localStorage) {
+      window.localStorage.setItem(ACTIVE_SESSION_STORAGE_KEY, JSON.stringify(updatedSession));
+    }
+
+    logger.info(`Caja "${session.name}" reanudada tras pausa.`, 'Caja Registradora');
+
+    return { success: true, data: updatedSession };
   }
 
   async closeSession(params: {
@@ -170,6 +257,8 @@ export class CashRegisterService {
     if (typeof window !== 'undefined' && window.localStorage) {
       window.localStorage.removeItem(ACTIVE_SESSION_STORAGE_KEY);
     }
+
+    logger.info(`Caja "${session.name}" cerrada. Esperado: RD$ ${expected}, Físico: RD$ ${actual}, Diferencia: RD$ ${diff}`, 'Caja Registradora', { notes: params.notes });
 
     return {
       success: true,
@@ -342,6 +431,7 @@ export class CashRegisterService {
         cashRegisterId: session.id,
         date: new Date().toISOString(),
         notes: `Venta rápida POS - ${saleData.paymentMethod}`,
+        createBy: 'system',
         items: saleData.items.map((it) => ({
           productId: it.productId,
           quantity: it.quantity,
@@ -412,6 +502,7 @@ export class CashRegisterService {
         totalIn: 0,
         totalOut: 0,
         isOpen: false,
+        status: 'CLOSED',
         closedAt: r.updatedDate ? new Date(r.updatedDate).toLocaleString('es-DO') : undefined,
         closingAmount: r.balance,
       }));

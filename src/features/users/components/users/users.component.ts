@@ -2,12 +2,15 @@ import { Component, computed, inject, OnInit, signal, ViewChild } from '@angular
 import { CommonModule } from '@angular/common';
 import { UserService } from '../../services/user.service';
 import { AuthService } from '../../../cuadreEnv/services/auth.service';
+import { CompanyService } from '../../../companies/services/company.service';
 import { NotificationService } from '../../../cuadreEnv/services/notification.service';
 import { ConfirmDialogService } from '../../../cuadreEnv/services/confirm-dialog.service';
 import { TranslationService } from '../../../cuadreEnv/services/translation.service';
 import type { UserDto } from '../../../cuadreEnv/types/api';
 import { IconDirective } from '@coreui/icons-angular';
 import { InviteModalComponent } from './invite-modal.component';
+import { EmployeeModalComponent } from './employee-modal.component';
+import { KtPaginatorComponent } from '../../../billing/components/kt-paginator/kt-paginator.component';
 import {
   FilterPanelComponent,
   type FilterConfig,
@@ -31,25 +34,23 @@ import { TableComponent } from '../../../cuadreEnv/components/table/table.compon
   standalone: true,
   imports: [
     CommonModule,
-    ContainerComponent,
-    CardComponent,
-    CardBodyComponent,
-    TableComponent,
-    ButtonDirective,
-    IconDirective,
     AlertComponent,
     SpinnerComponent,
-    FormSelectDirective,
     InviteModalComponent,
+    EmployeeModalComponent,
     FilterPanelComponent,
-    ListPaginationComponent,
+    KtPaginatorComponent,
   ],
 })
 export class UsersComponent implements OnInit {
   @ViewChild('inviteModal') inviteModal!: InviteModalComponent;
+  @ViewChild('employeeModal') employeeModal!: EmployeeModalComponent;
 
   readonly translationService = inject(TranslationService);
   private confirmService = inject(ConfirmDialogService);
+  private companyService = inject(CompanyService);
+
+  readonly activeCompanyName = computed(() => this.companyService.currentSettings().companyName || 'Mi Empresa');
 
   users = signal<UserDto[]>([]);
   isLoading = signal<boolean>(false);
@@ -59,6 +60,7 @@ export class UsersComponent implements OnInit {
   currentPage = signal<number>(1);
   pageSize = 10;
   totalItems = signal<number>(0);
+  isEmployeeModalOpen = false;
 
   readonly filterConfig = computed<FilterConfig[]>(() => [
     {
@@ -75,6 +77,9 @@ export class UsersComponent implements OnInit {
         { label: this.translationService.t('users.filterAll'), value: '' },
         { label: 'Admin', value: 'Admin' },
         { label: 'Manager', value: 'Manager' },
+        { label: 'Supervisor', value: 'Supervisor' },
+        { label: 'Vendedor', value: 'Vendedor' },
+        { label: 'Cajero', value: 'Cajero' },
         { label: 'Employee', value: 'Employee' },
       ],
     },
@@ -126,12 +131,102 @@ export class UsersComponent implements OnInit {
     this.isLoading.set(true);
     this.errorMessage.set(null);
     try {
-      const res = await this.userService.getUsers();
-      if (res.success && res.data) {
-        this.users.set(res.data);
-        this.totalItems.set(this.getFilteredUsersCount());
+      const activeFilters = this.filters();
+      const q = String(activeFilters['search'] || '').trim();
+      const role = String(activeFilters['role'] || '').trim();
+      const status = String(activeFilters['status'] || '').trim();
+      const active =
+        status === 'active' ? true : status === 'inactive' ? false : undefined;
+
+      const res = await this.userService.getUsers({
+        page: this.currentPage(),
+        pageSize: this.pageSize,
+        q: q || undefined,
+        role: role || undefined,
+        active: active,
+      });
+
+      this.users.set(res.items || []);
+      this.totalItems.set(res.total || 0);
+    } catch (e: any) {
+      if (e?.status === 404 || e?.statusCode === 404 || e?.message?.includes?.('404')) {
+        this.users.set([]);
+        this.totalItems.set(0);
       } else {
-        this.errorMessage.set(res.message || 'Failed to load user list.');
+        const mapped = this.notificationService.showApiError(e);
+        this.errorMessage.set(mapped.message);
+      }
+    } finally {
+      this.isLoading.set(false);
+    }
+  }
+
+  onFiltersChange(values: FilterValues) {
+    this.filters.set(values);
+    this.currentPage.set(1);
+    this.loadUsers();
+  }
+
+  onPageChange(page: number) {
+    this.currentPage.set(page);
+    this.loadUsers();
+  }
+
+  readonly pagedUsers = computed(() => {
+    return this.users();
+  });
+
+  getFilteredUsersCount(): number {
+    return this.totalItems();
+  }
+
+  getFilteredUsers(): UserDto[] {
+    return this.users();
+  }
+
+  openInviteModal() {
+    this.isModalOpen = true;
+    setTimeout(() => {
+      if (this.inviteModal) this.inviteModal.open();
+    });
+  }
+
+  openEmployeeModal() {
+    this.isEmployeeModalOpen = true;
+    setTimeout(() => {
+      if (this.employeeModal) this.employeeModal.open();
+    });
+  }
+
+  editUser(user: UserDto) {
+    this.isEmployeeModalOpen = true;
+    setTimeout(() => {
+      if (this.employeeModal) this.employeeModal.open(user);
+    });
+  }
+
+  async resetUserPassword(user: UserDto) {
+    if (!user.id) return;
+    const userName = `${user.firstName || ''} ${user.lastName || ''}`.trim() || user.email;
+    const confirmed = await this.confirmService.confirm({
+      title: '¿Restablecer contraseña?',
+      message: `Se generará una contraseña temporal para ${userName}.`,
+      itemName: userName,
+      itemType: 'Usuario',
+      confirmText: 'Restablecer',
+      variant: 'warning',
+      icon: 'cilWarning',
+    });
+    if (!confirmed) return;
+
+    this.isLoading.set(true);
+    try {
+      const res = await this.userService.resetPassword(user.id, { sendByEmail: true });
+      const tempPass = res?.result || res?.data?.result;
+      if (tempPass && tempPass !== 'sent') {
+        this.notificationService.success(`Contraseña restablecida exitosamente. Clave temporal: ${tempPass}`);
+      } else {
+        this.notificationService.success('Contraseña restablecida y enviada por correo exitosamente.');
       }
     } catch (e: any) {
       const mapped = this.notificationService.showApiError(e);
@@ -141,72 +236,31 @@ export class UsersComponent implements OnInit {
     }
   }
 
-  onFiltersChange(values: FilterValues) {
-    this.filters.set(values);
-    this.currentPage.set(1);
-    this.totalItems.set(this.getFilteredUsersCount());
-  }
-
-  onPageChange(page: number) {
-    this.currentPage.set(page);
-  }
-
-  readonly filteredUsersBase = computed(() => {
-    const activeFilters = this.filters();
-    const search = String((activeFilters['search'] as string | undefined) || '')
-      .trim()
-      .toLowerCase();
-    const role = String(
-      (activeFilters['role'] as string | undefined) || '',
-    ).trim();
-    const status = String(
-      (activeFilters['status'] as string | undefined) || '',
-    ).trim();
-
-    return this.users().filter((user) => {
-      const haystack = [
-        user.firstName,
-        user.lastName,
-        user.email,
-        user.identification,
-        user.userName,
-      ]
-        .filter(Boolean)
-        .join(' ')
-        .toLowerCase();
-      const matchesSearch = !search || haystack.includes(search);
-      const matchesRole = !role || user.role === role;
-      const matchesStatus =
-        !status ||
-        (status === 'active' && user.active !== false) ||
-        (status === 'inactive' && user.active === false);
-
-      return matchesSearch && matchesRole && matchesStatus;
+  async deleteUser(user: UserDto) {
+    if (!user.id) return;
+    const userName = `${user.firstName || ''} ${user.lastName || ''}`.trim() || user.email;
+    const confirmed = await this.confirmService.confirm({
+      title: '¿Eliminar usuario permanentemente?',
+      message: 'Esta acción no se puede deshacer y el usuario perderá acceso definitivo al sistema.',
+      itemName: userName,
+      itemType: 'Usuario',
+      confirmText: 'Eliminar definitivamente',
+      variant: 'danger',
+      icon: 'cilTrash',
     });
-  });
+    if (!confirmed) return;
 
-  readonly filteredUsersCount = computed(() => this.filteredUsersBase().length);
-
-  readonly pagedUsers = computed(() => {
-    return this.filteredUsersBase().slice(
-      (this.currentPage() - 1) * this.pageSize,
-      this.currentPage() * this.pageSize,
-    );
-  });
-
-  getFilteredUsersCount(): number {
-    return this.filteredUsersCount();
-  }
-
-  getFilteredUsers(): UserDto[] {
-    return this.pagedUsers();
-  }
-
-  openInviteModal() {
-    this.isModalOpen = true;
-    setTimeout(() => {
-      if (this.inviteModal) this.inviteModal.open();
-    });
+    this.isLoading.set(true);
+    try {
+      await this.userService.deleteUser(user.id);
+      this.notificationService.success('Usuario eliminado exitosamente.');
+      this.loadUsers();
+    } catch (e: any) {
+      const mapped = this.notificationService.showApiError(e);
+      this.errorMessage.set(mapped.message);
+    } finally {
+      this.isLoading.set(false);
+    }
   }
 
   async toggleDeactivation(user: UserDto) {

@@ -6,11 +6,16 @@
         <label class="form-label fw-semibold text-secondary small mb-1">
           Documento / NCF
         </label>
-        <div class="input-group input-group-sm">
-          <span class="input-group-text bg-light text-muted">🔍</span>
+        <div class="input-group">
+          <span class="input-group-text bg-light text-muted border-end-0 filter-input-element">
+            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="11" cy="11" r="8"></circle>
+              <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+            </svg>
+          </span>
           <input
             type="text"
-            class="form-control"
+            class="form-control border-start-0 filter-input-element"
             [(ngModel)]="filterValues.documentNumber"
             (ngModelChange)="emitFilters()"
             placeholder="ej. FAC-001 o B01..."
@@ -24,7 +29,7 @@
           Cliente
         </label>
         <select
-          class="form-select form-select-sm"
+          class="form-select filter-input-element"
           [(ngModel)]="filterValues.clientId"
           (ngModelChange)="emitFilters()"
         >
@@ -41,7 +46,7 @@
           Estatus
         </label>
         <select
-          class="form-select form-select-sm"
+          class="form-select filter-input-element"
           [(ngModel)]="filterValues.statusId"
           (ngModelChange)="emitFilters()"
         >
@@ -59,28 +64,26 @@
         </label>
         <input
           type="date"
-          class="form-control form-control-sm"
+          class="form-control filter-input-element"
           [(ngModel)]="filterValues.startDate"
           (ngModelChange)="emitFilters()"
         />
       </div>
 
       <!-- Hasta y Limpiar -->
-      <div class="col-md-2 d-flex gap-2">
-        <div class="flex-grow-1">
-          <label class="form-label fw-semibold text-secondary small mb-1">
-            Hasta
-          </label>
+      <div class="col-md-2">
+        <label class="form-label fw-semibold text-secondary small mb-1">
+          Hasta
+        </label>
+        <div class="d-flex align-items-center gap-1.5">
           <input
             type="date"
-            class="form-control form-control-sm"
+            class="form-control filter-input-element flex-grow-1"
             [(ngModel)]="filterValues.endDate"
             (ngModelChange)="emitFilters()"
           />
-        </div>
-        <div class="pt-4">
           <button
-            class="btn btn-sm btn-outline-secondary"
+            class="btn btn-outline-secondary filter-clear-btn flex-shrink-0"
             type="button"
             (click)="resetFilters()"
             title="Limpiar filtros"

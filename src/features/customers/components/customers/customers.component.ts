@@ -23,6 +23,7 @@ import {
 } from '@coreui/angular';
 import { TableComponent } from '../../../cuadreEnv/components/table/table.component';
 import { ListPaginationComponent } from '../../../cuadreEnv/components/list-pagination/list-pagination.component';
+import { KtPaginatorComponent } from '../../../billing/components/kt-paginator/kt-paginator.component';
 
 @Component({
   selector: 'app-customers',
@@ -30,17 +31,11 @@ import { ListPaginationComponent } from '../../../cuadreEnv/components/list-pagi
   standalone: true,
   imports: [
     CommonModule,
-    ContainerComponent,
-    CardComponent,
-    CardBodyComponent,
-    TableComponent,
-    ButtonDirective,
-    IconDirective,
     AlertComponent,
     SpinnerComponent,
     CustomerModalComponent,
     FilterPanelComponent,
-    ListPaginationComponent,
+    KtPaginatorComponent,
   ],
 })
 export class CustomersComponent implements OnInit {
@@ -121,6 +116,10 @@ export class CustomersComponent implements OnInit {
   ) {}
 
   ngOnInit() {
+    this.loadCustomers();
+  }
+
+  loadData() {
     this.loadCustomers();
   }
 

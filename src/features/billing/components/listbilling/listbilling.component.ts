@@ -12,6 +12,7 @@ import { NotificationService } from '../../../cuadreEnv/services/notification.se
 import { GenericFiltersComponent, BillingFilterValues } from '../generic-filters/generic-filters.component';
 import { KtPaginatorComponent } from '../kt-paginator/kt-paginator.component';
 import { SendInvoiceEmailModalComponent } from '../../../../app/shared/components/send-invoice-email-modal/send-invoice-email-modal.component';
+import { CompanyService } from '../../../companies/services/company.service';
 import type { Billing } from '../../../../app/models/billing';
 
 @Component({
@@ -30,6 +31,7 @@ export class ListbillingComponent implements OnInit {
   private router = inject(Router);
   private billingService = inject(BillingService);
   private notificationService = inject(NotificationService);
+  readonly companyService = inject(CompanyService);
 
   billings = signal<Billing[]>([]);
   isLoading = signal<boolean>(false);

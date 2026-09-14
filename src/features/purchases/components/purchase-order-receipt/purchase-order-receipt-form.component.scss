@@ -14,16 +14,30 @@
 }
 
 .active-step .step-circle {
-  background: #4f46e5;
-  color: #ffffff;
-  border-color: #4f46e5;
-  box-shadow: 0 4px 6px -1px rgba(79, 70, 229, 0.25);
+  background: #252b46 !important;
+  color: #ffffff !important;
+  border-color: #252b46 !important;
+  box-shadow: 0 4px 6px -1px rgba(37, 43, 70, 0.25);
+  cursor: pointer;
+  transition: all 0.2s ease;
+
+  &:hover {
+    background: #6b7785 !important;
+    border-color: #6b7785 !important;
+  }
 }
 
 .completed-step .step-circle {
-  background: #10b981;
-  color: #ffffff;
-  border-color: #10b981;
+  background: #252b46 !important;
+  color: #ffffff !important;
+  border-color: #252b46 !important;
+  cursor: pointer;
+  transition: all 0.2s ease;
+
+  &:hover {
+    background: #6b7785 !important;
+    border-color: #6b7785 !important;
+  }
 }
 
 .step-connector {

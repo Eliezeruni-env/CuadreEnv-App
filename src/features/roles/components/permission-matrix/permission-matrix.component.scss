@@ -1,0 +1,76 @@
+.matrix-container {
+  padding-bottom: 2rem;
+}
+
+.matrix-scroll-wrap {
+  max-height: 75vh;
+  overflow: auto;
+}
+
+.matrix-table {
+  th {
+    background-color: #f8fafc;
+    color: #475569;
+    border-bottom: 2px solid #e2e8f0;
+  }
+
+  tbody tr:hover {
+    background-color: #f8fafc;
+  }
+}
+
+.module-avatar {
+  width: 36px;
+  height: 36px;
+  flex-shrink: 0;
+}
+
+.permission-cell-box {
+  width: 38px;
+  height: 38px;
+  transition: all 0.15s ease-in-out;
+  background-color: #f8fafc;
+  border: 1px solid #e2e8f0;
+
+  &:hover {
+    background-color: #e2e8f0;
+    border-color: #cbd5e1;
+  }
+
+  &.checked {
+    background-color: #eff6ff;
+    border-color: #93c5fd;
+
+    .form-check-input {
+      border-color: #2563eb;
+      background-color: #2563eb;
+    }
+  }
+
+  .form-check-input {
+    width: 18px;
+    height: 18px;
+  }
+}
+
+.cursor-pointer {
+  cursor: pointer;
+}
+
+.btn-xs {
+  font-size: 0.72rem;
+  line-height: 1.2;
+}
+
+.animate-pulse {
+  animation: pulse 1.8s infinite;
+}
+
+@keyframes pulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.55;
+  }
+}

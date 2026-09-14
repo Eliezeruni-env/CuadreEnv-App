@@ -3,9 +3,10 @@ import { CommonModule } from '@angular/common';
 import { FormBuilder, FormGroup, Validators, ReactiveFormsModule } from '@angular/forms';
 import { PaymentService } from '../../services/payment.service';
 import { SaleService } from '../../../sales/services/sale.service';
+import { PurchaseService } from '../../../purchases/services/purchase.service';
 import { NotificationService } from '../../../cuadreEnv/services/notification.service';
 import { applyFieldErrorsToForm } from '../../../cuadreEnv/utils/api-error-mapper';
-import type { PaymentDto, SaleResponseDto } from '../../../cuadreEnv/types/api';
+import type { PaymentDto, SaleResponseDto, PurchaseDto } from '../../../cuadreEnv/types/api';
 import { TranslationService } from '../../../cuadreEnv/services/translation.service';
 import {
   ButtonDirective,
@@ -35,54 +36,94 @@ import {
 })
 export class PaymentModalComponent implements OnInit {
   readonly translationService = inject(TranslationService);
+  private paymentService = inject(PaymentService);
+  private saleService = inject(SaleService);
+  private purchaseService = inject(PurchaseService);
+  private notificationService = inject(NotificationService);
+  private fb = inject(FormBuilder);
 
   @Input() visible = false;
   @Output() visibleChange = new EventEmitter<boolean>();
   @Output() saved = new EventEmitter<void>();
 
+  paymentType = signal<'sale' | 'purchase'>('sale');
   sales = signal<SaleResponseDto[]>([]);
+  purchases = signal<PurchaseDto[]>([]);
   isLoading = signal<boolean>(false);
 
   paymentForm: FormGroup;
 
-  constructor(
-    private paymentService: PaymentService,
-    private saleService: SaleService,
-    private notificationService: NotificationService,
-    private fb: FormBuilder
-  ) {
+  constructor() {
     this.paymentForm = this.fb.group({
       saleId: [''],
       purchaseId: [''],
       amount: [0, [Validators.required, Validators.min(0.01)]],
-      method: ['Cash', [Validators.required]],
+      method: ['Efectivo', [Validators.required]],
       reference: ['']
+    });
+
+    // Autofill amount when saleId changes
+    this.paymentForm.get('saleId')?.valueChanges.subscribe((id) => {
+      if (id) {
+        const found = this.sales().find((s) => s.id === Number(id));
+        if (found) {
+          this.paymentForm.patchValue({ amount: found.total }, { emitEvent: false });
+        }
+      }
+    });
+
+    // Autofill amount when purchaseId changes
+    this.paymentForm.get('purchaseId')?.valueChanges.subscribe((id) => {
+      if (id) {
+        const found = this.purchases().find((p) => p.id === Number(id));
+        if (found) {
+          this.paymentForm.patchValue({ amount: found.total }, { emitEvent: false });
+        }
+      }
     });
   }
 
   ngOnInit() {
-    this.loadSales();
+    this.loadData();
   }
 
-  async loadSales() {
+  async loadData() {
     try {
-      const saleRes = await this.saleService.getSales();
-      if (saleRes.success && saleRes.data) {
+      const [saleRes, purchaseRes] = await Promise.all([
+        this.saleService.getSales(),
+        this.purchaseService.getPurchases(),
+      ]);
+
+      if (saleRes?.success && saleRes.data) {
         this.sales.set(saleRes.data);
       }
+      if (purchaseRes?.success && purchaseRes.data) {
+        this.purchases.set(purchaseRes.data);
+      }
     } catch (e: any) {
-      console.error('Failed to load sales list:', e?.message || e);
+      console.error('Failed to load pending sales/purchases:', e?.message || e);
+    }
+  }
+
+  setPaymentType(type: 'sale' | 'purchase') {
+    this.paymentType.set(type);
+    if (type === 'sale') {
+      this.paymentForm.patchValue({ purchaseId: '', amount: 0 });
+    } else {
+      this.paymentForm.patchValue({ saleId: '', amount: 0 });
     }
   }
 
   openCreate() {
+    this.paymentType.set('sale');
     this.paymentForm.reset({
       saleId: '',
       purchaseId: '',
       amount: 0,
-      method: 'Cash',
+      method: 'Efectivo',
       reference: ''
     });
+    this.loadData();
     this.visible = true;
     this.visibleChange.emit(true);
   }
@@ -102,11 +143,11 @@ export class PaymentModalComponent implements OnInit {
     const formVal = this.paymentForm.value;
 
     const payload: PaymentDto = {
-      saleId: formVal.saleId ? parseInt(formVal.saleId, 10) : null,
-      purchaseId: formVal.purchaseId ? parseInt(formVal.purchaseId, 10) : null,
-      amount: formVal.amount,
+      saleId: this.paymentType() === 'sale' && formVal.saleId ? parseInt(formVal.saleId, 10) : null,
+      purchaseId: this.paymentType() === 'purchase' && formVal.purchaseId ? parseInt(formVal.purchaseId, 10) : null,
+      amount: Number(formVal.amount),
       method: formVal.method,
-      reference: formVal.reference || null
+      reference: formVal.reference ? formVal.reference.trim() : null
     };
 
     try {

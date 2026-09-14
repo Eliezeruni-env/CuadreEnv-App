@@ -1,0 +1,30 @@
+<c-modal #modal [visible]="visible()" (visibleChange)="handleVisibleChange($event)" alignment="center">
+  <c-modal-header>
+    <h5 cModalTitle>Autenticación Requerida</h5>
+    <button cButtonClose (click)="close()"></button>
+  </c-modal-header>
+  <c-modal-body>
+    <div class="mb-3">
+      <p class="text-muted">Por motivos de seguridad, ingresa tu PIN de cajero para continuar con la acción de <strong>{{ actionLabel() }}</strong>.</p>
+      
+      <label cLabel for="posPin">PIN de Acceso</label>
+      <input 
+        cFormControl 
+        id="posPin" 
+        type="password" 
+        [ngModel]="pin()" 
+        (ngModelChange)="pin.set($event)"
+        (keyup.enter)="confirm()"
+        placeholder="****"
+        autocomplete="new-password"
+      />
+      <div *ngIf="errorMessage()" class="text-danger mt-2 small">
+        {{ errorMessage() }}
+      </div>
+    </div>
+  </c-modal-body>
+  <c-modal-footer>
+    <button cButton color="secondary" variant="ghost" (click)="close()">Cancelar</button>
+    <button cButton color="primary" (click)="confirm()">{{ actionLabel() }}</button>
+  </c-modal-footer>
+</c-modal>

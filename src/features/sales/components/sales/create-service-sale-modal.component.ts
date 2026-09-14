@@ -9,7 +9,8 @@ import {
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule, ReactiveFormsModule } from '@angular/forms';
-import { ProductService } from '../../../products/services/product.service';
+import { RouterLink } from '@angular/router';
+import { ServiceService } from '../../../services/services/service.service';
 import { CustomerService } from '../../../customers/services/customer.service';
 import { CashRegisterService } from '../../../cash-register/services/cash-register.service';
 import { SaleService } from '../../services/sale.service';
@@ -17,11 +18,12 @@ import { ReceivableService } from '../../services/receivable.service';
 import { NotificationService } from '../../../cuadreEnv/services/notification.service';
 import { TranslationService } from '../../../cuadreEnv/services/translation.service';
 import { IconDirective } from '@coreui/icons-angular';
-import { ProductTypeEnum, type ProductDto, type CustomerDto } from '../../../cuadreEnv/types/api';
+import { type CustomerDto } from '../../../cuadreEnv/types/api';
 import { type CompletedSaleDto } from './sale-completed-modal.component';
 
 export interface ServiceCartItem {
   serviceId: number;
+  serviceCode: string;
   serviceName: string;
   unitPrice: number;
   quantity: number;
@@ -30,13 +32,13 @@ export interface ServiceCartItem {
 @Component({
   selector: 'app-create-service-sale-modal',
   standalone: true,
-  imports: [CommonModule, FormsModule, ReactiveFormsModule, IconDirective],
+  imports: [CommonModule, FormsModule, ReactiveFormsModule, RouterLink, IconDirective],
   templateUrl: './create-service-sale-modal.component.html',
   styleUrls: ['./create-service-sale-modal.component.scss'],
 })
 export class CreateServiceSaleModalComponent implements OnInit {
   readonly translationService = inject(TranslationService);
-  private productService = inject(ProductService);
+  private serviceService = inject(ServiceService);
   private customerService = inject(CustomerService);
   private registerService = inject(CashRegisterService);
   private saleService = inject(SaleService);
@@ -49,18 +51,11 @@ export class CreateServiceSaleModalComponent implements OnInit {
   @Output() saleCompleted = new EventEmitter<CompletedSaleDto>();
 
   customers = signal<CustomerDto[]>([]);
-  servicesList = signal<{ id: number; description: string; price: number }[]>([]);
+  servicesList = signal<{ id: number; code: string; description: string; price: number }[]>([]);
 
   selectedCustomerId: number | null = null;
   paymentMode: 'CASH' | 'CREDIT' = 'CASH';
   dueDate: string = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
-
-  // Quick Service Creation
-  isCreatingNewService = false;
-  isSavingService = false;
-  newServiceName = '';
-  newServicePrice = 0;
-  newServiceCost = 0;
 
   // Selection
   selectedServiceId: number | null = null;
@@ -92,30 +87,28 @@ export class CreateServiceSaleModalComponent implements OnInit {
 
   async loadDependencies() {
     try {
-      const [cRes, pRes] = await Promise.all([
+      const [cRes, services] = await Promise.all([
         this.customerService.getCustomers({
           pageNumber: 1,
           pageSize: 100,
           PageNumber: 1,
           PageSize: 100,
         } as any),
-        this.productService.getPagedProducts(1, 100),
+        this.serviceService.getServices({ activeOnly: true }),
       ]);
 
       if (cRes.success && cRes.data) {
         this.customers.set(cRes.data);
       }
 
-      if (pRes.success && pRes.data) {
-        const items = pRes.data.items || [];
-        // Map services (either ProductTypeEnum.Service or all items available for labor)
-        const services = items.map((p) => ({
-          id: p.id || 0,
-          description: p.description || p.shortDescription || `Servicio #${p.id}`,
-          price: p.cost > 0 ? p.cost : 500,
-        }));
-        this.servicesList.set(services);
-      }
+      this.servicesList.set(
+        services.map((s) => ({
+          id: s.id || 0,
+          code: s.code,
+          description: s.name,
+          price: s.price,
+        }))
+      );
     } catch (e: any) {
       console.error('Error loading service modal data:', e);
     }
@@ -138,10 +131,6 @@ export class CreateServiceSaleModalComponent implements OnInit {
     this.paymentMode = 'CASH';
     this.cart = [];
     this.serviceNotes = '';
-    this.isCreatingNewService = false;
-    this.newServiceName = '';
-    this.newServicePrice = 0;
-    this.newServiceCost = 0;
     this.selectedServiceId = null;
     this.serviceQuantity = 1;
     this.applyItbis = true;
@@ -157,61 +146,6 @@ export class CreateServiceSaleModalComponent implements OnInit {
     this.paymentMode = mode;
   }
 
-  toggleNewServiceForm() {
-    this.isCreatingNewService = !this.isCreatingNewService;
-  }
-
-  async saveAndAddService() {
-    if (!this.newServiceName.trim() || this.newServicePrice <= 0) {
-      this.notificationService.warning('Ingresa un nombre y precio válido para el servicio.');
-      return;
-    }
-
-    this.isSavingService = true;
-    try {
-      const payload: ProductDto = {
-        description: this.newServiceName.trim(),
-        shortDescription: this.newServiceName.trim(),
-        cost: Number(this.newServicePrice),
-        stock: 0,
-        invoiceWithoutStock: true,
-        productTypeId: ProductTypeEnum.Service, // 2 = Service / Mano de Obra
-      };
-
-      const res = await this.productService.createProduct(payload);
-      if (res.success && res.data) {
-        const createdId = res.data.id || Date.now();
-        const newServiceItem = {
-          id: createdId,
-          description: res.data.description || this.newServiceName.trim(),
-          price: Number(this.newServicePrice),
-        };
-
-        this.servicesList.update((list) => [newServiceItem, ...list]);
-
-        // Add directly to cart
-        this.cart.push({
-          serviceId: createdId,
-          serviceName: newServiceItem.description,
-          unitPrice: newServiceItem.price,
-          quantity: 1,
-        });
-
-        this.notificationService.success(`Servicio "${newServiceItem.description}" creado y añadido.`);
-        this.newServiceName = '';
-        this.newServicePrice = 0;
-        this.newServiceCost = 0;
-        this.isCreatingNewService = false;
-      } else {
-        this.notificationService.error(res.message || 'Error al registrar el servicio.');
-      }
-    } catch (e: any) {
-      this.notificationService.showApiError(e);
-    } finally {
-      this.isSavingService = false;
-    }
-  }
-
   addSelectedService() {
     if (!this.selectedServiceId || this.serviceQuantity <= 0) return;
 
@@ -224,6 +158,7 @@ export class CreateServiceSaleModalComponent implements OnInit {
     } else {
       this.cart.push({
         serviceId: found.id,
+        serviceCode: found.code,
         serviceName: found.description,
         unitPrice: found.price,
         quantity: Number(this.serviceQuantity),
@@ -305,7 +240,7 @@ export class CreateServiceSaleModalComponent implements OnInit {
       const cust = this.customers().find((c) => c.id === this.selectedCustomerId);
       const invoiceData: CompletedSaleDto = {
         id: createdSaleId,
-        invoiceNumber: `VTA-SRV-${String(createdSaleId || Date.now()).slice(-6)}`,
+        invoiceNumber: `VTA-SERV-${String(createdSaleId || Date.now()).slice(-6)}`,
         date: new Date().toISOString(),
         customerName: cust?.name || 'Consumidor final',
         customerRnc: cust?.identification || '000-0000000-0',
@@ -321,7 +256,7 @@ export class CreateServiceSaleModalComponent implements OnInit {
         notes: this.serviceNotes || undefined,
         items: this.cart.map((it) => ({
           productId: it.serviceId,
-          productCode: `SRV-${it.serviceId}`,
+          productCode: it.serviceCode,
           productName: it.serviceName,
           unitPrice: it.unitPrice,
           quantity: it.quantity,

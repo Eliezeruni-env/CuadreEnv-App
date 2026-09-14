@@ -1,6 +1,7 @@
 import { Component, Input, Output, EventEmitter, signal, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormBuilder, FormGroup, Validators, ReactiveFormsModule } from '@angular/forms';
+import { Router } from '@angular/router';
 import { ProductService } from '../../services/product.service';
 import { ProductTypeService } from '../../services/product-type.service';
 import { CategoryService } from '../../services/category.service';
@@ -10,8 +11,6 @@ import { ConfirmDialogService } from '../../../cuadreEnv/services/confirm-dialog
 import { AuthService } from '../../../cuadreEnv/services/auth.service';
 import { applyFieldErrorsToForm } from '../../../cuadreEnv/utils/api-error-mapper';
 import {
-  PRODUCT_TYPE_OPTIONS,
-  CATEGORY_OPTIONS,
   type ProductDto,
 } from '../../../cuadreEnv/types/api';
 import {
@@ -49,6 +48,7 @@ export class ProductModalComponent {
   private confirmService = inject(ConfirmDialogService);
   private fb = inject(FormBuilder);
   private authService = inject(AuthService);
+  private router = inject(Router);
 
   @Input() visible = false;
   @Output() visibleChange = new EventEmitter<boolean>();
@@ -61,8 +61,8 @@ export class ProductModalComponent {
   productTypes = signal<any[]>([]);
   categories = signal<any[]>([]);
 
-  isRealBackendTypes = signal<boolean>(false);
-  isRealBackendCategories = signal<boolean>(false);
+  missingLookups = signal<boolean>(false);
+  missingLookupMessage = signal<string>('');
 
   productForm: FormGroup;
 
@@ -71,60 +71,62 @@ export class ProductModalComponent {
       description: ['', [Validators.required, Validators.maxLength(200)]],
       barcode: ['', [Validators.maxLength(100)]],
       reference: ['', [Validators.maxLength(50)]],
-      productTypeId: [null],
-      categoryId: [null],
+      productTypeId: [null, [Validators.required]],
+      categoryId: [null, [Validators.required]],
       cost: [0, [Validators.required, Validators.min(0.01)]],
       stock: [0, [Validators.required, Validators.min(0)]],
       shortDescription: ['', [Validators.maxLength(200)]],
       minimumQuantity: [0, [Validators.min(0)]],
       maximumQuantity: [0, [Validators.min(0)]],
-      invoiceWithoutStock: [false]
+      invoiceWithoutStock: [false],
+      expirationDate: [''],
+      isOrganic: [false],
     });
   }
 
-  async loadLookups() {
-    this.isRealBackendTypes.set(false);
-    this.isRealBackendCategories.set(false);
+  async loadLookups(): Promise<boolean> {
+    this.missingLookups.set(false);
+    this.missingLookupMessage.set('');
+
+    let typeItems: any[] = [];
+    let catItems: any[] = [];
 
     // 1. Product Types
     try {
       const typesRes = await this.productTypeService.getProductTypes();
-      const typeItems = Array.isArray(typesRes?.data) ? typesRes.data : [];
-      if (typesRes?.success && typeItems.length > 0) {
-        this.isRealBackendTypes.set(true);
-        this.productTypes.set(typeItems);
-        this.productForm.get('productTypeId')?.setValidators([Validators.required]);
-      } else {
-        this.isRealBackendTypes.set(false);
-        this.productTypes.set(PRODUCT_TYPE_OPTIONS);
-        this.productForm.get('productTypeId')?.clearValidators();
-      }
+      typeItems = Array.isArray(typesRes?.data) ? typesRes.data : [];
+      this.productTypes.set(typeItems);
     } catch {
-      this.isRealBackendTypes.set(false);
-      this.productTypes.set(PRODUCT_TYPE_OPTIONS);
-      this.productForm.get('productTypeId')?.clearValidators();
+      this.productTypes.set([]);
     }
-    this.productForm.get('productTypeId')?.updateValueAndValidity();
 
     // 2. Categories
     try {
       const catsRes = await this.categoryService.getCategories();
-      const catItems = Array.isArray(catsRes?.data) ? catsRes.data : [];
-      if (catsRes?.success && catItems.length > 0) {
-        this.isRealBackendCategories.set(true);
-        this.categories.set(catItems);
-        this.productForm.get('categoryId')?.setValidators([Validators.required]);
-      } else {
-        this.isRealBackendCategories.set(false);
-        this.categories.set(CATEGORY_OPTIONS);
-        this.productForm.get('categoryId')?.clearValidators();
-      }
+      catItems = Array.isArray(catsRes?.data) ? catsRes.data : [];
+      this.categories.set(catItems);
     } catch {
-      this.isRealBackendCategories.set(false);
-      this.categories.set(CATEGORY_OPTIONS);
-      this.productForm.get('categoryId')?.clearValidators();
+      this.categories.set([]);
     }
-    this.productForm.get('categoryId')?.updateValueAndValidity();
+
+    if (typeItems.length === 0 || catItems.length === 0) {
+      const missingParts: string[] = [];
+      if (typeItems.length === 0) missingParts.push('Tipos de Producto');
+      if (catItems.length === 0) missingParts.push('Categorías');
+
+      this.missingLookups.set(true);
+      this.missingLookupMessage.set(
+        `Para crear un producto es indispensable tener al menos una opción en: ${missingParts.join(' y ')}. Por favor, créalos en la sección de configuración primero.`
+      );
+      return false;
+    }
+
+    return true;
+  }
+
+  goToSettings() {
+    this.close();
+    this.router.navigate(['/products/settings']);
   }
 
   async openCreate() {
@@ -135,14 +137,16 @@ export class ProductModalComponent {
       description: '',
       barcode: '',
       reference: '',
-      productTypeId: null,
-      categoryId: null,
+      productTypeId: this.productTypes().length > 0 ? this.productTypes()[0].id : null,
+      categoryId: this.categories().length > 0 ? this.categories()[0].id : null,
       cost: 0,
       stock: 0,
       shortDescription: '',
       minimumQuantity: 0,
       maximumQuantity: 0,
-      invoiceWithoutStock: false
+      invoiceWithoutStock: false,
+      expirationDate: '',
+      isOrganic: false,
     });
     this.visible = true;
     this.visibleChange.emit(true);
@@ -156,14 +160,16 @@ export class ProductModalComponent {
       description: product.description || '',
       barcode: product.barcode || '',
       reference: product.reference || '',
-      productTypeId: product.productTypeId || null,
-      categoryId: product.categoryId || null,
+      productTypeId: product.productTypeId || (this.productTypes().length > 0 ? this.productTypes()[0].id : null),
+      categoryId: product.categoryId || (this.categories().length > 0 ? this.categories()[0].id : null),
       cost: product.cost || 0,
       stock: product.stock || 0,
       shortDescription: product.shortDescription || '',
       minimumQuantity: product.minimumQuantity || 0,
       maximumQuantity: product.maximumQuantity || 0,
-      invoiceWithoutStock: product.invoiceWithoutStock || false
+      invoiceWithoutStock: product.invoiceWithoutStock || false,
+      expirationDate: product.expirationDate ? product.expirationDate.split('T')[0] : '',
+      isOrganic: Boolean(product.isOrganic),
     });
     this.visible = true;
     this.visibleChange.emit(true);
@@ -224,15 +230,12 @@ export class ProductModalComponent {
       minimumQuantity: Number(formVal.minimumQuantity) || 0,
       maximumQuantity: Number(formVal.maximumQuantity) || 0,
       unitOfMeasurementId: 1,
-      companyId: this.authService.companyId() || 0
+      companyId: this.authService.companyId() || 0,
+      productTypeId: formVal.productTypeId ? Number(formVal.productTypeId) : undefined,
+      categoryId: formVal.categoryId ? Number(formVal.categoryId) : undefined,
+      expirationDate: formVal.expirationDate || null,
+      isOrganic: Boolean(formVal.isOrganic),
     };
-
-    if (this.isRealBackendTypes() && formVal.productTypeId) {
-      payload.productTypeId = Number(formVal.productTypeId);
-    }
-    if (this.isRealBackendCategories() && formVal.categoryId) {
-      payload.categoryId = Number(formVal.categoryId);
-    }
 
     try {
       if (this.isEditMode) {

@@ -21,7 +21,10 @@ import {
   ContainerComponent,
   SpinnerComponent,
 } from '@coreui/angular';
+import { KtPaginatorComponent } from '../../../billing/components/kt-paginator/kt-paginator.component';
 import type { CreditNote } from '../../../../app/models/credit-note';
+
+import { ActivatedRoute } from '@angular/router';
 
 @Component({
   selector: 'app-credit-notes',
@@ -29,14 +32,9 @@ import type { CreditNote } from '../../../../app/models/credit-note';
   imports: [
     CommonModule,
     FormsModule,
-    ContainerComponent,
-    CardComponent,
-    CardBodyComponent,
-    ButtonDirective,
-    IconDirective,
     SpinnerComponent,
     CreditNoteFormComponent,
-    ListPaginationComponent,
+    KtPaginatorComponent,
   ],
   templateUrl: './credit-notes.component.html',
   styleUrls: ['./credit-notes.component.scss'],
@@ -45,6 +43,7 @@ export class CreditNotesComponent implements OnInit {
   readonly translationService = inject(TranslationService);
   private creditNoteService = inject(CreditNoteService);
   private notificationService = inject(NotificationService);
+  private route = inject(ActivatedRoute);
 
   @ViewChild('creditNoteFormModal') creditNoteFormModal!: CreditNoteFormComponent;
 
@@ -54,6 +53,7 @@ export class CreditNotesComponent implements OnInit {
 
   currentPage = signal<number>(1);
   pageSize = signal<number>(10);
+  expandedNoteId = signal<number | null>(null);
 
   isCreateModalOpen = false;
   selectedCreditNote: CreditNote | null = null;
@@ -82,6 +82,14 @@ export class CreditNotesComponent implements OnInit {
 
   ngOnInit() {
     this.loadCreditNotes();
+    this.route.queryParams.subscribe((params) => {
+      const invoiceTerm = params['billingNumber'] || params['invoiceNumber'] || params['billingId'];
+      if (invoiceTerm) {
+        setTimeout(() => {
+          this.openCreateModal(String(invoiceTerm));
+        }, 150);
+      }
+    });
   }
 
   async loadCreditNotes() {
@@ -123,10 +131,23 @@ export class CreditNotesComponent implements OnInit {
     this.selectedCreditNote = note;
   }
 
+  toggleDetail(note: CreditNote) {
+    if (note.id != null) {
+      if (this.expandedNoteId() === note.id) {
+        this.expandedNoteId.set(null);
+      } else {
+        this.expandedNoteId.set(note.id);
+      }
+    }
+  }
+
+  isNoteExpanded(noteId?: number): boolean {
+    return noteId != null && this.expandedNoteId() === noteId;
+  }
+
   printCreditNote() {
-    this.notificationService.info('Preparando impresión de nota de crédito...');
     setTimeout(() => {
       window.print();
-    }, 200);
+    }, 150);
   }
 }

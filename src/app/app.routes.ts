@@ -1,5 +1,5 @@
 import { Routes } from '@angular/router';
-import { authGuard } from './guards/auth.guard';
+import { authGuard, adminGuard } from './guards/auth.guard';
 
 export const routes: Routes = [
   {
@@ -159,6 +159,69 @@ export const routes: Routes = [
         path: 'cash-register',
         loadComponent: () => import('../features/cash-register/components/cash-register/cash-register.component').then((m) => m.CashRegisterComponent),
         data: { title: 'Cash Register Control' }
+      },
+      {
+        path: 'metrics',
+        loadComponent: () => import('../features/dashboard/components/metrics/metrics.component').then((m) => m.MetricsComponent),
+        data: { title: 'Métricas Globales' }
+      },
+      {
+        path: 'services',
+        loadComponent: () => import('../features/services/components/services-list/services-list.component').then((m) => m.ServicesListComponent),
+        data: { title: 'Catálogo de Servicios' }
+      },
+      {
+        path: 'purchases/suppliers',
+        loadComponent: () => import('../features/purchases/components/suppliers/suppliers.component').then((m) => m.SuppliersComponent),
+        data: { title: 'Directorio de Proveedores' }
+      },
+      {
+        path: 'suppliers',
+        redirectTo: 'purchases/suppliers',
+        pathMatch: 'full'
+      },
+      {
+        path: 'profile',
+        loadComponent: () => import('../features/users/components/user-profile/user-profile.component').then((m) => m.UserProfileComponent),
+        data: { title: 'Mi Perfil' }
+      },
+      {
+        path: 'admin/roles',
+        loadComponent: () => import('../features/roles/components/roles-list/roles-list.component').then((m) => m.RolesListComponent),
+        canActivate: [adminGuard],
+        data: { title: 'Gestión de Roles y Permisos' }
+      },
+      {
+        path: 'roles',
+        redirectTo: 'admin/roles',
+        pathMatch: 'full'
+      },
+      {
+        path: 'admin/roles/matrix',
+        loadComponent: () => import('../features/roles/components/permission-matrix/permission-matrix.component').then((m) => m.PermissionMatrixComponent),
+        canActivate: [adminGuard],
+        data: { title: 'Matriz de Permisos' }
+      },
+      {
+        path: 'admin/approvals',
+        loadComponent: () => import('../features/approvals/components/approval-inbox/approval-inbox.component').then((m) => m.ApprovalInboxComponent),
+        data: { title: 'Bandeja de Aprobaciones' }
+      },
+      {
+        path: 'approvals',
+        redirectTo: 'admin/approvals',
+        pathMatch: 'full'
+      },
+      {
+        path: 'company/settings',
+        loadComponent: () => import('../features/companies/components/company-settings/company-settings.component').then((m) => m.CompanySettingsComponent),
+        canActivate: [adminGuard],
+        data: { title: 'Configuración de Empresa' }
+      },
+      {
+        path: 'companies/settings',
+        redirectTo: 'company/settings',
+        pathMatch: 'full'
       },
       {
         path: 'pages',

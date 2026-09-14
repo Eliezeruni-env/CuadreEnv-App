@@ -3,13 +3,13 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
 import { WarehouseTransferService } from '../../services/warehouse-transfer.service';
-import { ListPaginationComponent } from '../../../cuadreEnv/components/list-pagination/list-pagination.component';
+import { KtPaginatorComponent } from '../../../billing/components/kt-paginator/kt-paginator.component';
 import type { WarehouseTransfer } from '../../../../app/models/movement';
 
 @Component({
   selector: 'app-listwarehouse-transfer',
   standalone: true,
-  imports: [CommonModule, FormsModule, ListPaginationComponent],
+  imports: [CommonModule, FormsModule, KtPaginatorComponent],
   templateUrl: './listwarehouse-transfer.component.html',
   styleUrls: ['./listwarehouse-transfer.component.scss'],
 })
@@ -23,6 +23,7 @@ export class ListwarehouseTransferComponent implements OnInit {
 
   currentPage = signal<number>(1);
   pageSize = signal<number>(10);
+  expandedTransferId = signal<number | null>(null);
 
   selectedTransfer: WarehouseTransfer | null = null;
 
@@ -66,6 +67,20 @@ export class ListwarehouseTransferComponent implements OnInit {
     this.currentPage.set(page);
   }
 
+  toggleDetail(transfer: WarehouseTransfer) {
+    if (transfer.id != null) {
+      if (this.expandedTransferId() === transfer.id) {
+        this.expandedTransferId.set(null);
+      } else {
+        this.expandedTransferId.set(transfer.id);
+      }
+    }
+  }
+
+  isTransferExpanded(transferId?: number): boolean {
+    return transferId != null && this.expandedTransferId() === transferId;
+  }
+
   goToCreate() {
     this.router.navigate(['/inventory/transfers/create']);
   }
@@ -75,6 +90,8 @@ export class ListwarehouseTransferComponent implements OnInit {
   }
 
   printVoucher() {
-    window.print();
+    setTimeout(() => {
+      window.print();
+    }, 150);
   }
 }

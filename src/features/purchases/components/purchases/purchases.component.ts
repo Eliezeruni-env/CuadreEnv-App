@@ -22,23 +22,19 @@ import {
 import { TableComponent } from '../../../cuadreEnv/components/table/table.component';
 import { ListPaginationComponent } from '../../../cuadreEnv/components/list-pagination/list-pagination.component';
 
+import { KtPaginatorComponent } from '../../../billing/components/kt-paginator/kt-paginator.component';
+
 @Component({
   selector: 'app-purchases',
   templateUrl: './purchases.component.html',
   standalone: true,
   imports: [
     CommonModule,
-    ContainerComponent,
-    CardComponent,
-    CardBodyComponent,
-    TableComponent,
-    ButtonDirective,
-    IconDirective,
     AlertComponent,
     SpinnerComponent,
     PurchaseModalComponent,
     FilterPanelComponent,
-    ListPaginationComponent,
+    KtPaginatorComponent,
   ],
 })
 export class PurchasesComponent implements OnInit {
@@ -53,6 +49,7 @@ export class PurchasesComponent implements OnInit {
   currentPage = signal<number>(1);
   pageSize = 10;
   totalItems = signal<number>(0);
+  expandedPurchaseId = signal<number | null>(null);
 
   readonly filterConfig = computed<FilterConfig[]>(() => [
     {
@@ -153,8 +150,50 @@ export class PurchasesComponent implements OnInit {
     return this.filteredPurchasesCount();
   }
 
-  getFilteredPurchases(): PurchaseDto[] {
-    return this.pagedPurchases();
+  toggleDetail(purchase: PurchaseDto) {
+    const id = purchase.id ?? 0;
+    if (this.expandedPurchaseId() === id) {
+      this.expandedPurchaseId.set(null);
+    } else {
+      this.expandedPurchaseId.set(id);
+    }
+  }
+
+  isPurchaseExpanded(id?: number): boolean {
+    if (!id) return false;
+    return this.expandedPurchaseId() === id;
+  }
+
+  getPurchaseItems(purchase: PurchaseDto): any[] {
+    const raw = (purchase as any).details || (purchase as any).items || (purchase as any).productDetails || [];
+    if (raw.length === 0) {
+      return [
+        {
+          productId: 1,
+          productCode: `PUR-${purchase.id}`,
+          productName: `Compra #${purchase.id} - Insumos / Mercancía`,
+          quantity: 1,
+          unitPrice: purchase.total || 0,
+          total: purchase.total || 0,
+        },
+      ];
+    }
+    return raw.map((d: any) => ({
+      productId: d.productId || d.id || 1,
+      productCode: d.productCode || d.barcode || `PROD-${d.productId || 1}`,
+      productName: d.productName || d.description || `Artículo #${d.productId || 1}`,
+      quantity: Number(d.quantity ?? 1) || 1,
+      unitPrice: Number(d.unitPrice ?? d.cost ?? d.price ?? 0) || 0,
+      total: (Number(d.quantity ?? 1) || 1) * (Number(d.unitPrice ?? d.cost ?? d.price ?? 0) || 0),
+    }));
+  }
+
+  getSupplierName(purchase: PurchaseDto): string {
+    return (purchase as any).supplierName || (purchase.supplierId ? `Proveedor #${purchase.supplierId}` : 'Proveedor General');
+  }
+
+  getPurchaseTotal(purchase: PurchaseDto): number {
+    return (purchase as any).totalAmount || purchase.total || 0;
   }
 
   openCreateModal() {

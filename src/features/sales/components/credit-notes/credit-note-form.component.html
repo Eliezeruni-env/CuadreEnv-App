@@ -247,9 +247,9 @@
               <div class="col-md-4">
                 <label class="form-label small fw-semibold text-secondary">Método de Reembolso</label>
                 <select class="form-select form-select-sm" [(ngModel)]="refundMethod">
-                  <option value="CASH">💵 Efectivo (Descuenta de Caja)</option>
-                  <option value="CREDIT">💳 Crédito a Favor / Balance</option>
-                  <option value="BALANCE">📄 Ajuste Contable</option>
+                  <option value="CASH">Efectivo (Descuenta de Caja)</option>
+                  <option value="CREDIT">Crédito a Favor / Balance</option>
+                  <option value="BALANCE">Ajuste Contable</option>
                 </select>
               </div>
 
@@ -339,11 +339,11 @@
                   <div class="small text-secondary mb-3">
                     @if (refundMethod === 'CASH') {
                       <div class="alert alert-warning py-2 px-3 small mb-2 border">
-                        ⚠️ Se registrará un <b>Egreso de Efectivo</b> por <b>RD$ {{ calculatedTotal | number:'1.2-2' }}</b> en la sesión de caja activa.
+                        Se registrará un <b>Egreso de Efectivo</b> por <b>RD$ {{ calculatedTotal | number:'1.2-2' }}</b> en la sesión de caja activa.
                       </div>
                     } @else {
                       <div class="alert alert-info py-2 px-3 small mb-2 border">
-                        ℹ️ El monto de <b>RD$ {{ calculatedTotal | number:'1.2-2' }}</b> quedará disponible como saldo a favor del cliente.
+                        El monto de <b>RD$ {{ calculatedTotal | number:'1.2-2' }}</b> quedará disponible como saldo a favor del cliente.
                       </div>
                     }
                   </div>

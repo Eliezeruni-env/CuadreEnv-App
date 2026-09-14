@@ -3,37 +3,31 @@ import { provideHttpClient, withInterceptors } from '@angular/common/http';
 import { provideAnimationsAsync } from '@angular/platform-browser/animations/async';
 import {
   provideRouter,
-  withEnabledBlockingInitialNavigation,
-  withHashLocation,
   withInMemoryScrolling,
+  withViewTransitions,
+  withHashLocation,
+  withEnabledBlockingInitialNavigation,
   withRouterConfig,
 } from '@angular/router';
 import { IconSetService } from '@coreui/icons-angular';
+import { iconSubset } from './icons/icon-subset';
 import { routes } from './app.routes';
 import { authInterceptor, appHttpInterceptor } from './interceptor';
 
 @Injectable()
 export class GlobalErrorHandler implements ErrorHandler {
-  handleError(error: any): void {
+  handleError(error: unknown): void {
+    const errorMsg =
+      error instanceof Error ? error.message : JSON.stringify(error);
     if (
-      error?.name === 'InvalidStateError' ||
-      error?.message?.includes('Transition was aborted')
+      errorMsg.includes('ResizeObserver') ||
+      errorMsg.includes('Loading chunk') ||
+      errorMsg.includes('Failed to fetch dynamically imported module') ||
+      errorMsg.includes('NG0100')
     ) {
       return;
     }
-    const message =
-      error?.message || (typeof error === 'string' ? error : null);
-    if (message) {
-      console.error(`[AppError] ${message}`);
-    } else if (error && typeof error === 'object') {
-      try {
-        console.error('[AppError]', JSON.stringify(error));
-      } catch {
-        console.error('[AppError]', String(error));
-      }
-    } else {
-      console.error('[AppError]', error);
-    }
+    console.error('Unhandled Application Error:', error);
   }
 }
 
@@ -51,7 +45,14 @@ export const appConfig: ApplicationConfig = {
       withEnabledBlockingInitialNavigation(),
       withHashLocation(),
     ),
-    IconSetService,
+    {
+      provide: IconSetService,
+      useFactory: () => {
+        const iconSet = new IconSetService();
+        iconSet.icons = { ...iconSubset };
+        return iconSet;
+      },
+    },
     provideHttpClient(withInterceptors([authInterceptor, appHttpInterceptor])),
     provideAnimationsAsync(),
     { provide: ErrorHandler, useClass: GlobalErrorHandler },

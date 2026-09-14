@@ -7,43 +7,78 @@
       </div>
       
       <div class="custom-modal-body">
+        <!-- Target Type Toggle -->
+        <div class="d-flex gap-2 mb-3">
+          <button
+            type="button"
+            class="btn btn-sm flex-fill"
+            [class.btn-primary]="paymentType() === 'sale'"
+            [class.btn-light]="paymentType() !== 'sale'"
+            [class.border]="paymentType() !== 'sale'"
+            (click)="setPaymentType('sale')"
+          >
+            Cobro de Venta (Cliente)
+          </button>
+          <button
+            type="button"
+            class="btn btn-sm flex-fill"
+            [class.btn-primary]="paymentType() === 'purchase'"
+            [class.btn-light]="paymentType() !== 'purchase'"
+            [class.border]="paymentType() !== 'purchase'"
+            (click)="setPaymentType('purchase')"
+          >
+            Pago de Compra (Proveedor)
+          </button>
+        </div>
+
         <form cForm [formGroup]="paymentForm">
           <c-row>
-            <c-col md="6" class="mb-3">
-              <label class="small fw-semibold text-secondary mb-1">{{ translationService.t('sales.table.saleId') }}</label>
-              <select cSelect formControlName="saleId">
-                <option value="">{{ translationService.t('common.select') }}</option>
-                @for (s of sales(); track s.id) {
-                  <option [value]="s.id">#{{ s.id }} (${{ s.total | number:'1.2-2' }})</option>
-                }
-              </select>
-            </c-col>
-
-            <c-col md="6" class="mb-3">
-              <label class="small fw-semibold text-secondary mb-1">{{ translationService.t('purchases.table.purchaseId') }}</label>
-              <input type="number" formControlName="purchaseId" cFormControl placeholder="ID" />
-            </c-col>
+            @if (paymentType() === 'sale') {
+              <c-col md="12" class="mb-3">
+                <label class="small fw-semibold text-secondary mb-1">Venta / Factura Asociada *</label>
+                <select cSelect formControlName="saleId" class="form-select">
+                  <option value="">-- Seleccionar Venta Pendiente --</option>
+                  @for (s of sales(); track s.id) {
+                    <option [value]="s.id">Venta #{{ s.id }} - Total: RD$ {{ s.total | number:'1.2-2' }}</option>
+                  }
+                </select>
+              </c-col>
+            } @else {
+              <c-col md="12" class="mb-3">
+                <label class="small fw-semibold text-secondary mb-1">Orden de Compra Asociada *</label>
+                <select cSelect formControlName="purchaseId" class="form-select">
+                  <option value="">-- Seleccionar Compra --</option>
+                  @for (p of purchases(); track p.id) {
+                    <option [value]="p.id">Compra #{{ p.id }} - Total: RD$ {{ p.total | number:'1.2-2' }}</option>
+                  }
+                </select>
+              </c-col>
+            }
           </c-row>
 
           <c-row>
             <c-col md="6" class="mb-3">
-              <label class="small fw-semibold text-secondary mb-1">{{ translationService.t('payments.modal.amountLabel') }} *</label>
-              <input type="number" formControlName="amount" cFormControl />
+              <label class="small fw-semibold text-secondary mb-1">Monto a Registrar *</label>
+              <div class="input-group">
+                <span class="input-group-text bg-light">RD$</span>
+                <input type="number" step="0.01" min="0.01" formControlName="amount" cFormControl />
+              </div>
             </c-col>
 
             <c-col md="6" class="mb-3">
-              <label class="small fw-semibold text-secondary mb-1">{{ translationService.t('payments.modal.methodLabel') }} *</label>
-              <select cSelect formControlName="method">
-                <option value="Cash">Cash</option>
-                <option value="Card">Card</option>
-                <option value="Transfer">Bank Transfer</option>
+              <label class="small fw-semibold text-secondary mb-1">Método de Pago *</label>
+              <select cSelect formControlName="method" class="form-select">
+                <option value="Efectivo">Efectivo</option>
+                <option value="Tarjeta de Crédito / Débito">Tarjeta de Crédito / Débito</option>
+                <option value="Transferencia Bancaria">Transferencia Bancaria</option>
+                <option value="Cheque">Cheque</option>
               </select>
             </c-col>
           </c-row>
 
           <div class="mb-3">
-            <label class="small fw-semibold text-secondary mb-1">{{ translationService.t('payments.modal.refLabel') }}</label>
-            <input formControlName="reference" cFormControl [placeholder]="translationService.t('payments.modal.refLabel')" />
+            <label class="small fw-semibold text-secondary mb-1">Referencia / Comprobante (opcional)</label>
+            <input formControlName="reference" cFormControl placeholder="Ej. Transf #12345, Cheque #987, etc." />
           </div>
         </form>
       </div>

@@ -7,6 +7,7 @@ import type {
   SaleRequestDto,
   SaleResponseDto,
   ApiResponse,
+  SendInvoiceEmailRequest,
 } from '../../cuadreEnv/types/api';
 
 const SALES_STORAGE_KEY = 'cuadreenv_local_sales_cache';
@@ -15,7 +16,11 @@ const SALES_STORAGE_KEY = 'cuadreenv_local_sales_cache';
   providedIn: 'root',
 })
 export class SaleService {
-  private readonly api = inject(ApiClientService);
+  private readonly api: ApiClientService;
+
+  constructor(api?: ApiClientService) {
+    this.api = api ?? inject(ApiClientService, { optional: true })!;
+  }
 
   private getLocalSales(): SaleResponseDto[] {
     try {
@@ -85,6 +90,7 @@ export class SaleService {
         customerId: sale.customerId || null,
         cashRegisterId: sale.cashRegisterId || 1,
         date: new Date().toISOString(),
+        createBy: 'system',
         items: (sale.details || []).map((it) => ({
           productId: it.productId,
           quantity: it.quantity,
@@ -151,5 +157,15 @@ export class SaleService {
 
   async cancelSale(saleId: number, reason: string): Promise<void> {
     await this.api.post<any, any>(`/Sale/${saleId}/cancel`, { reason });
+  }
+
+  async sendInvoiceEmail(
+    saleId: number | string,
+    request: SendInvoiceEmailRequest,
+  ): Promise<any> {
+    return await this.api.post<SendInvoiceEmailRequest, any>(
+      `/Sale/${saleId}/send-email`,
+      request,
+    );
   }
 }

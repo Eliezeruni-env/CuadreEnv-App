@@ -16,6 +16,7 @@ import {
 import { CashRegisterService } from '../../services/cash-register.service';
 import { ProductService } from '../../../products/services/product.service';
 import { CustomerService } from '../../../customers/services/customer.service';
+import { CategoryService } from '../../../products/services/category.service';
 import { NotificationService } from '../../../cuadreEnv/services/notification.service';
 import { TranslationService } from '../../../cuadreEnv/services/translation.service';
 import type { ProductDto, CustomerDto } from '../../../cuadreEnv/types/api';
@@ -56,6 +57,7 @@ export class QuickSaleModalComponent implements OnInit {
   private cashRegisterService = inject(CashRegisterService);
   private productService = inject(ProductService);
   private customerService = inject(CustomerService);
+  private categoryService = inject(CategoryService);
   private notificationService = inject(NotificationService);
 
   @Input() visible = false;
@@ -69,7 +71,7 @@ export class QuickSaleModalComponent implements OnInit {
   customers = signal<CustomerDto[]>([]);
 
   selectedCustomerId: number | null = null;
-  catalogSearchTerm = '';
+  catalogSearchTerm = signal<string>('');
   selectedCategory = signal<number | null>(null);
 
   // Cart
@@ -77,23 +79,18 @@ export class QuickSaleModalComponent implements OnInit {
 
   // Discounts & Payments
   discountType = signal<'percent' | 'fixed'>('percent');
-  discountValue = 0;
+  discountValue = signal<number>(0);
 
   selectedMethod = signal<string>('Efectivo');
-  amountReceived = 0;
+  amountReceived = signal<number>(0);
 
   // Pagination for catalog
   catalogPage = signal<number>(1);
   catalogPageSize = 6;
 
-  readonly categories = [
+  categories = signal<{ id: number | null; label: string }[]>([
     { id: null, label: 'Todos' },
-    { id: 1, label: 'General' },
-    { id: 2, label: 'Alimentos' },
-    { id: 3, label: 'Bebidas' },
-    { id: 4, label: 'Papelería' },
-    { id: 5, label: 'Servicios' },
-  ];
+  ]);
 
   readonly subtotal = computed(() => {
     return this.cartItems().reduce((acc, item) => acc + item.total, 0);
@@ -101,10 +98,11 @@ export class QuickSaleModalComponent implements OnInit {
 
   readonly discountAmount = computed(() => {
     const sub = this.subtotal();
+    const val = Number(this.discountValue()) || 0;
     if (this.discountType() === 'percent') {
-      return (sub * Math.max(0, Math.min(100, this.discountValue))) / 100;
+      return (sub * Math.max(0, Math.min(100, val))) / 100;
     }
-    return Math.max(0, Math.min(sub, this.discountValue));
+    return Math.max(0, Math.min(sub, val));
   });
 
   readonly itbis = computed(() => {
@@ -118,16 +116,20 @@ export class QuickSaleModalComponent implements OnInit {
 
   readonly change = computed(() => {
     if (this.selectedMethod() !== 'Efectivo') return 0;
-    return Math.max(0, this.amountReceived - this.total());
+    const rec = Number(this.amountReceived()) || 0;
+    return Math.max(0, Math.round((rec - this.total()) * 100) / 100);
   });
 
   readonly filteredCatalogProducts = computed(() => {
-    const term = this.catalogSearchTerm.toLowerCase().trim();
+    const term = this.catalogSearchTerm().toLowerCase().trim();
     const cat = this.selectedCategory();
 
     return this.products().filter((p) => {
-      if (cat !== null && p.categoryId !== cat && p.productTypeId !== cat) {
-        return false;
+      if (cat !== null) {
+        const prodCatId = p.categoryId ?? (p as any).category?.id;
+        if (prodCatId !== cat && p.productTypeId !== cat) {
+          return false;
+        }
       }
       if (term) {
         const desc = (p.description || '').toLowerCase();
@@ -154,9 +156,10 @@ export class QuickSaleModalComponent implements OnInit {
   async loadInitialLookups() {
     this.isLoadingProducts.set(true);
     try {
-      const [prodRes, custRes] = await Promise.all([
+      const [prodRes, custRes, catRes] = await Promise.all([
         this.productService.getPagedProducts(1, 100),
         this.customerService.getCustomers({ pageNumber: 1, pageSize: 100 } as any),
+        this.categoryService.getCategories(),
       ]);
 
       if (prodRes?.success && prodRes.data?.items) {
@@ -164,6 +167,13 @@ export class QuickSaleModalComponent implements OnInit {
       }
       if (custRes?.success && custRes.data) {
         this.customers.set(custRes.data);
+      }
+      if (catRes?.success && Array.isArray(catRes.data) && catRes.data.length > 0) {
+        const dynamicCats = catRes.data.map((c: any) => ({
+          id: c.id,
+          label: c.description || c.name || `Categoría #${c.id}`,
+        }));
+        this.categories.set([{ id: null, label: 'Todos' }, ...dynamicCats]);
       }
     } catch (e: any) {
       console.error('Error loading quick sale lookups:', e);
@@ -186,12 +196,12 @@ export class QuickSaleModalComponent implements OnInit {
 
   resetForm() {
     this.selectedCustomerId = null;
-    this.catalogSearchTerm = '';
+    this.catalogSearchTerm.set('');
     this.selectedCategory.set(null);
     this.cartItems.set([]);
-    this.discountValue = 0;
+    this.discountValue.set(0);
     this.selectedMethod.set('Efectivo');
-    this.amountReceived = 0;
+    this.amountReceived.set(0);
     this.catalogPage.set(1);
   }
 
@@ -238,7 +248,9 @@ export class QuickSaleModalComponent implements OnInit {
       ]);
     }
 
-    this.amountReceived = this.total();
+    if (this.selectedMethod() !== 'Efectivo') {
+      this.amountReceived.set(this.total());
+    }
   }
 
   incrementQuantity(index: number) {
@@ -246,7 +258,9 @@ export class QuickSaleModalComponent implements OnInit {
     items[index].quantity += 1;
     items[index].total = items[index].quantity * items[index].unitPrice;
     this.cartItems.set(items);
-    this.amountReceived = this.total();
+    if (this.selectedMethod() !== 'Efectivo') {
+      this.amountReceived.set(this.total());
+    }
   }
 
   decrementQuantity(index: number) {
@@ -258,7 +272,9 @@ export class QuickSaleModalComponent implements OnInit {
     } else {
       this.removeCartItem(index);
     }
-    this.amountReceived = this.total();
+    if (this.selectedMethod() !== 'Efectivo') {
+      this.amountReceived.set(this.total());
+    }
   }
 
   updateItemQuantity(index: number, qty: number) {
@@ -267,34 +283,40 @@ export class QuickSaleModalComponent implements OnInit {
     items[index].quantity = val;
     items[index].total = items[index].unitPrice * val;
     this.cartItems.set(items);
-    this.amountReceived = this.total();
+    if (this.selectedMethod() !== 'Efectivo') {
+      this.amountReceived.set(this.total());
+    }
   }
 
   removeCartItem(index: number) {
     const items = [...this.cartItems()];
     items.splice(index, 1);
     this.cartItems.set(items);
-    this.amountReceived = this.total();
+    if (this.selectedMethod() !== 'Efectivo') {
+      this.amountReceived.set(this.total());
+    }
   }
 
   clearCart() {
     this.cartItems.set([]);
-    this.amountReceived = 0;
+    this.amountReceived.set(0);
   }
 
   onDiscountChange() {
-    this.amountReceived = this.total();
+    if (this.selectedMethod() !== 'Efectivo') {
+      this.amountReceived.set(this.total());
+    }
   }
 
   setMethod(m: string) {
     this.selectedMethod.set(m);
     if (m !== 'Efectivo') {
-      this.amountReceived = this.total();
+      this.amountReceived.set(this.total());
     }
   }
 
   setAmountReceived(val: number) {
-    this.amountReceived = val;
+    this.amountReceived.set(Math.max(0, val));
   }
 
   async processQuickSale() {
@@ -305,7 +327,7 @@ export class QuickSaleModalComponent implements OnInit {
 
     if (
       this.selectedMethod() === 'Efectivo' &&
-      this.amountReceived < this.total()
+      this.amountReceived() < this.total()
     ) {
       this.notificationService.warning(
         'El monto recibido no puede ser menor al total de la venta.',
@@ -325,7 +347,7 @@ export class QuickSaleModalComponent implements OnInit {
         itbis: this.itbis(),
         total: this.total(),
         paymentMethod: this.selectedMethod(),
-        amountReceived: this.amountReceived,
+        amountReceived: this.selectedMethod() === 'Efectivo' ? this.amountReceived() : this.total(),
         change: this.change(),
       });
 
@@ -348,7 +370,7 @@ export class QuickSaleModalComponent implements OnInit {
           discount: this.discountAmount(),
           itbis: this.itbis(),
           total: this.total(),
-          amountReceived: this.amountReceived || this.total(),
+          amountReceived: this.selectedMethod() === 'Efectivo' ? this.amountReceived() : this.total(),
           change: this.change(),
           items: this.cartItems().map((it) => ({
             productId: it.productId,

@@ -1,0 +1,270 @@
+<c-container breakpoint="lg" class="py-4 suppliers-page">
+  <!-- Alerts -->
+  @if (errorMessage()) {
+    <c-alert color="danger" dismissible class="mb-4">
+      {{ errorMessage() }}
+    </c-alert>
+  }
+
+  <!-- Header Toolbar -->
+  <div class="d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center gap-3 mb-4">
+    <div>
+      <h2 class="page-title mb-1">Proveedores</h2>
+      <p class="text-muted mb-0">Administra el catálogo de suplidores y contactos comerciales</p>
+    </div>
+
+    <button
+      type="button"
+      cButton
+      class="btn btn-primary px-4 d-flex align-items-center gap-2 fw-semibold"
+      (click)="openCreateModal()"
+    >
+      <svg cIcon name="cilPlus" style="width: 18px; height: 18px;"></svg>
+      Nuevo Proveedor
+    </button>
+  </div>
+
+  <!-- Stat Cards -->
+  <div class="row g-3 mb-4">
+    <div class="col-sm-6 col-md-4">
+      <div class="card border-0 rounded-4 p-3 bg-white shadow-sm h-100">
+        <div class="d-flex justify-content-between align-items-center">
+          <div>
+            <div class="text-secondary small fw-semibold">Total Proveedores</div>
+            <h3 class="fw-bold text-dark mb-0">{{ totalSuppliers() }}</h3>
+          </div>
+          <div class="p-3 bg-primary-subtle text-primary rounded-circle">
+            <svg cIcon name="cilContact" style="width: 22px; height: 22px;"></svg>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="col-sm-6 col-md-4">
+      <div class="card border-0 rounded-4 p-3 bg-white shadow-sm h-100">
+        <div class="d-flex justify-content-between align-items-center">
+          <div>
+            <div class="text-secondary small fw-semibold">Proveedores Activos</div>
+            <h3 class="fw-bold text-success mb-0">{{ activeSuppliersCount() }}</h3>
+          </div>
+          <div class="p-3 bg-success-subtle text-success rounded-circle">
+            <svg cIcon name="cilCheckCircle" style="width: 22px; height: 22px;"></svg>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Search Filter -->
+  <div class="card border-0 rounded-4 shadow-sm mb-4">
+    <div class="card-body p-3">
+      <div class="row g-2 align-items-center">
+        <div class="col-md-6 col-lg-5">
+          <div class="input-group">
+            <span class="input-group-text bg-light border-end-0">
+              <svg cIcon name="cilSearch" style="width: 16px; height: 16px;" class="text-secondary"></svg>
+            </span>
+            <input
+              type="text"
+              cFormControl
+              class="border-start-0 ps-0"
+              placeholder="Buscar por nombre, RNC, teléfono o correo..."
+              [ngModel]="searchTerm()"
+              (ngModelChange)="searchTerm.set($event)"
+            />
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Table Card -->
+  <div class="card border-0 rounded-4 shadow-sm overflow-hidden">
+    <div class="card-body p-0">
+      @if (isLoading()) {
+        <div class="py-5 text-center text-muted">
+          <c-spinner color="primary" class="mb-2"></c-spinner>
+          <p class="small mb-0">Cargando proveedores...</p>
+        </div>
+      } @else if (filteredSuppliers().length === 0) {
+        <div class="py-5 text-center px-4">
+          <div class="mb-3 d-inline-flex p-3 bg-light rounded-circle text-muted">
+            <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <rect x="2" y="7" width="20" height="14" rx="2" ry="2"></rect>
+              <path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"></path>
+            </svg>
+          </div>
+          <h5 class="fw-bold text-dark">No se encontraron proveedores</h5>
+          <p class="text-secondary small max-width-320 mx-auto mb-3">
+            @if (searchTerm()) {
+              No hay coincidencias con los términos de búsqueda ingresados.
+            } @else {
+              Aún no tienes proveedores registrados en tu empresa.
+            }
+          </p>
+          <button class="btn btn-primary px-4" (click)="openCreateModal()">
+            Crear Primer Proveedor
+          </button>
+        </div>
+      } @else {
+        <div class="table-responsive">
+          <table class="table table-hover align-middle mb-0">
+            <thead class="table-light text-secondary text-uppercase font-size-xs">
+              <tr>
+                <th class="ps-4">Proveedor / Empresa</th>
+                <th>RNC / Cédula</th>
+                <th>Contacto</th>
+                <th>Teléfono / Móvil</th>
+                <th>Correo Electrónico</th>
+                <th class="text-center">Estado</th>
+                <th class="text-center pe-4" style="width: 130px;">Acciones</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (s of filteredSuppliers(); track s.id) {
+                <tr>
+                  <td class="ps-4">
+                    <div class="fw-bold text-dark">{{ s.name }}</div>
+                    @if (s.address) {
+                      <div class="text-muted font-size-xs text-truncate" style="max-width: 250px;">{{ s.address }}</div>
+                    }
+                  </td>
+                  <td class="font-monospace small text-body">
+                    {{ s.rnc || s.cedula || '-' }}
+                  </td>
+                  <td class="small text-body">{{ s.contactPerson || '-' }}</td>
+                  <td class="small text-body">
+                    {{ s.phone || s.mobile || '-' }}
+                  </td>
+                  <td class="small text-secondary">{{ s.email || '-' }}</td>
+                  <td class="text-center">
+                    @if (s.active !== false) {
+                      <span class="badge bg-success-subtle text-success border border-success px-2 py-1">Activo</span>
+                    } @else {
+                      <span class="badge bg-secondary-subtle text-secondary border px-2 py-1">Inactivo</span>
+                    }
+                  </td>
+                  <td class="text-center pe-4">
+                    <div class="d-flex justify-content-center gap-1">
+                      <button
+                        type="button"
+                        class="btn btn-sm btn-light border"
+                        title="Editar"
+                        (click)="openEditModal(s)"
+                      >
+                        <svg cIcon name="cilPencil" style="width: 14px; height: 14px;"></svg>
+                      </button>
+                      <button
+                        type="button"
+                        class="btn btn-sm btn-light border text-danger"
+                        title="Eliminar"
+                        (click)="deleteSupplier(s)"
+                      >
+                        <svg cIcon name="cilTrash" style="width: 14px; height: 14px;"></svg>
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+      }
+    </div>
+  </div>
+</c-container>
+
+<!-- Modal: Create / Edit Supplier -->
+@if (isModalOpen()) {
+  <div class="custom-modal-backdrop" (click)="closeModal()">
+    <div class="custom-modal-content modal-lg" (click)="$event.stopPropagation()">
+      <div class="custom-modal-header">
+        <h5 class="fw-bold mb-0 text-body">
+          {{ isEditMode() ? 'Editar Proveedor' : 'Nuevo Proveedor' }}
+        </h5>
+        <button type="button" class="btn-close" (click)="closeModal()" aria-label="Close"></button>
+      </div>
+
+      <div class="custom-modal-body">
+        <form cForm [formGroup]="supplierForm">
+          <div class="row g-3 mb-3">
+            <div class="col-md-8">
+              <label class="form-label required-label small fw-semibold text-secondary">Razón Social / Nombre Comercial *</label>
+              <input cFormControl formControlName="name" placeholder="Ej. Distribuidora del Caribe SRL" />
+              @if (supplierForm.get('name')?.touched && supplierForm.get('name')?.invalid) {
+                <div class="text-danger small mt-1">El nombre del proveedor es obligatorio.</div>
+              }
+            </div>
+            <div class="col-md-4">
+              <label class="form-label small fw-semibold text-secondary">RNC</label>
+              <input cFormControl formControlName="rnc" placeholder="Ej. 131-00000-0" />
+            </div>
+          </div>
+
+          <div class="row g-3 mb-3">
+            <div class="col-md-6">
+              <label class="form-label small fw-semibold text-secondary">Cédula (Persona Física)</label>
+              <input cFormControl formControlName="cedula" placeholder="Ej. 001-0000000-0" />
+            </div>
+            <div class="col-md-6">
+              <label class="form-label small fw-semibold text-secondary">Persona de Contacto</label>
+              <input cFormControl formControlName="contactPerson" placeholder="Ej. Juan Pérez" />
+            </div>
+          </div>
+
+          <div class="row g-3 mb-3">
+            <div class="col-md-6">
+              <label class="form-label small fw-semibold text-secondary">Teléfono Fijo</label>
+              <input cFormControl formControlName="phone" placeholder="Ej. 809-555-0100" />
+            </div>
+            <div class="col-md-6">
+              <label class="form-label small fw-semibold text-secondary">Móvil / WhatsApp</label>
+              <input cFormControl formControlName="mobile" placeholder="Ej. 829-555-0100" />
+            </div>
+          </div>
+
+          <div class="row g-3 mb-3">
+            <div class="col-md-6">
+              <label class="form-label small fw-semibold text-secondary">Correo Electrónico</label>
+              <input cFormControl type="email" formControlName="email" placeholder="contacto@proveedor.com" />
+              @if (supplierForm.get('email')?.touched && supplierForm.get('email')?.invalid) {
+                <div class="text-danger small mt-1">Formato de correo inválido.</div>
+              }
+            </div>
+            <div class="col-md-6">
+              <label class="form-label small fw-semibold text-secondary">Dirección Comercial</label>
+              <input cFormControl formControlName="address" placeholder="Av. Principal #10, Santo Domingo" />
+            </div>
+          </div>
+
+          <div class="form-check mt-3">
+            <input class="form-check-input" type="checkbox" id="supplierActive" formControlName="active">
+            <label class="form-check-label small fw-semibold text-secondary" for="supplierActive">
+              Proveedor Activo
+            </label>
+          </div>
+        </form>
+      </div>
+
+      <div class="custom-modal-footer d-flex justify-content-end gap-2">
+        <button cButton color="light" class="border px-4" (click)="closeModal()">
+          Cancelar
+        </button>
+        <button
+          cButton
+          color="primary"
+          class="px-4 fw-semibold"
+          [disabled]="isLoading() || supplierForm.invalid"
+          (click)="saveSupplier()"
+        >
+          @if (isLoading()) {
+            <c-spinner size="sm" class="me-2"></c-spinner>
+            Guardando...
+          } @else {
+            {{ isEditMode() ? 'Guardar Cambios' : 'Registrar Proveedor' }}
+          }
+        </button>
+      </div>
+    </div>
+  </div>
+}

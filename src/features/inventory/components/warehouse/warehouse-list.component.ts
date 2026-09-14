@@ -3,13 +3,13 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { WarehouseService } from '../../services/warehouse.service';
 import { NotificationService } from '../../../cuadreEnv/services/notification.service';
-import { ListPaginationComponent } from '../../../cuadreEnv/components/list-pagination/list-pagination.component';
+import { KtPaginatorComponent } from '../../../billing/components/kt-paginator/kt-paginator.component';
 import type { Warehouse } from '../../../../app/models/warehouse';
 
 @Component({
   selector: 'app-warehouse-list',
   standalone: true,
-  imports: [CommonModule, FormsModule, ListPaginationComponent],
+  imports: [CommonModule, FormsModule, KtPaginatorComponent],
   templateUrl: './warehouse-list.component.html',
   styleUrls: ['./warehouse-list.component.scss'],
 })

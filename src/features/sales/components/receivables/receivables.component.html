@@ -27,7 +27,11 @@
       [ngClass]="selectedTab() === 'pending' ? 'btn-primary shadow-sm text-white' : 'btn-light border text-secondary'"
       (click)="setTab('pending')"
     >
-      <span>⏳ Pendientes de Cobro</span>
+      <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="12" cy="12" r="10"></circle>
+        <polyline points="12 6 12 12 16 14"></polyline>
+      </svg>
+      <span>Pendientes de Cobro</span>
       <span class="badge" [ngClass]="selectedTab() === 'pending' ? 'bg-white text-primary' : 'bg-secondary-subtle text-secondary'">
         {{ pendingCount() }}
       </span>
@@ -277,7 +281,7 @@
                   (click)="reopenReceivable(item)"
                   title="Reactivar cuenta en caso de error contable"
                 >
-                  <span>🔄 Reabrir</span>
+                  <span>Reabrir</span>
                 </button>
               }
 

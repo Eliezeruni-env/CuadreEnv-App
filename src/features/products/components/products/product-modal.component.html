@@ -6,139 +6,177 @@
         <button type="button" class="btn-close" (click)="close()" aria-label="Close"></button>
       </div>
       <div class="custom-modal-body">
-        <form cForm [formGroup]="productForm">
-          <!-- Description -->
-          <div class="mb-3">
-            <label class="small fw-semibold text-secondary mb-1">{{ translationService.t('products.modal.nameLabel') }} *</label>
-            <input formControlName="description" cFormControl [placeholder]="translationService.t('products.modal.nameLabel')" />
-            @if (productForm.get('description')?.touched && productForm.get('description')?.invalid) {
-              @if (productForm.get('description')?.hasError('duplicate')) {
-                <div class="text-danger small mt-1">El nombre del producto ya existe.</div>
+        @if (missingLookups()) {
+          <div class="text-center py-4 px-3">
+            <div class="mb-3 d-inline-flex p-3 bg-warning-subtle text-warning-emphasis rounded-circle">
+              <svg xmlns="http://www.w3.org/2000/svg" width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path>
+                <line x1="12" y1="9" x2="12" y2="13"></line>
+                <line x1="12" y1="17" x2="12.01" y2="17"></line>
+              </svg>
+            </div>
+            <h5 class="fw-bold text-body mb-2">Configuración Previa Requerida</h5>
+            <p class="text-muted small mb-4 mx-auto" style="max-width: 460px;">
+              {{ missingLookupMessage() }}
+            </p>
+            <div class="d-flex justify-content-center gap-2">
+              <button cButton color="light" class="border px-4" (click)="close()">
+                Cerrar
+              </button>
+              <button cButton color="primary" class="fw-semibold px-4" (click)="goToSettings()">
+                Ir a Configuración de Productos
+              </button>
+            </div>
+          </div>
+        } @else {
+          <form cForm [formGroup]="productForm">
+            <!-- Description -->
+            <div class="mb-3">
+              <label class="small fw-semibold text-secondary mb-1">{{ translationService.t('products.modal.nameLabel') }} *</label>
+              <input formControlName="description" cFormControl [placeholder]="translationService.t('products.modal.nameLabel')" />
+              @if (productForm.get('description')?.touched && productForm.get('description')?.invalid) {
+                @if (productForm.get('description')?.hasError('duplicate')) {
+                  <div class="text-danger small mt-1">El nombre del producto ya existe.</div>
+                } @else {
+                  <div class="text-danger small mt-1">{{ translationService.t('common.error') }}</div>
+                }
+              }
+            </div>
+
+            <c-row>
+              <!-- Barcode -->
+              <c-col md="6" class="mb-3">
+                <label class="small fw-semibold text-secondary mb-1">{{ translationService.t('products.modal.barcodeLabel') }}</label>
+                <input formControlName="barcode" cFormControl [placeholder]="translationService.t('products.modal.barcodeLabel')" />
+              </c-col>
+
+              <!-- Reference -->
+              <c-col md="6" class="mb-3">
+                <label class="small fw-semibold text-secondary mb-1">{{ translationService.t('products.modal.refLabel') }}</label>
+                <input formControlName="reference" cFormControl [placeholder]="translationService.t('products.modal.refLabel')" />
+              </c-col>
+            </c-row>
+
+            <c-row>
+              <!-- Product Type Dropdown -->
+              <c-col md="6" class="mb-3">
+                <label class="small fw-semibold text-secondary mb-1">
+                  Tipo de Producto *
+                </label>
+                <select formControlName="productTypeId" class="form-select">
+                  <option [ngValue]="null">-- Seleccionar Tipo --</option>
+                  @for (pt of productTypes(); track pt.id) {
+                    <option [ngValue]="pt.id">{{ pt.name || pt.description || ('Tipo #' + pt.id) }}</option>
+                  }
+                </select>
+                @if (productForm.get('productTypeId')?.touched && productForm.get('productTypeId')?.invalid) {
+                  <div class="text-danger small mt-1">El tipo de producto es requerido.</div>
+                }
+              </c-col>
+
+              <!-- Category Dropdown -->
+              <c-col md="6" class="mb-3">
+                <label class="small fw-semibold text-secondary mb-1">
+                  Categoría *
+                </label>
+                <select formControlName="categoryId" class="form-select">
+                  <option [ngValue]="null">-- Seleccionar Categoría --</option>
+                  @for (cat of categories(); track cat.id) {
+                    <option [ngValue]="cat.id">{{ cat.name || cat.description || ('Categoría #' + cat.id) }}</option>
+                  }
+                </select>
+                @if (productForm.get('categoryId')?.touched && productForm.get('categoryId')?.invalid) {
+                  <div class="text-danger small mt-1">La categoría es requerida.</div>
+                }
+              </c-col>
+            </c-row>
+
+            <c-row>
+              <!-- Cost -->
+              <c-col md="6" class="mb-3">
+                <label class="small fw-semibold text-secondary mb-1">{{ translationService.t('products.modal.costLabel') }} *</label>
+                <input formControlName="cost" type="number" cFormControl />
+                @if (productForm.get('cost')?.touched && productForm.get('cost')?.invalid) {
+                  <div class="text-danger small mt-1">El costo debe ser mayor a cero.</div>
+                }
+              </c-col>
+
+              <!-- Stock -->
+              <c-col md="6" class="mb-3">
+                <label class="small fw-semibold text-secondary mb-1">{{ translationService.t('products.modal.stockLabel') }} *</label>
+                <input formControlName="stock" type="number" cFormControl [readonly]="isEditMode" />
+              </c-col>
+            </c-row>
+
+            <div class="mb-3">
+              <label class="small fw-semibold text-secondary mb-1">{{ translationService.t('common.description') }}</label>
+              <input formControlName="shortDescription" cFormControl [placeholder]="translationService.t('common.description')" />
+            </div>
+
+            <c-row>
+              <!-- Min Qty -->
+              <c-col md="6" class="mb-3">
+                <label class="small fw-semibold text-secondary mb-1">{{ translationService.t('products.modal.minStockLabel') }}</label>
+                <input formControlName="minimumQuantity" type="number" cFormControl />
+              </c-col>
+
+              <!-- Max Qty -->
+              <c-col md="6" class="mb-3">
+                <label class="small fw-semibold text-secondary mb-1">Max Qty</label>
+                <input formControlName="maximumQuantity" type="number" cFormControl />
+              </c-col>
+            </c-row>
+
+            <!-- Expiration Date & Organic Flag -->
+            <c-row>
+              <c-col md="6" class="mb-3">
+                <label class="small fw-semibold text-secondary mb-1">Fecha de Vencimiento (opcional)</label>
+                <input formControlName="expirationDate" type="date" cFormControl />
+              </c-col>
+
+              <c-col md="6" class="mb-3 d-flex align-items-center pt-3">
+                <div class="form-check">
+                  <input class="form-check-input" type="checkbox" id="isOrganic" formControlName="isOrganic">
+                  <label class="form-check-label small fw-semibold text-success d-flex align-items-center gap-1" for="isOrganic">
+                    🌱 Producto Orgánico / Ecológico
+                  </label>
+                </div>
+              </c-col>
+            </c-row>
+
+            <!-- Invoice Without Stock Checkbox -->
+            <div class="form-check mb-2">
+              <input class="form-check-input" type="checkbox" id="invoiceWithoutStock" formControlName="invoiceWithoutStock">
+              <label class="form-check-label small fw-semibold text-secondary" for="invoiceWithoutStock">
+                Permitir facturar sin existencia (Stock)
+              </label>
+            </div>
+          </form>
+        }
+      </div>
+      @if (!missingLookups()) {
+        <div class="custom-modal-footer d-flex justify-content-between">
+          <div>
+            @if (isEditMode) {
+              <button cButton color="danger" class="text-white" [disabled]="isLoading()" (click)="deleteProduct()">
+                <svg cIcon name="cilTrash" class="me-1"></svg>
+                Eliminar
+              </button>
+            }
+          </div>
+          <div class="d-flex gap-2">
+            <button cButton color="light" class="border" (click)="close()">{{ translationService.t('products.modal.cancelBtn') }}</button>
+            <button cButton color="primary" [disabled]="isLoading() || productForm.invalid" (click)="saveProduct()">
+              @if (isLoading()) {
+                <c-spinner size="sm" class="me-2"></c-spinner>
+                {{ translationService.t('common.loading') }}
               } @else {
-                <div class="text-danger small mt-1">{{ translationService.t('common.error') }}</div>
+                {{ translationService.t('products.modal.saveBtn') }}
               }
-            }
-          </div>
-
-          <c-row>
-            <!-- Barcode -->
-            <c-col md="6" class="mb-3">
-              <label class="small fw-semibold text-secondary mb-1">{{ translationService.t('products.modal.barcodeLabel') }}</label>
-              <input formControlName="barcode" cFormControl [placeholder]="translationService.t('products.modal.barcodeLabel')" />
-            </c-col>
-
-            <!-- Reference -->
-            <c-col md="6" class="mb-3">
-              <label class="small fw-semibold text-secondary mb-1">{{ translationService.t('products.modal.refLabel') }}</label>
-              <input formControlName="reference" cFormControl [placeholder]="translationService.t('products.modal.refLabel')" />
-            </c-col>
-          </c-row>
-
-          <c-row>
-            <!-- Product Type Dropdown -->
-            <c-col md="6" class="mb-3">
-              <label class="small fw-semibold text-secondary mb-1">
-                Tipo de Producto @if (isRealBackendTypes()) { * }
-              </label>
-              <select formControlName="productTypeId" class="form-select">
-                <option [ngValue]="null">-- Seleccionar Tipo --</option>
-                @for (pt of productTypes(); track pt.id) {
-                  <option [ngValue]="pt.id">{{ pt.name || pt.description || ('Tipo #' + pt.id) }}</option>
-                }
-              </select>
-              @if (isRealBackendTypes() && productForm.get('productTypeId')?.touched && productForm.get('productTypeId')?.invalid) {
-                <div class="text-danger small mt-1">El tipo de producto es requerido.</div>
-              }
-            </c-col>
-
-            <!-- Category Dropdown -->
-            <c-col md="6" class="mb-3">
-              <label class="small fw-semibold text-secondary mb-1">
-                Categoría @if (isRealBackendCategories()) { * }
-              </label>
-              <select formControlName="categoryId" class="form-select">
-                <option [ngValue]="null">-- Seleccionar Categoría --</option>
-                @for (cat of categories(); track cat.id) {
-                  <option [ngValue]="cat.id">{{ cat.name || cat.description || ('Categoría #' + cat.id) }}</option>
-                }
-              </select>
-              @if (isRealBackendCategories() && productForm.get('categoryId')?.touched && productForm.get('categoryId')?.invalid) {
-                <div class="text-danger small mt-1">La categoría es requerida.</div>
-              }
-              @if (!isRealBackendCategories()) {
-                <span class="text-body-secondary font-size-xs mt-1 d-block">
-                  Categoría opcional (no se enviará al backend hasta que existan categorías en la base de datos)
-                </span>
-              }
-            </c-col>
-          </c-row>
-
-          <c-row>
-            <!-- Cost -->
-            <c-col md="6" class="mb-3">
-              <label class="small fw-semibold text-secondary mb-1">{{ translationService.t('products.modal.costLabel') }} *</label>
-              <input formControlName="cost" type="number" cFormControl />
-              @if (productForm.get('cost')?.touched && productForm.get('cost')?.invalid) {
-                <div class="text-danger small mt-1">El costo debe ser mayor a cero.</div>
-              }
-            </c-col>
-
-            <!-- Stock -->
-            <c-col md="6" class="mb-3">
-              <label class="small fw-semibold text-secondary mb-1">{{ translationService.t('products.modal.stockLabel') }} *</label>
-              <input formControlName="stock" type="number" cFormControl [readonly]="isEditMode" />
-            </c-col>
-          </c-row>
-
-          <div class="mb-3">
-            <label class="small fw-semibold text-secondary mb-1">{{ translationService.t('common.description') }}</label>
-            <input formControlName="shortDescription" cFormControl [placeholder]="translationService.t('common.description')" />
-          </div>
-
-          <c-row>
-            <!-- Min Qty -->
-            <c-col md="6" class="mb-3">
-              <label class="small fw-semibold text-secondary mb-1">{{ translationService.t('products.modal.minStockLabel') }}</label>
-              <input formControlName="minimumQuantity" type="number" cFormControl />
-            </c-col>
-
-            <!-- Max Qty -->
-            <c-col md="6" class="mb-3">
-              <label class="small fw-semibold text-secondary mb-1">Max Qty</label>
-              <input formControlName="maximumQuantity" type="number" cFormControl />
-            </c-col>
-          </c-row>
-
-          <!-- Invoice Without Stock Checkbox -->
-          <div class="form-check mb-2">
-            <input class="form-check-input" type="checkbox" id="invoiceWithoutStock" formControlName="invoiceWithoutStock">
-            <label class="form-check-label small fw-semibold text-secondary" for="invoiceWithoutStock">
-              Allow invoicing without stock
-            </label>
-          </div>
-        </form>
-      </div>
-      <div class="custom-modal-footer d-flex justify-content-between">
-        <div>
-          @if (isEditMode) {
-            <button cButton color="danger" class="text-white" [disabled]="isLoading()" (click)="deleteProduct()">
-              <svg cIcon name="cilTrash" class="me-1"></svg>
-              Eliminar
             </button>
-          }
+          </div>
         </div>
-        <div class="d-flex gap-2">
-          <button cButton color="light" class="border" (click)="close()">{{ translationService.t('products.modal.cancelBtn') }}</button>
-          <button cButton color="primary" [disabled]="isLoading() || productForm.invalid" (click)="saveProduct()">
-            @if (isLoading()) {
-              <c-spinner size="sm" class="me-2"></c-spinner>
-              {{ translationService.t('common.loading') }}
-            } @else {
-              {{ translationService.t('products.modal.saveBtn') }}
-            }
-          </button>
-        </div>
-      </div>
+      }
     </div>
   </div>
 }

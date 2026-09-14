@@ -2,6 +2,19 @@
   font-size: 0.72rem;
 }
 
+.ncf-brand-badge {
+  background-color: #252b46 !important;
+  color: #ffffff !important;
+  border: 1px solid #252b46 !important;
+  transition: all 0.15s ease;
+
+  &:hover {
+    background-color: #6b7785 !important;
+    border-color: #6b7785 !important;
+    color: #ffffff !important;
+  }
+}
+
 .custom-modal-backdrop {
   position: fixed;
   top: 0;

@@ -2,6 +2,7 @@
   <div class="custom-modal-backdrop" (click)="close()">
     <div
       class="custom-modal-content completed-modal-container"
+      [class.print-ticket-mode]="isTicketMode()"
       (click)="$event.stopPropagation()"
     >
       <!-- Modal Header Bar -->
@@ -33,9 +34,20 @@
             type="button"
             class="btn btn-light border d-flex align-items-center gap-2 px-3 shadow-sm fw-semibold text-secondary"
             (click)="printInvoice()"
+            title="Imprimir formato factura estándar"
           >
             <svg cIcon name="cilPrint" style="width: 16px; height: 16px;"></svg>
-            <span>Imprimir factura</span>
+            <span>Factura Carta</span>
+          </button>
+
+          <button
+            type="button"
+            class="btn btn-light border d-flex align-items-center gap-2 px-3 shadow-sm fw-semibold text-secondary"
+            (click)="printTicket()"
+            title="Imprimir formato ticket térmico de 80mm/58mm"
+          >
+            <svg cIcon name="cilPrint" style="width: 16px; height: 16px;"></svg>
+            <span>Ticket POS (80mm)</span>
           </button>
 
           <button
@@ -76,26 +88,30 @@
               <!-- Invoice Header -->
               <div class="d-flex justify-content-between align-items-start border-bottom pb-4 mb-4">
                 <div class="d-flex align-items-center gap-3">
-                  <div class="invoice-logo-box">
-                    <svg
-                      xmlns="http://www.w3.org/2000/svg"
-                      width="28"
-                      height="28"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="#ffffff"
-                      stroke-width="2"
-                      stroke-linecap="round"
-                      stroke-linejoin="round"
-                    >
-                      <path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"></path>
-                      <line x1="3" y1="6" x2="21" y2="6"></line>
-                      <path d="M16 10a4 4 0 0 1-8 0"></path>
-                    </svg>
-                  </div>
+                  @if (companyService.currentSettings().logoUrl) {
+                    <img [src]="companyService.currentSettings().logoUrl" alt="Logo" style="max-height: 48px; max-width: 140px; object-fit: contain;" />
+                  } @else {
+                    <div class="invoice-logo-box">
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        width="28"
+                        height="28"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="#ffffff"
+                        stroke-width="2"
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                      >
+                        <path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"></path>
+                        <line x1="3" y1="6" x2="21" y2="6"></line>
+                        <path d="M16 10a4 4 0 0 1-8 0"></path>
+                      </svg>
+                    </div>
+                  }
                   <div>
-                    <h5 class="fw-bold mb-0 text-dark">CuadreEnv</h5>
-                    <div class="text-secondary small">Tu negocio, en orden.</div>
+                    <h5 class="fw-bold mb-0 text-dark">{{ companyService.currentSettings().companyName || 'CuadreEnv' }}</h5>
+                    <div class="text-secondary small">{{ companyService.currentSettings().commercialName || 'Soluciones de Facturación & Control' }}</div>
                   </div>
                 </div>
 
@@ -110,11 +126,10 @@
               <!-- Company & Transaction Metadata -->
               <div class="row g-3 small text-secondary mb-4 pb-3 border-bottom">
                 <div class="col-md-7">
-                  <div class="fw-bold text-dark">CuadreEnv, SRL</div>
-                  <div>RNC: 1-31-234567-8</div>
-                  <div>Avenida 27 de Febrero #123</div>
-                  <div>Santo Domingo, República Dominicana</div>
-                  <div>Tel.: (809) 123-4567 · info@cuadreenv.com</div>
+                  <div class="fw-bold text-dark">{{ companyService.currentSettings().companyName || 'CuadreEnv, SRL' }}</div>
+                  <div>RNC: {{ companyService.currentSettings().rnc || '1-01-00000-0' }}</div>
+                  <div>{{ companyService.currentSettings().address || 'Santo Domingo, República Dominicana' }}</div>
+                  <div>Tel.: {{ companyService.currentSettings().phone || '(809) 555-0199' }}</div>
                 </div>
                 <div class="col-md-5 text-md-end">
                   <div><span class="text-dark fw-semibold">Fecha:</span> {{ formattedDate }}</div>
@@ -223,8 +238,97 @@
 
               <!-- Invoice Footer Disclaimer -->
               <div class="text-center text-secondary small pt-3 border-top">
-                <div class="fw-semibold text-dark mb-1">¡Gracias por su compra!</div>
-                <div class="font-size-xs">Este documento no requiere firma ni sello.</div>
+                <div class="fw-semibold text-dark mb-1">
+                  "{{ companyService.currentSettings().invoiceFooterPhrase || '¡Gracias por su preferencia!' }}"
+                </div>
+                <div class="font-size-xs text-muted">Este documento es un comprobante de venta válido emitido electrónicamente.</div>
+              </div>
+            </div>
+
+            <!-- Dedicated 80mm/58mm Thermal Ticket Print Template -->
+            <div id="thermalTicketPrintArea" class="thermal-ticket-container font-monospace">
+              <div class="text-center mb-2">
+                <div class="fw-bold fs-6">{{ companyService.currentSettings().companyName || 'CuadreEnv POS' }}</div>
+                <div class="small">{{ companyService.currentSettings().commercialName || 'Soluciones de Facturación' }}</div>
+                <div class="small">RNC: {{ companyService.currentSettings().rnc || '1-01-00000-0' }}</div>
+                <div class="small">{{ companyService.currentSettings().address || 'Santo Domingo, R.D.' }}</div>
+                <div class="small">Tel: {{ companyService.currentSettings().phone || '(809) 555-0199' }}</div>
+              </div>
+
+              <div class="ticket-divider text-center">================================</div>
+
+              <div class="small mb-2">
+                <div><strong>TICKET:</strong> {{ saleData?.invoiceNumber || ('VTA-' + (saleData?.id || '000123')) }}</div>
+                <div><strong>FECHA:</strong> {{ formattedDate }}</div>
+                <div><strong>CLIENTE:</strong> {{ saleData?.customerName || 'Consumidor Final' }}</div>
+                @if (saleData?.customerRnc && saleData?.customerRnc !== '000-0000000-0') {
+                  <div><strong>RNC/CÉD:</strong> {{ saleData?.customerRnc }}</div>
+                }
+                <div><strong>CAJA:</strong> {{ saleData?.cashRegisterName || 'Caja Principal' }}</div>
+                <div><strong>CAJERO:</strong> {{ saleData?.cashierName || 'Admin' }}</div>
+                <div><strong>PAGO:</strong> {{ saleData?.paymentMethod || 'Efectivo' }}</div>
+              </div>
+
+              <div class="ticket-divider text-center">--------------------------------</div>
+
+              <!-- Ticket Items -->
+              <div class="ticket-items small mb-2">
+                <div class="d-flex justify-content-between fw-bold mb-1 border-bottom pb-1">
+                  <span style="flex: 2;">ARTÍCULO</span>
+                  <span style="flex: 1;" class="text-center">CANT</span>
+                  <span style="flex: 1;" class="text-end">TOTAL</span>
+                </div>
+                @for (item of saleData?.items; track item.productId || item.productCode) {
+                  <div class="mb-1">
+                    <div class="ticket-item-title fw-semibold">{{ item.productName }}</div>
+                    <div class="d-flex justify-content-between text-secondary font-size-xs">
+                      <span style="flex: 2;">RD$ {{ item.unitPrice | number:'1.2-2' }}</span>
+                      <span style="flex: 1;" class="text-center">x{{ item.quantity }}</span>
+                      <span style="flex: 1;" class="text-end font-monospace fw-bold text-dark">RD$ {{ item.total | number:'1.2-2' }}</span>
+                    </div>
+                  </div>
+                }
+              </div>
+
+              <div class="ticket-divider text-center">--------------------------------</div>
+
+              <!-- Ticket Totals -->
+              <div class="small">
+                <div class="d-flex justify-content-between">
+                  <span>Subtotal:</span>
+                  <span>RD$ {{ (saleData?.subtotal || 0) | number:'1.2-2' }}</span>
+                </div>
+                @if ((saleData?.discount || 0) > 0) {
+                  <div class="d-flex justify-content-between text-danger">
+                    <span>Descuento:</span>
+                    <span>- RD$ {{ (saleData?.discount || 0) | number:'1.2-2' }}</span>
+                  </div>
+                }
+                <div class="d-flex justify-content-between">
+                  <span>ITBIS (18%):</span>
+                  <span>RD$ {{ (saleData?.itbis || 0) | number:'1.2-2' }}</span>
+                </div>
+                <div class="ticket-divider text-center my-1">================================</div>
+                <div class="d-flex justify-content-between fw-bold fs-6">
+                  <span>TOTAL:</span>
+                  <span>RD$ {{ (saleData?.total || 0) | number:'1.2-2' }}</span>
+                </div>
+                <div class="ticket-divider text-center my-1">--------------------------------</div>
+                <div class="d-flex justify-content-between">
+                  <span>Monto Recibido:</span>
+                  <span>RD$ {{ (saleData?.amountReceived || saleData?.total || 0) | number:'1.2-2' }}</span>
+                </div>
+                <div class="d-flex justify-content-between fw-bold">
+                  <span>Cambio / Devuelta:</span>
+                  <span>RD$ {{ changeAmount | number:'1.2-2' }}</span>
+                </div>
+              </div>
+
+              <div class="ticket-divider text-center my-2">================================</div>
+
+              <div class="text-center small mt-2">
+                <div class="fw-bold">¡GRACIAS POR SU PREFERENCIA!</div>
+                <div class="text-muted font-size-xs">Conserve su ticket para cualquier reclamo o garantía</div>
               </div>
             </div>
           </div>

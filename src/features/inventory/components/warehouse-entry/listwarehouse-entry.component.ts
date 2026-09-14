@@ -3,13 +3,13 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
 import { WarehouseEntryService } from '../../services/warehouse-entry.service';
-import { ListPaginationComponent } from '../../../cuadreEnv/components/list-pagination/list-pagination.component';
+import { KtPaginatorComponent } from '../../../billing/components/kt-paginator/kt-paginator.component';
 import type { WarehouseEntry } from '../../../../app/models/movement';
 
 @Component({
   selector: 'app-listwarehouse-entry',
   standalone: true,
-  imports: [CommonModule, FormsModule, ListPaginationComponent],
+  imports: [CommonModule, FormsModule, KtPaginatorComponent],
   templateUrl: './listwarehouse-entry.component.html',
   styleUrls: ['./listwarehouse-entry.component.scss'],
 })
@@ -23,6 +23,7 @@ export class ListwarehouseEntryComponent implements OnInit {
 
   currentPage = signal<number>(1);
   pageSize = signal<number>(10);
+  expandedEntryId = signal<number | null>(null);
 
   selectedEntry: WarehouseEntry | null = null;
 
@@ -66,6 +67,20 @@ export class ListwarehouseEntryComponent implements OnInit {
     this.currentPage.set(page);
   }
 
+  toggleDetail(entry: WarehouseEntry) {
+    if (entry.id != null) {
+      if (this.expandedEntryId() === entry.id) {
+        this.expandedEntryId.set(null);
+      } else {
+        this.expandedEntryId.set(entry.id);
+      }
+    }
+  }
+
+  isEntryExpanded(entryId?: number): boolean {
+    return entryId != null && this.expandedEntryId() === entryId;
+  }
+
   goToCreate() {
     this.router.navigate(['/inventory/entries/create']);
   }
@@ -75,6 +90,8 @@ export class ListwarehouseEntryComponent implements OnInit {
   }
 
   printVoucher() {
-    window.print();
+    setTimeout(() => {
+      window.print();
+    }, 150);
   }
 }

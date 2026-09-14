@@ -7,7 +7,7 @@
       </button>
       <div>
         <h4 class="fw-bold mb-0 text-dark">
-          {{ isQuotationConversion ? '📑 Convertir Cotización a Factura' : '🧾 Emisión de Factura Empresarial' }}
+          {{ isQuotationConversion ? 'Convertir Cotización a Factura' : 'Emisión de Factura Empresarial' }}
         </h4>
         <small class="text-muted">
           {{ isQuotationConversion ? 'Generando comprobante fiscal a partir de la cotización #' + quotationId : 'Facturación y POS con asignación automática de NCF' }}
@@ -33,7 +33,7 @@
           <span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
           <span>Procesando...</span>
         } @else {
-          <span>💾 Emitir Factura Fiscal</span>
+          <span>Emitir Factura Fiscal</span>
         }
       </button>
     </div>

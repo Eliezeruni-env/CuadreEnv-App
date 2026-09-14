@@ -9,14 +9,18 @@ import {
 import { Observable } from 'rxjs';
 import { API_CONSTANTS } from '../constants';
 
+import { getAccessToken } from '../../features/cuadreEnv/services/apiClient';
+
 export const authInterceptorFn: HttpInterceptorFn = (req, next) => {
-  let token: string | null = null;
+  const token = getAccessToken();
   let companyId: string | null = null;
 
-  if (typeof window !== 'undefined' && window.localStorage) {
+  if (typeof window !== 'undefined') {
     try {
-      token = window.localStorage.getItem(API_CONSTANTS.AUTH_TOKEN_KEY);
-      companyId = window.localStorage.getItem(API_CONSTANTS.COMPANY_ID_KEY);
+      companyId =
+        (window.localStorage && (localStorage.getItem(API_CONSTANTS.COMPANY_ID_KEY) || localStorage.getItem('companyId') || localStorage.getItem('auth_company_id'))) ||
+        (window.sessionStorage && (sessionStorage.getItem(API_CONSTANTS.COMPANY_ID_KEY) || sessionStorage.getItem('companyId') || sessionStorage.getItem('auth_company_id'))) ||
+        null;
     } catch {
       // ignore
     }

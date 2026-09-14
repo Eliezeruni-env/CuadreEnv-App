@@ -4,6 +4,12 @@
   transition: all 0.2s ease-in-out;
 }
 
+.paginator-brand-badge {
+  background-color: #252b46 !important;
+  color: #ffffff !important;
+  border: 1px solid #252b46 !important;
+}
+
 .jump-to-box {
   background-color: #f8fafc;
   border: 1px solid #e2e8f0;
@@ -20,8 +26,8 @@
   transition: border-color 0.15s ease;
 
   &:focus {
-    border-color: #6366f1;
-    box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.15);
+    border-color: #252b46;
+    box-shadow: 0 0 0 2px rgba(37, 43, 70, 0.15);
   }
 }
 
@@ -53,11 +59,16 @@
   }
 
   .active-page-btn {
-    background: linear-gradient(135deg, #4f46e5, #6366f1);
-    color: #ffffff;
+    background: #252b46 !important;
+    color: #ffffff !important;
     font-weight: 700;
-    border-color: #4f46e5;
-    box-shadow: 0 2px 4px rgba(79, 70, 229, 0.25);
+    border-color: #252b46 !important;
+    box-shadow: 0 2px 4px rgba(37, 43, 70, 0.25);
+
+    &:hover {
+      background: #6b7785 !important;
+      border-color: #6b7785 !important;
+    }
   }
 }
 

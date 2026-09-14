@@ -75,14 +75,13 @@
           </div>
           <div class="col-md-6">
             <label class="form-label text-muted small fw-semibold"
-              >Cajero responsable</label
+              >Cajero responsable *</label
             >
-            <input
-              type="text"
-              cFormControl
-              formControlName="cashierName"
-              placeholder="Ej. Administrador"
-            />
+            <select cSelect formControlName="cashierName">
+              @for (c of cashiers(); track c.email) {
+                <option [value]="c.name">{{ c.name }} ({{ c.email }})</option>
+              }
+            </select>
           </div>
         </div>
 
@@ -103,7 +102,7 @@
           cButton
           class="btn-aperturar-grande w-100 d-flex align-items-center justify-content-center gap-2"
           [disabled]="isLoading() || openSessionForm.invalid"
-          (click)="openRegisterSession()"
+          (click)="initiateOpenSession()"
         >
           @if (isLoading()) {
             <c-spinner size="sm"></c-spinner>
@@ -229,12 +228,57 @@
           <span>{{ currentDateFormatted() }}</span>
         </div>
 
+        <!-- Pausar / Reanudar Caja Button -->
+        @if (activeSession()?.status !== 'PAUSED') {
+          <button
+            type="button"
+            cButton
+            color="secondary"
+            variant="outline"
+            class="d-flex align-items-center gap-1"
+            (click)="openPauseModal()"
+          >
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              width="16"
+              height="16"
+              viewBox="0 0 24 24"
+              fill="currentColor"
+            >
+              <rect x="6" y="4" width="4" height="16" rx="1"></rect>
+              <rect x="14" y="4" width="4" height="16" rx="1"></rect>
+            </svg>
+            Pausar caja
+          </button>
+        } @else {
+          <button
+            type="button"
+            cButton
+            color="warning"
+            class="d-flex align-items-center gap-1 text-dark fw-bold"
+            (click)="initiateResumeSession()"
+            [disabled]="isLoading()"
+          >
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              width="16"
+              height="16"
+              viewBox="0 0 24 24"
+              fill="currentColor"
+            >
+              <polygon points="5 3 19 12 5 21 5 3"></polygon>
+            </svg>
+            Reanudar caja
+          </button>
+        }
+
         <!-- Cerrar Caja Button -->
         <button
           type="button"
           cButton
           class="btn-cerrar-caja"
-          (click)="openCloseRegisterModal()"
+          [disabled]="activeSession()?.status === 'PAUSED'"
+          (click)="initiateCloseSession()"
         >
           <svg
             xmlns="http://www.w3.org/2000/svg"
@@ -254,6 +298,43 @@
         </button>
       </div>
     </div>
+
+    <!-- Active Pause State Banner -->
+    @if (activeSession()?.status === 'PAUSED') {
+      <div class="alert alert-warning border-warning shadow-sm d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center gap-3 p-3 mb-4 rounded-3">
+        <div class="d-flex align-items-center gap-3">
+          <div class="p-2 bg-warning-subtle text-warning-emphasis rounded-circle">
+            <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="currentColor">
+              <rect x="6" y="4" width="4" height="16" rx="1"></rect>
+              <rect x="14" y="4" width="4" height="16" rx="1"></rect>
+            </svg>
+          </div>
+          <div>
+            <h5 class="fw-bold mb-1 text-warning-emphasis">Caja en Pausa temporal</h5>
+            <p class="mb-0 small text-body-secondary">
+              <strong>Motivo:</strong> {{ activeSession()?.pauseReason || 'Receso' }}
+              @if (activeSession()?.pauseNotes) {
+                <span> — <em>"{{ activeSession()?.pauseNotes }}"</em></span>
+              }
+              <span class="ms-2">({{ activeSession()?.pausedAt ? 'Pausada a las: ' + activeSession()?.pausedAt : 'En receso' }})</span>
+            </p>
+          </div>
+        </div>
+        <button
+          type="button"
+          cButton
+          color="warning"
+          class="fw-bold px-4 py-2 text-dark shadow-sm d-flex align-items-center gap-2"
+          (click)="initiateResumeSession()"
+          [disabled]="isLoading()"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+            <polygon points="5 3 19 12 5 21 5 3"></polygon>
+          </svg>
+          Reanudar Operaciones
+        </button>
+      </div>
+    }
 
     <!-- 2. Stat Cards (4 in a row) -->
     <div class="row g-3 mb-4">
@@ -598,3 +679,82 @@
   (newSaleRequested)="openQuickSaleModal()"
   (closed)="loadData()"
 ></app-sale-completed-modal>
+
+<!-- POS Authentication Modal -->
+<app-auth-pos-modal
+  #authPosModal
+  (authenticated)="onPosAuthenticated($event)"
+></app-auth-pos-modal>
+
+<!-- Pause Register Modal -->
+@if (isPauseModalOpen()) {
+  <div class="custom-modal-backdrop" (click)="closePauseModal()">
+    <div class="custom-modal-content" (click)="$event.stopPropagation()" style="max-width: 480px;">
+      <div class="custom-modal-header border-0 pb-0">
+        <div class="d-flex align-items-center gap-3">
+          <div class="p-2 bg-warning-subtle text-warning-emphasis rounded-circle">
+            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
+              <rect x="6" y="4" width="4" height="16" rx="1"></rect>
+              <rect x="14" y="4" width="4" height="16" rx="1"></rect>
+            </svg>
+          </div>
+          <div>
+            <h5 class="fw-bold mb-0 text-body">Pausar Turno de Caja</h5>
+            <span class="text-muted small">Suspender temporalmente las operaciones</span>
+          </div>
+        </div>
+        <button type="button" class="btn-close" (click)="closePauseModal()" aria-label="Close"></button>
+      </div>
+
+      <div class="custom-modal-body pt-3">
+        <p class="text-muted small mb-3">
+          La caja quedará bloqueada temporalmente para operaciones mientras tomas tu receso o almuerzo. Podrás reanudarla en cualquier momento.
+        </p>
+
+        <form cForm [formGroup]="pauseForm">
+          <div class="mb-3">
+            <label class="form-label required-label">Motivo de la pausa *</label>
+            <select cSelect formControlName="reason">
+              <option value="Almuerzo / Receso">Almuerzo / Comida</option>
+              <option value="Receso corto / Break">Receso corto / Break</option>
+              <option value="Cambio de turno / Relevo">Cambio de turno / Relevo</option>
+              <option value="Reunión de personal">Reunión de personal</option>
+              <option value="Mantenimiento / Falla de sistema">Mantenimiento / Falla de sistema</option>
+              <option value="Otro">Otro motivo</option>
+            </select>
+          </div>
+
+          <div class="mb-3">
+            <label class="form-label">Notas u observaciones (opcional)</label>
+            <textarea
+              cFormControl
+              formControlName="notes"
+              rows="3"
+              placeholder="Ej. Regreso a las 2:00 PM..."
+            ></textarea>
+          </div>
+        </form>
+      </div>
+
+      <div class="custom-modal-footer">
+        <button cButton color="light" class="border px-4" (click)="closePauseModal()">
+          Cancelar
+        </button>
+        <button
+          cButton
+          color="warning"
+          class="fw-bold px-4 text-dark"
+          [disabled]="isLoading() || pauseForm.invalid"
+          (click)="confirmPause()"
+        >
+          @if (isLoading()) {
+            <c-spinner size="sm" class="me-2"></c-spinner>
+            Pausando...
+          } @else {
+            Confirmar Pausa
+          }
+        </button>
+      </div>
+    </div>
+  </div>
+}
