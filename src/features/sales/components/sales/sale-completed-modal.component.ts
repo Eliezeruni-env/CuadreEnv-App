@@ -108,20 +108,41 @@ export class SaleCompletedModalComponent {
   }
 
   printInvoice() {
-    this.isTicketMode.set(false);
-    setTimeout(() => {
-      window.print();
-    }, 150);
+    try {
+      this.isTicketMode.set(false);
+      setTimeout(() => {
+        try {
+          window.print();
+        } catch {
+          this.notificationService.warning(
+            'No se pudo abrir la impresión de factura. La venta ya fue guardada en el sistema.',
+          );
+        }
+      }, 150);
+    } catch {
+      this.notificationService.warning('Error al procesar la factura para imprimir.');
+    }
   }
 
   printTicket() {
-    this.isTicketMode.set(true);
-    setTimeout(() => {
-      window.print();
+    try {
+      this.isTicketMode.set(true);
       setTimeout(() => {
-        this.isTicketMode.set(false);
-      }, 500);
-    }, 150);
+        try {
+          window.print();
+        } catch {
+          this.notificationService.warning(
+            'No se pudo emitir el ticket físico (verifique impresora/papel). La venta quedó guardada exitosamente.',
+          );
+        } finally {
+          setTimeout(() => {
+            this.isTicketMode.set(false);
+          }, 500);
+        }
+      }, 150);
+    } catch {
+      this.notificationService.warning('Error al preparar el ticket de impresión.');
+    }
   }
 
   sendEmail() {

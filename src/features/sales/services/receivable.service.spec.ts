@@ -11,6 +11,21 @@ describe('ReceivableService', () => {
   beforeEach(() => {
     if (typeof window !== 'undefined' && window.localStorage) {
       window.localStorage.clear();
+      const seedItem = {
+        id: 1,
+        invoiceNumber: 'INV-000123',
+        customerName: 'Juan Pérez',
+        totalAmount: 15000,
+        paidAmount: 5000,
+        pendingAmount: 10000,
+        status: 'Parcial',
+        creationDate: '2026-05-01',
+        payments: [
+          { id: 101, amount: 5000, date: '2026-05-01', method: 'Efectivo', reference: 'REC-001' },
+        ],
+        avatarColor: '#ede9fe',
+      };
+      window.localStorage.setItem('cuadre_receivables_store_v1', JSON.stringify([seedItem]));
     }
 
     const mockApi: any = {

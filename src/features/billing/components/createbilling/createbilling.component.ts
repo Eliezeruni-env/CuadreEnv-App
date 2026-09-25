@@ -1,8 +1,4 @@
-import {
-  Component,
-  OnInit,
-  inject,
-} from '@angular/core';
+import { Component, OnInit, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router } from '@angular/router';
@@ -51,7 +47,8 @@ export class CreatebillingComponent implements OnInit {
 
   async ngOnInit() {
     this.route.params.subscribe(async (params) => {
-      const qId = params['quotationNo'] || params['quotationId'] || params['id'];
+      const qId =
+        params['quotationNo'] || params['quotationId'] || params['id'];
       if (qId) {
         this.isQuotationConversion = true;
         this.quotationId = qId;
@@ -66,7 +63,9 @@ export class CreatebillingComponent implements OnInit {
       if (res?.success && res.data) {
         this.currentHeader = { ...res.data.header };
         this.productDetails = [...res.data.items];
-        this.notificationService.info(`Datos precargados desde la cotización #${qId}.`);
+        this.notificationService.info(
+          `Datos precargados desde la cotización #${qId}.`,
+        );
       }
     } catch (e) {
       console.error('Error cargando cotización:', e);
@@ -132,12 +131,16 @@ export class CreatebillingComponent implements OnInit {
 
   async submitBilling() {
     if (!this.currentHeader.clientId) {
-      this.notificationService.warning('Selecciona un cliente para la factura.');
+      this.notificationService.warning(
+        'Selecciona un cliente para la factura.',
+      );
       return;
     }
 
     if (this.productDetails.length === 0) {
-      this.notificationService.warning('Agrega al menos un producto a la factura.');
+      this.notificationService.warning(
+        'Agrega al menos un producto a la factura.',
+      );
       return;
     }
 
@@ -149,13 +152,19 @@ export class CreatebillingComponent implements OnInit {
       );
 
       if (res?.success && res.data) {
-        this.notificationService.success(res.message || 'Factura emitida exitosamente.');
+        this.notificationService.success(
+          res.message || 'Factura emitida exitosamente.',
+        );
         this.router.navigate(['/billing']);
       } else {
-        this.notificationService.error(res?.message || 'Error al emitir la factura.');
+        this.notificationService.error(
+          res?.message || 'Error al emitir la factura.',
+        );
       }
     } catch (e: any) {
-      this.notificationService.error(e?.message || 'Error inesperado al emitir la factura.');
+      this.notificationService.error(
+        e?.message || 'Error inesperado al emitir la factura.',
+      );
     } finally {
       this.isSubmitting = false;
     }

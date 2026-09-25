@@ -194,6 +194,22 @@ export class AuthService {
   }
 
   logout() {
+    if (typeof window !== 'undefined' && window.localStorage) {
+      const compId = this.companyId() || 'default';
+      const queueKey = `cuadre_offline_queue_${compId}`;
+      const conflictsKey = `cuadre_offline_conflicts_${compId}`;
+      const rawQueue = localStorage.getItem(queueKey);
+      const rawConflicts = localStorage.getItem(conflictsKey);
+      const hasUnsynced = (rawQueue && rawQueue.length > 30) || (rawConflicts && rawConflicts.length > 30);
+      if (hasUnsynced) {
+        const proceed = window.confirm(
+          'ATENCIÓN: Hay ventas o incidencias offline pendientes de sincronizar en esta terminal.\n\nLas ventas permanecerán guardadas y cifradas en este equipo, pero no se sincronizarán en la nube hasta que inicies sesión nuevamente con esta empresa.\n\n¿Deseas cerrar sesión de todos modos?'
+        );
+        if (!proceed) {
+          return;
+        }
+      }
+    }
     void clientLogout(this.api);
     this.clearSession();
     this.router.navigate(['/login']);

@@ -1,7 +1,9 @@
 import '@angular/compiler';
 import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { TestBed } from '@angular/core/testing';
+import { Router } from '@angular/router';
 import { AuthService } from './auth.service';
-import { setAccessToken, getAccessToken } from './apiClient';
+import { ApiClientService, setAccessToken, getAccessToken } from './apiClient';
 
 describe('AuthService & Session Persistence', () => {
   let mockRouter: any;
@@ -19,6 +21,15 @@ describe('AuthService & Session Persistence', () => {
     mockApiClient = {
       post: vi.fn(),
     };
+
+    TestBed.resetTestingModule();
+    TestBed.configureTestingModule({
+      providers: [
+        AuthService,
+        { provide: Router, useValue: mockRouter },
+        { provide: ApiClientService, useValue: mockApiClient },
+      ],
+    });
   });
 
   it('should restore authentication state from valid JWT in sessionStorage without refresh call', () => {
@@ -38,8 +49,8 @@ describe('AuthService & Session Persistence', () => {
 
     setAccessToken(fakeToken);
 
-    // Instantiate AuthService
-    const authService = new AuthService(mockRouter, mockApiClient);
+    // Instantiate AuthService via TestBed
+    const authService = TestBed.inject(AuthService);
 
     expect(authService.isAuthenticated()).toBe(true);
     expect(authService.currentUser()?.email).toBe('admin@cuadre.com');
@@ -50,7 +61,7 @@ describe('AuthService & Session Persistence', () => {
 
   it('should clear sessionStorage and reset signals on logout', () => {
     setAccessToken('any-token');
-    const authService = new AuthService(mockRouter, mockApiClient);
+    const authService = TestBed.inject(AuthService);
 
     authService.logout();
 

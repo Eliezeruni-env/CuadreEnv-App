@@ -1,5 +1,5 @@
 <div class="container-fluid py-3 quick-sale-page-container">
-  <!-- Top Navigation & Header -->
+  <!-- Top Navigation & Header Toolbar -->
   <div class="d-flex align-items-center justify-content-between flex-wrap gap-2 mb-3 bg-white p-3 rounded-4 shadow-sm border">
     <div class="d-flex align-items-center gap-3">
       <a [routerLink]="['/sales']" class="btn btn-outline-secondary d-flex align-items-center gap-1 px-3 shadow-xs">
@@ -7,22 +7,146 @@
         <span>Volver a Ventas</span>
       </a>
       <div>
-        <h4 class="fw-bold mb-0 text-dark">Nueva Venta Rápida</h4>
-        <small class="text-secondary">Contado · Cobro en mostrador / caja con salida automática de inventario</small>
+        <h4 class="fw-bold mb-0 text-dark">Punto de Venta Rápido (POS)</h4>
+        <small class="text-secondary">Jornada continua · Alta velocidad · Protección offline e idempotencia</small>
       </div>
     </div>
 
-    <div class="d-flex align-items-center gap-2">
-      <span class="badge bg-success-subtle text-success border px-3 py-2 fs-6 rounded-pill d-flex align-items-center gap-2">
-        <span class="pulse-dot"></span>
-        <span>{{ activeSessionName() }}</span>
-      </span>
-      <button type="button" class="btn btn-light border text-secondary px-3" (click)="resetForm()" title="Limpiar formulario">
-        <svg cIcon name="cilReload" style="width: 15px; height: 15px;" class="me-1"></svg>
+    <!-- Right Controls: Network status, held sales, last receipt, reset -->
+    <div class="d-flex align-items-center flex-wrap gap-2">
+      <!-- Network Indicator -->
+      @if (!offlineService.isOnline()) {
+        <span class="badge bg-danger text-white px-3 py-2 rounded-pill d-flex align-items-center gap-2">
+          <span class="pulse-dot bg-white"></span>
+          <span>Modo Offline</span>
+        </span>
+      } @else {
+        <span class="badge bg-success-subtle text-success border px-3 py-2 rounded-pill d-flex align-items-center gap-2">
+          <span class="pulse-dot"></span>
+          <span>Online · {{ activeSessionName() }}</span>
+        </span>
+      }
+
+      <!-- Offline Sync Pending Queue Button -->
+      @if (offlineService.pendingCount() > 0) {
+        <button
+          type="button"
+          class="btn btn-warning btn-sm fw-bold px-3 d-flex align-items-center gap-1"
+          (click)="offlineService.syncPendingSales()"
+          [disabled]="offlineService.isSyncing()"
+          title="Sincronizar ventas guardadas localmente"
+        >
+          @if (offlineService.isSyncing()) {
+            <c-spinner size="sm" class="me-1"></c-spinner>
+            <span>Sincronizando...</span>
+          } @else {
+            <span>⚠️ {{ offlineService.pendingCount() }} pendiente(s)</span>
+          }
+        </button>
+      }
+
+      <!-- Offline Conflicts Button -->
+      @if (offlineService.conflictsCount() > 0) {
+        <button
+          type="button"
+          class="btn btn-danger btn-sm fw-bold px-3 d-flex align-items-center gap-1"
+          (click)="openConflictsModal()"
+          title="Ver y resolver conflictos de sincronización offline"
+        >
+          <span>🚨 {{ offlineService.conflictsCount() }} conflicto(s)</span>
+        </button>
+      }
+
+      <!-- Held Sales Button [F9] -->
+      <button
+        type="button"
+        class="btn btn-outline-primary btn-sm px-3 d-flex align-items-center gap-1"
+        (click)="openHeldSalesModal()"
+        title="Ver ventas en espera (F9)"
+      >
+        <span>📦 En Espera</span>
+        @if (draftStorageService.heldCount() > 0) {
+          <span class="badge bg-primary rounded-pill ms-1">{{ draftStorageService.heldCount() }}</span>
+        }
+      </button>
+
+      <!-- Hold Current Sale Button [F8] -->
+      <button
+        type="button"
+        class="btn btn-outline-secondary btn-sm px-2"
+        (click)="holdCurrentSale()"
+        [disabled]="cartItems().length === 0"
+        title="Poner venta actual en espera (F8)"
+      >
+        <span>⏸️ Pausar (F8)</span>
+      </button>
+
+      <!-- Reprint Last Ticket Button -->
+      <button
+        type="button"
+        class="btn btn-outline-dark btn-sm px-2"
+        (click)="reprintLastSale()"
+        [disabled]="!lastCompletedSale()"
+        title="Reimprimir el ticket de la última venta efectuada"
+      >
+        <span>🖨️ Reimprimir</span>
+      </button>
+
+      <!-- Clear Form -->
+      <button
+        type="button"
+        class="btn btn-light border text-secondary px-2"
+        (click)="resetForm()"
+        title="Limpiar carrito"
+      >
         <span>Limpiar</span>
       </button>
     </div>
   </div>
+
+  <!-- PERSISTENT CRITICAL ALERT PANEL (Network Drop / Payment Failure) -->
+  @if (criticalAlert(); as alert) {
+    <div class="alert alert-danger shadow-sm border border-danger p-3 rounded-3 mb-3 d-flex align-items-center justify-content-between flex-wrap gap-3">
+      <div class="d-flex align-items-start gap-3">
+        <div class="text-danger fs-3">
+          <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="10"></circle>
+            <line x1="12" y1="8" x2="12" y2="12"></line>
+            <line x1="12" y1="16" x2="12.01" y2="16"></line>
+          </svg>
+        </div>
+        <div>
+          <h6 class="fw-bold mb-1 text-danger">{{ alert.title }}</h6>
+          <p class="mb-0 small text-body">{{ alert.message }}</p>
+        </div>
+      </div>
+      <div class="d-flex align-items-center gap-2">
+        <button
+          type="button"
+          class="btn btn-danger btn-sm fw-bold px-3"
+          (click)="retryCriticalPayment()"
+        >
+          Reintentar Cobro
+        </button>
+        @if (alert.canQueueOffline) {
+          <button
+            type="button"
+            class="btn btn-warning btn-sm fw-bold px-3"
+            (click)="forceQueueOfflineSale()"
+          >
+            Guardar en Modo Offline (Efectivo)
+          </button>
+        }
+        <button
+          type="button"
+          class="btn btn-outline-secondary btn-sm px-3"
+          (click)="dismissCriticalAlert()"
+        >
+          Descartar
+        </button>
+      </div>
+    </div>
+  }
 
   <!-- Main 2-Column POS Layout -->
   <div class="row g-3">
@@ -56,7 +180,7 @@
         <div class="d-flex justify-content-between align-items-center mb-2">
           <label class="form-label fw-bold text-dark mb-0 d-flex align-items-center gap-2">
             <span class="badge bg-primary rounded-circle px-2">2</span>
-            <span>Productos en venta</span>
+            <span>Productos en venta ({{ cartItems().length }})</span>
           </label>
           @if (cartItems().length > 0) {
             <button type="button" class="btn btn-sm text-danger border-0 p-0" (click)="clearCart()">
@@ -73,7 +197,7 @@
                 <th class="text-end" style="width: 110px;">Precio Unit.</th>
                 <th class="text-center" style="width: 140px;">Cantidad</th>
                 <th class="text-end" style="width: 120px;">Total</th>
-                <th style="width: 44px;"></th>
+                <th style="width: 48px;"></th>
               </tr>
             </thead>
             <tbody>
@@ -94,23 +218,25 @@
                     <div class="d-inline-flex align-items-center border rounded-2 bg-light">
                       <button
                         type="button"
-                        class="btn btn-sm btn-link text-secondary px-2 py-0"
+                        class="btn btn-link text-secondary px-2 py-0 touch-btn"
                         (click)="decrementQuantity(i)"
+                        title="Disminuir"
                       >
                         -
                       </button>
                       <input
                         type="number"
                         min="1"
-                        class="form-control form-control-sm border-0 text-center bg-transparent font-monospace p-0 fw-bold"
-                        style="width: 40px;"
-                        [(ngModel)]="item.quantity"
-                        (input)="updateItemQuantity(i, item.quantity)"
+                        class="form-control form-control-sm text-center border-0 bg-transparent p-0 font-monospace fw-bold"
+                        style="width: 44px;"
+                        [value]="item.quantity"
+                        (change)="updateItemQuantity(i, $any($event.target).value)"
                       />
                       <button
                         type="button"
-                        class="btn btn-sm btn-link text-secondary px-2 py-0"
+                        class="btn btn-link text-secondary px-2 py-0 touch-btn"
                         (click)="incrementQuantity(i)"
+                        title="Aumentar"
                       >
                         +
                       </button>
@@ -122,252 +248,227 @@
                   <td class="text-center pe-2">
                     <button
                       type="button"
-                      class="btn btn-sm text-danger p-0 border-0"
+                      class="btn btn-sm text-danger p-0 touch-btn"
                       (click)="removeCartItem(i)"
-                      title="Eliminar producto"
+                      title="Eliminar"
                     >
-                      <svg cIcon name="cilTrash" style="width: 16px; height: 16px;"></svg>
+                      <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <polyline points="3 6 5 6 21 6"></polyline>
+                        <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+                      </svg>
                     </button>
                   </td>
                 </tr>
-              }
-              @if (cartItems().length === 0) {
+              } @empty {
                 <tr>
-                  <td colspan="5" class="text-center py-5 text-secondary">
-                    <svg cIcon name="cilCart" style="width: 36px; height: 36px;" class="mb-2 opacity-50"></svg>
-                    <p class="mb-0 fw-semibold text-dark">El carrito de venta está vacío</p>
-                    <small class="text-muted">Haz clic en los productos del catálogo de la derecha para agregarlos a la orden.</small>
+                  <td colspan="5" class="text-center py-4 text-muted">
+                    <div class="py-2">
+                      <svg xmlns="http://www.w3.org/2000/svg" width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" class="text-secondary opacity-50 mb-2">
+                        <circle cx="9" cy="21" r="1"></circle>
+                        <circle cx="20" cy="21" r="1"></circle>
+                        <path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"></path>
+                      </svg>
+                      <p class="mb-0 small">El carrito está vacío. Seleccione productos del catálogo o use el buscador (F2).</p>
+                    </div>
                   </td>
                 </tr>
               }
             </tbody>
           </table>
         </div>
+
+        <!-- Totals & Summary Card -->
+        <div class="bg-light p-3 rounded-3 border">
+          <div class="d-flex justify-content-between align-items-center mb-1 small text-secondary">
+            <span>Subtotal:</span>
+            <span class="font-monospace">RD$ {{ subtotal() | number:'1.2-2' }}</span>
+          </div>
+          <div class="d-flex justify-content-between align-items-center mb-1 small text-secondary">
+            <span>Descuento aplicado:</span>
+            <span class="font-monospace text-danger">- RD$ {{ discountAmount() | number:'1.2-2' }}</span>
+          </div>
+          <div class="d-flex justify-content-between align-items-center mb-2 small text-secondary">
+            <span>ITBIS (18%):</span>
+            <span class="font-monospace">RD$ {{ itbis() | number:'1.2-2' }}</span>
+          </div>
+          <hr class="my-2 border-secondary-subtle" />
+          <div class="d-flex justify-content-between align-items-center">
+            <span class="fw-bold fs-5 text-dark">TOTAL A PAGAR:</span>
+            <span class="fw-bold fs-4 text-primary font-monospace">RD$ {{ total() | number:'1.2-2' }}</span>
+          </div>
+        </div>
       </div>
 
-      <!-- 3. Método de pago y Resumen de la Venta -->
-      <div class="row g-3">
-        <!-- Método de Pago -->
-        <div class="col-md-6">
-          <div class="card border rounded-4 shadow-sm bg-white p-3 h-100">
-            <label class="form-label fw-bold text-dark mb-2 d-flex align-items-center gap-2">
-              <span class="badge bg-primary rounded-circle px-2">3</span>
-              <span>Método de pago</span>
-            </label>
+      <!-- 3. Forma de Pago & Cobro -->
+      <div class="card border rounded-4 shadow-sm bg-white p-3">
+        <label class="form-label fw-bold text-dark mb-2 d-flex align-items-center gap-2">
+          <span class="badge bg-primary rounded-circle px-2">3</span>
+          <span>Método de Pago y Confirmación</span>
+        </label>
 
-            <!-- Buttons: Efectivo, Tarjeta, Transferencia, Otro -->
-            <div class="d-flex flex-wrap gap-1 mb-3">
-              @for (m of ['Efectivo', 'Tarjeta', 'Transferencia', 'Otro']; track m) {
-                <button
-                  type="button"
-                  class="btn btn-sm flex-fill"
-                  [class.btn-primary]="selectedMethod() === m"
-                  [class.btn-outline-secondary]="selectedMethod() !== m"
-                  (click)="setMethod(m)"
-                >
-                  {{ m }}
-                </button>
-              }
-            </div>
-
-            @if (selectedMethod() === 'Efectivo') {
-              <div class="mb-3">
-                <label class="form-label small fw-semibold text-secondary mb-1">Monto recibido</label>
-                <div class="input-group input-group-lg mb-2">
-                  <span class="input-group-text bg-light fw-bold">RD$</span>
-                  <input
-                    type="number"
-                    min="0"
-                    step="1"
-                    class="form-control fw-bold font-monospace text-end fs-4"
-                    [ngModel]="amountReceived()"
-                    (ngModelChange)="amountReceived.set($event)"
-                  />
-                </div>
-
-                <!-- Shortcuts -->
-                <div class="d-flex gap-1 mb-2">
-                  <button type="button" class="btn btn-sm btn-outline-secondary flex-fill" (click)="setAmountReceived(total())">
-                    Exacto
-                  </button>
-                  <button type="button" class="btn btn-sm btn-outline-secondary flex-fill" (click)="setAmountReceived(amountReceived() + 100)">
-                    +100
-                  </button>
-                  <button type="button" class="btn btn-sm btn-outline-secondary flex-fill" (click)="setAmountReceived(amountReceived() + 500)">
-                    +500
-                  </button>
-                  <button type="button" class="btn btn-sm btn-outline-secondary flex-fill" (click)="setAmountReceived(amountReceived() + 1000)">
-                    +1000
-                  </button>
-                </div>
-
-                <!-- Cambio -->
-                <div class="p-2-5 rounded-3 border bg-success-subtle d-flex justify-content-between align-items-center">
-                  <span class="fw-bold text-success-emphasis small">Cambio / Devuelta:</span>
-                  <span class="font-monospace fw-bold fs-5 text-success">
-                    RD$ {{ change() | number:'1.2-2' }}
-                  </span>
-                </div>
-              </div>
-            }
-
-            @if (selectedMethod() === 'Tarjeta') {
-              <div class="mb-3 p-3 bg-light rounded-3 border">
-                <div class="d-flex gap-3 mb-2">
-                  <div class="form-check form-check-inline">
-                    <input class="form-check-input" type="radio" id="cardDebit" name="cardType" value="DEBIT" [checked]="cardType() === 'DEBIT'" (change)="cardType.set('DEBIT')">
-                    <label class="form-check-label small fw-semibold" for="cardDebit">Tarjeta Débito</label>
-                  </div>
-                  <div class="form-check form-check-inline">
-                    <input class="form-check-input" type="radio" id="cardCredit" name="cardType" value="CREDIT" [checked]="cardType() === 'CREDIT'" (change)="cardType.set('CREDIT')">
-                    <label class="form-check-label small fw-semibold" for="cardCredit">Tarjeta Crédito</label>
-                  </div>
-                </div>
-                <div class="row g-2">
-                  <div class="col-6">
-                    <label class="form-label small text-secondary mb-1">Últimos 4 dígitos <span class="text-danger">*</span></label>
-                    <input type="text" class="form-control form-control-sm font-monospace" placeholder="1234" maxlength="4" [ngModel]="cardLastFour()" (ngModelChange)="cardLastFour.set($event)" />
-                  </div>
-                  <div class="col-6">
-                    <label class="form-label small text-secondary mb-1">No. Voucher / Auth <span class="text-danger">*</span></label>
-                    <input type="text" class="form-control form-control-sm font-monospace" placeholder="Ej: 009823" [ngModel]="cardAuthVoucher()" (ngModelChange)="cardAuthVoucher.set($event)" />
-                  </div>
-                </div>
-              </div>
-            }
-
-            @if (selectedMethod() === 'Transferencia') {
-              <div class="mb-3 p-3 bg-light rounded-3 border">
-                <div class="row g-2">
-                  <div class="col-6">
-                    <label class="form-label small text-secondary mb-1">Banco <span class="text-danger">*</span></label>
-                    <input type="text" class="form-control form-control-sm" placeholder="Ej: Banreservas, BHD..." [ngModel]="transferBank()" (ngModelChange)="transferBank.set($event)" />
-                  </div>
-                  <div class="col-6">
-                    <label class="form-label small text-secondary mb-1">No. Referencia <span class="text-danger">*</span></label>
-                    <input type="text" class="form-control form-control-sm font-monospace" placeholder="Ej: REF-883921" [ngModel]="transferReference()" (ngModelChange)="transferReference.set($event)" />
-                  </div>
-                </div>
-              </div>
-            }
-          </div>
+        <!-- Method Selector Tabs -->
+        <div class="btn-group w-100 mb-3" role="group">
+          <button
+            type="button"
+            class="btn py-2 touch-btn fw-bold"
+            [class.btn-primary]="selectedMethod() === 'Efectivo'"
+            [class.btn-outline-secondary]="selectedMethod() !== 'Efectivo'"
+            (click)="setMethod('Efectivo')"
+          >
+            💵 Efectivo
+          </button>
+          <button
+            type="button"
+            class="btn py-2 touch-btn fw-bold"
+            [class.btn-primary]="selectedMethod() === 'Tarjeta'"
+            [class.btn-outline-secondary]="selectedMethod() !== 'Tarjeta'"
+            (click)="setMethod('Tarjeta')"
+          >
+            💳 Tarjeta
+          </button>
+          <button
+            type="button"
+            class="btn py-2 touch-btn fw-bold"
+            [class.btn-primary]="selectedMethod() === 'Transferencia'"
+            [class.btn-outline-secondary]="selectedMethod() !== 'Transferencia'"
+            (click)="setMethod('Transferencia')"
+          >
+            🏦 Transferencia
+          </button>
         </div>
 
-        <!-- Resumen de la Venta & Cobro -->
-        <div class="col-md-6">
-          <div class="card border rounded-4 shadow-sm bg-white p-3 h-100 d-flex flex-column justify-content-between">
-            <div>
-              <h6 class="fw-bold text-dark mb-3">Resumen de la venta</h6>
-
-              <div class="d-flex justify-content-between align-items-center mb-2 small text-secondary">
-                <span>Subtotal:</span>
-                <span class="font-monospace text-dark">RD$ {{ subtotal() | number:'1.2-2' }}</span>
-              </div>
-
-              <!-- Descuento -->
-              <div class="d-flex justify-content-between align-items-center mb-2 small text-secondary">
-                <span class="d-flex align-items-center gap-1">
-                  Descuento:
-                  <div class="btn-group btn-group-sm ms-1" role="group">
-                    <button
-                      type="button"
-                      class="btn btn-xs py-0 px-1"
-                      [class.btn-dark]="discountType() === 'percent'"
-                      [class.btn-outline-secondary]="discountType() !== 'percent'"
-                      (click)="discountType.set('percent'); onDiscountChange()"
-                    >
-                      %
-                    </button>
-                    <button
-                      type="button"
-                      class="btn btn-xs py-0 px-1"
-                      [class.btn-dark]="discountType() === 'fixed'"
-                      [class.btn-outline-secondary]="discountType() !== 'fixed'"
-                      (click)="discountType.set('fixed'); onDiscountChange()"
-                    >
-                      $
-                    </button>
-                  </div>
-                </span>
-                <div style="width: 80px;">
-                  <input
-                    type="number"
-                    min="0"
-                    class="form-control form-control-sm text-end font-monospace py-0"
-                    [ngModel]="discountValue()"
-                    (ngModelChange)="discountValue.set($event); onDiscountChange()"
-                  />
-                </div>
-              </div>
-
-              <!-- ITBIS -->
-              <div class="d-flex justify-content-between align-items-center mb-3 small text-secondary">
-                <span>ITBIS (18%):</span>
-                <span class="font-monospace text-dark">RD$ {{ itbis() | number:'1.2-2' }}</span>
-              </div>
-
-              <hr class="my-2" />
-
-              <!-- Total Grande -->
-              <div class="d-flex justify-content-between align-items-center mb-3">
-                <span class="fw-bold fs-5 text-dark">Total:</span>
-                <span class="font-monospace fw-bold fs-3 text-primary">
-                  RD$ {{ total() | number:'1.2-2' }}
-                </span>
+        <!-- Dynamic Inputs based on Method -->
+        @if (selectedMethod() === 'Efectivo') {
+          <div class="row g-2 align-items-center mb-3">
+            <div class="col-sm-6">
+              <label class="form-label small text-secondary mb-1">Monto Recibido</label>
+              <div class="input-group">
+                <span class="input-group-text fw-semibold">RD$</span>
+                <input
+                  #amountReceivedInput
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  class="form-control form-control-lg font-monospace fw-bold"
+                  [(ngModel)]="amountReceived"
+                />
               </div>
             </div>
-
-            <!-- Action Button -->
-            <button
-              type="button"
-              class="btn btn-primary btn-lg w-100 py-3 fw-bold shadow-sm d-flex align-items-center justify-content-center gap-2"
-              [disabled]="isLoading() || cartItems().length === 0 || (selectedMethod() === 'Efectivo' && amountReceived() < total())"
-              (click)="processQuickSale()"
-            >
-              @if (isLoading()) {
-                <c-spinner size="sm" class="me-1"></c-spinner>
-                <span>Procesando cobro...</span>
-              } @else {
-                <svg cIcon name="cilCheck" style="width: 20px; height: 20px;"></svg>
-                <span>Cobrar RD$ {{ total() | number:'1.2-2' }}</span>
-              }
-            </button>
+            <div class="col-sm-6">
+              <label class="form-label small text-secondary mb-1">Cambio / Vuelto</label>
+              <div class="form-control form-control-lg bg-light font-monospace fw-bold text-success border">
+                RD$ {{ change() | number:'1.2-2' }}
+              </div>
+            </div>
           </div>
-        </div>
+        } @else if (selectedMethod() === 'Tarjeta') {
+          <div class="row g-2 mb-3">
+            <div class="col-sm-4">
+              <label class="form-label small text-secondary mb-1">Tipo Tarjeta</label>
+              <select class="form-select" [(ngModel)]="cardType">
+                <option value="DEBIT">Débito</option>
+                <option value="CREDIT">Crédito</option>
+              </select>
+            </div>
+            <div class="col-sm-4">
+              <label class="form-label small text-secondary mb-1">Últimos 4 Dígitos</label>
+              <input
+                type="text"
+                maxlength="4"
+                placeholder="4242"
+                class="form-control font-monospace"
+                [(ngModel)]="cardLastFour"
+              />
+            </div>
+            <div class="col-sm-4">
+              <label class="form-label small text-secondary mb-1">Nº Autorización / Voucher</label>
+              <input
+                type="text"
+                placeholder="AUT-9821"
+                class="form-control font-monospace"
+                [(ngModel)]="cardAuthVoucher"
+              />
+            </div>
+          </div>
+        } @else {
+          <div class="row g-2 mb-3">
+            <div class="col-sm-6">
+              <label class="form-label small text-secondary mb-1">Banco Origen / Destino</label>
+              <input
+                type="text"
+                placeholder="Ej. Banco Popular, Banreservas"
+                class="form-control"
+                [(ngModel)]="transferBank"
+              />
+            </div>
+            <div class="col-sm-6">
+              <label class="form-label small text-secondary mb-1">Referencia / Confirmación</label>
+              <input
+                type="text"
+                placeholder="Nº de transacción"
+                class="form-control font-monospace"
+                [(ngModel)]="transferReference"
+              />
+            </div>
+          </div>
+        }
+
+        <!-- Final Submit Checkout Button -->
+        <button
+          type="button"
+          class="btn btn-success btn-lg w-100 py-3 fw-bold text-uppercase d-flex align-items-center justify-content-center gap-2 shadow-sm touch-btn"
+          [disabled]="isSubmitting() || isLoading() || cartItems().length === 0"
+          (click)="processQuickSale()"
+        >
+          @if (isSubmitting() || isLoading()) {
+            <c-spinner size="sm"></c-spinner>
+            <span>Procesando Cobro...</span>
+          } @else {
+            <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <rect x="2" y="4" width="20" height="16" rx="2"></rect>
+              <line x1="2" y1="10" x2="22" y2="10"></line>
+            </svg>
+            <span>Cobrar y Facturar (F4) · RD$ {{ total() | number:'1.2-2' }}</span>
+          }
+        </button>
       </div>
     </div>
 
-    <!-- RIGHT SIDE: Product Catalog (Col-lg-5) -->
-    <div class="col-lg-5 col-xl-5">
-      <div class="card border rounded-4 shadow-sm p-3 bg-white h-100 d-flex flex-column" style="min-height: 700px;">
+    <!-- RIGHT SIDE: Product Catalog & Fast Search (Col-lg-5) -->
+    <div class="col-lg-5 col-xl-5 d-flex flex-column gap-3">
+      <div class="card border rounded-4 shadow-sm bg-white p-3 h-100 d-flex flex-column">
         <div class="d-flex justify-content-between align-items-center mb-2">
-          <h5 class="fw-bold text-dark mb-0">Catálogo de productos</h5>
-          <span class="badge bg-secondary-subtle text-secondary border px-2 py-1">
-            {{ filteredCatalogProducts().length }} productos
-          </span>
+          <label class="form-label fw-bold text-dark mb-0">Catálogo de Productos</label>
+          <span class="badge bg-light text-secondary border">{{ filteredCatalogProducts().length }} ítems</span>
         </div>
 
-        <!-- Search Bar -->
-        <div class="input-group mb-3">
+        <!-- Fast Search Input (F2) -->
+        <div class="input-group mb-2">
           <span class="input-group-text bg-light border-end-0">
-            <svg cIcon name="cilSearch" style="width: 16px; height: 16px;"></svg>
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-secondary">
+              <circle cx="11" cy="11" r="8"></circle>
+              <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+            </svg>
           </span>
           <input
+            #catalogSearchInput
             type="text"
-            class="form-control border-start-0 ps-0"
-            placeholder="Buscar por nombre, código o barra..."
+            class="form-control border-start-0"
+            placeholder="Buscar por código, nombre... (F2)"
             [ngModel]="catalogSearchTerm()"
             (ngModelChange)="catalogSearchTerm.set($event)"
           />
         </div>
 
-        <!-- Dynamic Category Pills from System Categories -->
-        <div class="category-pills-container d-flex gap-1 mb-3 overflow-auto pb-1">
-          @for (cat of categories(); track cat.id ?? cat.label) {
+        <!-- Category Pills -->
+        <div class="d-flex gap-1 overflow-x-auto pb-2 mb-2 category-scroll">
+          @for (cat of categories(); track cat.id) {
             <button
               type="button"
-              class="btn btn-sm category-chip text-nowrap"
-              [class.active]="selectedCategory() === cat.id"
+              class="btn btn-sm text-nowrap rounded-pill px-3 touch-btn"
+              [class.btn-primary]="selectedCategory() === cat.id"
+              [class.btn-light]="selectedCategory() !== cat.id"
+              [class.border]="selectedCategory() !== cat.id"
               (click)="setCategory(cat.id)"
             >
               {{ cat.label }}
@@ -375,113 +476,280 @@
           }
         </div>
 
-        <!-- Products List -->
-        <div class="catalog-list-box flex-grow-1 overflow-auto pe-1 mb-3">
+        <!-- Catalog Grid -->
+        <div class="catalog-grid flex-grow-1 overflow-y-auto mb-2" style="max-height: 480px;">
           @if (isLoadingProducts()) {
             <div class="text-center py-5">
               <c-spinner color="primary"></c-spinner>
-              <p class="small text-secondary mt-2 mb-0">Cargando productos del sistema...</p>
-            </div>
-          } @else if (filteredCatalogProducts().length === 0) {
-            <div class="text-center py-5 text-secondary">
-              <svg cIcon name="cilWarning" style="width: 36px; height: 36px;" class="mb-2 opacity-50"></svg>
-              <p class="small mb-0">No se encontraron productos en esta categoría o búsqueda.</p>
+              <div class="text-secondary small mt-2">Cargando catálogo...</div>
             </div>
           } @else {
-            <div class="list-group list-group-flush gap-2">
-              @for (p of pagedCatalogProducts(); track p.id) {
-                <div
-                  class="list-group-item list-group-item-action catalog-item-card border rounded-3 p-3 d-flex justify-content-between align-items-center cursor-pointer shadow-xs"
-                  (click)="addProductToCart(p)"
-                >
-                  <div class="me-2">
-                    <div class="fw-bold text-dark mb-0">{{ p.description || p.shortDescription || 'Producto' }}</div>
-                    <div class="text-secondary small font-monospace" style="font-size: 0.75rem;">
-                      Código: {{ p.barcode || p.reference || 'PROD-' + p.id }}
+            <div class="row g-2">
+              @for (prod of pagedCatalogProducts(); track prod.id) {
+                <div class="col-6 col-md-6 col-lg-6">
+                  <div
+                    class="product-touch-card card h-100 border rounded-3 p-2 text-start d-flex flex-column justify-content-between touch-card cursor-pointer"
+                    (click)="addProductToCart(prod)"
+                    tabindex="0"
+                  >
+                    <div>
+                      <div class="fw-bold text-dark text-truncate small" [title]="prod.description">
+                        {{ prod.description }}
+                      </div>
+                      <div class="text-secondary font-monospace" style="font-size: 0.7rem;">
+                        {{ prod.barcode || prod.reference || 'SIN CÓDIGO' }}
+                      </div>
                     </div>
-                    <div class="mt-1">
-                      @if (p.productTypeId === 2 || p.invoiceWithoutStock) {
-                        <span class="badge bg-info-subtle text-info border font-size-xs">Servicio</span>
-                      } @else if (p.stock > 10) {
-                        <span class="badge bg-success-subtle text-success border font-size-xs">En stock: {{ p.stock }}</span>
-                      } @else if (p.stock > 0) {
-                        <span class="badge bg-warning-subtle text-warning-emphasis border font-size-xs">Bajo stock: {{ p.stock }}</span>
-                      } @else {
-                        <span class="badge bg-danger-subtle text-danger border font-size-xs">Sin stock</span>
-                      }
+                    <div class="d-flex justify-content-between align-items-center mt-2 pt-1 border-top">
+                      <span class="fw-bold text-primary small font-monospace">
+                        RD$ {{ (prod.cost || 100) | number:'1.2-2' }}
+                      </span>
+                      <span class="badge bg-primary-subtle text-primary rounded-pill px-2 py-1">
+                        + Agregar
+                      </span>
                     </div>
                   </div>
-
-                  <div class="text-end d-flex flex-column align-items-end gap-1">
-                    <span class="font-monospace fw-bold text-primary fs-5">
-                      RD$ {{ (p.cost ? (+p.cost) : 100) | number:'1.2-2' }}
-                    </span>
-                    <button type="button" class="btn btn-sm btn-outline-primary px-3 py-1 fw-semibold d-flex align-items-center gap-1">
-                      <span>+ Añadir</span>
-                    </button>
-                  </div>
+                </div>
+              } @empty {
+                <div class="col-12 text-center py-4 text-muted small">
+                  No se encontraron productos coincidentes.
                 </div>
               }
             </div>
           }
         </div>
 
-        <!-- Catalog Pagination Controls -->
-        <div class="d-flex justify-content-between align-items-center pt-2 border-top">
-          <button
-            type="button"
-            class="btn btn-sm btn-outline-secondary px-3"
-            [disabled]="catalogPage() === 1"
-            (click)="prevCatalogPage()"
-          >
-            ← Anterior
-          </button>
-          <span class="small text-secondary font-monospace">
-            Página {{ catalogPage() }} de {{ totalCatalogPages() }}
-          </span>
-          <button
-            type="button"
-            class="btn btn-sm btn-outline-secondary px-3"
-            [disabled]="catalogPage() >= totalCatalogPages()"
-            (click)="nextCatalogPage()"
-          >
-            Siguiente →
-          </button>
-        </div>
+        <!-- Catalog Pagination -->
+        @if (totalCatalogPages() > 1) {
+          <div class="d-flex justify-content-between align-items-center pt-2 border-top">
+            <button
+              type="button"
+              class="btn btn-sm btn-outline-secondary px-3 touch-btn"
+              [disabled]="catalogPage() <= 1"
+              (click)="prevCatalogPage()"
+            >
+              &laquo; Anterior
+            </button>
+            <span class="small text-secondary">
+              Pág. {{ catalogPage() }} de {{ totalCatalogPages() }}
+            </span>
+            <button
+              type="button"
+              class="btn btn-sm btn-outline-secondary px-3 touch-btn"
+              [disabled]="catalogPage() >= totalCatalogPages()"
+              (click)="nextCatalogPage()"
+            >
+              Siguiente &raquo;
+            </button>
+          </div>
+        }
       </div>
+    </div>
+  </div>
+
+  <!-- PERSISTENT BOTTOM SHORTCUTS BAR (Ergonomic Fast POS Guide) -->
+  <div class="pos-shortcut-bar d-flex justify-content-center align-items-center flex-wrap gap-4 py-2 mt-3 border rounded-3 bg-white shadow-xs text-secondary small">
+    <div class="d-flex align-items-center gap-1">
+      <kbd class="bg-dark text-white px-2 py-1 rounded">F2</kbd>
+      <span>Buscar Producto</span>
+    </div>
+    <div class="d-flex align-items-center gap-1">
+      <kbd class="bg-dark text-white px-2 py-1 rounded">F4</kbd>
+      <span>Cobrar y Facturar</span>
+    </div>
+    <div class="d-flex align-items-center gap-1">
+      <kbd class="bg-dark text-white px-2 py-1 rounded">F8</kbd>
+      <span>Poner en Espera</span>
+    </div>
+    <div class="d-flex align-items-center gap-1">
+      <kbd class="bg-dark text-white px-2 py-1 rounded">F9</kbd>
+      <span>Recuperar en Espera</span>
+    </div>
+    <div class="d-flex align-items-center gap-1">
+      <kbd class="bg-dark text-white px-2 py-1 rounded">Esc</kbd>
+      <span>Cerrar / Cancelar</span>
     </div>
   </div>
 </div>
 
-<!-- Receipt / Printable Invoice Modal upon Sale Completion -->
-<app-sale-completed-modal
-  [(visible)]="isSaleCompletedModalOpen"
-  [saleData]="lastCompletedSale"
-  (newSaleRequested)="isSaleCompletedModalOpen = false; resetForm()"
-  (closed)="onSaleModalClosed()"
-></app-sale-completed-modal>
+<!-- COMPLETED SALE RECEIPT MODAL (Thermal / A4 Printing) -->
+@if (isSaleCompletedModalOpen && lastCompletedSale()) {
+  <app-sale-completed-modal
+    [visible]="isSaleCompletedModalOpen"
+    [saleData]="lastCompletedSale()"
+    (visibleChange)="isSaleCompletedModalOpen = $event"
+    (closed)="onSaleModalClosed()"
+  ></app-sale-completed-modal>
+}
 
-<!-- Open Cash Register Required Modal -->
-@if (isOpenSessionModalVisible()) {
-  <div class="custom-modal-backdrop">
-    <div class="custom-modal-dialog p-4 text-center">
-      <div class="mb-3 text-warning">
-        <svg cIcon name="cilWarning" style="width: 52px; height: 52px;"></svg>
+<!-- HELD SALES (VENTAS EN ESPERA) MODAL -->
+@if (isHeldSalesModalOpen()) {
+  <div class="custom-modal-backdrop" (click)="closeHeldSalesModal()">
+    <div class="custom-modal-content p-4 rounded-4 shadow-lg bg-white" style="max-width: 580px;" (click)="$event.stopPropagation()">
+      <div class="d-flex justify-content-between align-items-center mb-3 border-bottom pb-2">
+        <h5 class="fw-bold mb-0 text-dark d-flex align-items-center gap-2">
+          <span>📦 Ventas Puestas en Espera</span>
+          <span class="badge bg-primary rounded-pill">{{ draftStorageService.heldCount() }}</span>
+        </h5>
+        <button type="button" class="btn-close" (click)="closeHeldSalesModal()"></button>
       </div>
-      <h5 class="fw-bold text-dark mb-2">Turno de Caja Requerido</h5>
-      <p class="text-secondary small mb-4">
-        Para procesar ventas en mostrador, es obligatorio tener un turno de caja abierto en el sistema para registrar las entradas de efectivo y cuadres.
-      </p>
-      <div class="d-flex flex-column gap-2">
-        <button type="button" class="btn btn-primary btn-lg fw-bold d-flex align-items-center justify-content-center gap-2" (click)="goToOpenCashRegister()">
-          <svg cIcon name="cilShieldAlt" style="width: 18px; height: 18px;"></svg>
-          <span>Abrir Turno de Caja Ahora</span>
-        </button>
-        <button type="button" class="btn btn-outline-secondary" (click)="goToSales()">
-          Volver a Ventas
+
+      <div class="held-sales-list mb-3" style="max-height: 360px; overflow-y: auto;">
+        @for (held of draftStorageService.heldSales(); track held.id) {
+          <div class="card border rounded-3 p-3 mb-2 bg-light d-flex flex-row justify-content-between align-items-center gap-2">
+            <div>
+              <div class="fw-bold text-dark">{{ held.label }}</div>
+              <div class="text-secondary small">
+                {{ held.itemCount }} producto(s) &bull; Guardado: {{ held.heldAt | date:'shortTime' }}
+              </div>
+              <div class="fw-bold text-primary font-monospace mt-1">
+                RD$ {{ held.totalAmount | number:'1.2-2' }}
+              </div>
+            </div>
+            <div class="d-flex gap-2">
+              <button
+                type="button"
+                class="btn btn-sm btn-primary fw-bold px-3 touch-btn"
+                (click)="resumeHeldSale(held)"
+              >
+                Cargar Venta
+              </button>
+              <button
+                type="button"
+                class="btn btn-sm btn-outline-danger touch-btn"
+                (click)="dismissHeldSale(held.id)"
+                title="Descartar"
+              >
+                ✕
+              </button>
+            </div>
+          </div>
+        } @empty {
+          <div class="text-center py-4 text-muted">
+            <p class="mb-0">No hay ventas puestas en espera actualmente.</p>
+          </div>
+        }
+      </div>
+
+      <div class="text-end">
+        <button type="button" class="btn btn-secondary px-4" (click)="closeHeldSalesModal()">
+          Cerrar
         </button>
       </div>
     </div>
   </div>
 }
 
+<!-- OPEN CASH REGISTER GUARD MODAL -->
+@if (isOpenSessionModalVisible()) {
+  <div class="custom-modal-backdrop">
+    <div class="custom-modal-content p-4 rounded-4 shadow-lg bg-white text-center" style="max-width: 440px;">
+      <div class="text-warning mb-3">
+        <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="12" r="10"></circle>
+          <line x1="12" y1="8" x2="12" y2="12"></line>
+          <line x1="12" y1="16" x2="12.01" y2="16"></line>
+        </svg>
+      </div>
+      <h5 class="fw-bold text-dark mb-2">Caja Cerrada / Sin Turno</h5>
+      <p class="text-secondary small mb-4">
+        Para operar el punto de venta y registrar ingresos en efectivo, es obligatorio realizar una apertura de turno en caja.
+      </p>
+      <div class="d-flex gap-2 justify-content-center">
+        <button type="button" class="btn btn-outline-secondary px-4" (click)="goToSales()">
+          Volver a Ventas
+        </button>
+        <button type="button" class="btn btn-primary fw-bold px-4" (click)="goToOpenCashRegister()">
+          Abrir Caja Ahora
+        </button>
+      </div>
+    </div>
+  </div>
+}
+
+<!-- OFFLINE CONFLICT RESOLUTION MODAL -->
+@if (isConflictsModalOpen()) {
+  <div class="custom-modal-backdrop" (click)="closeConflictsModal()">
+    <div class="custom-modal-content p-4 rounded-4 shadow-lg bg-white" style="max-width: 680px;" (click)="$event.stopPropagation()">
+      <div class="d-flex justify-content-between align-items-center mb-3 border-bottom pb-2">
+        <h5 class="fw-bold mb-0 text-danger d-flex align-items-center gap-2">
+          <span>🚨 Conflictos de Sincronización Offline</span>
+          <span class="badge bg-danger rounded-pill">{{ offlineService.conflictsCount() }}</span>
+        </h5>
+        <button type="button" class="btn-close" (click)="closeConflictsModal()"></button>
+      </div>
+
+      <p class="text-secondary small mb-3">
+        Estas ventas fueron cobradas en efectivo en esta terminal mientras estaba offline, pero el servidor las rechazó al reconectar debido a reglas de negocio (ej. falta de stock o cliente bloqueado). Seleccione una acción correctiva:
+      </p>
+
+      <div class="conflicts-list mb-3" style="max-height: 400px; overflow-y: auto;">
+        @for (conf of offlineService.conflicts(); track conf.id) {
+          <div class="card border border-danger-subtle rounded-3 p-3 mb-3 bg-light">
+            <div class="d-flex justify-content-between align-items-start mb-2">
+              <div>
+                <span class="badge bg-danger text-white me-2">{{ conf.conflictType }}</span>
+                <span class="fw-bold text-dark">{{ conf.localReceipt.invoiceNumber }}</span>
+              </div>
+              <span class="fw-bold text-primary font-monospace">RD$ {{ conf.payload.total | number:'1.2-2' }}</span>
+            </div>
+
+            <div class="alert alert-danger py-1 px-2 font-size-xs mb-2">
+              <strong>Motivo de rechazo del servidor:</strong> {{ conf.errorMessage }}
+            </div>
+
+            <div class="text-secondary font-size-xs mb-3">
+              <strong>Cliente:</strong> {{ conf.payload.customerName }} &bull;
+              <strong>Items:</strong>
+              @for (item of conf.payload.items; track item.productId) {
+                <span>{{ item.quantity }}x {{ item.productName }}; </span>
+              }
+            </div>
+
+            <!-- Resolution Buttons -->
+            <div class="d-flex flex-wrap gap-2 pt-2 border-top">
+              @if (conf.conflictType === 'INSUFFICIENT_STOCK' || conf.conflictType === 'RULE_REJECT') {
+                <button
+                  type="button"
+                  class="btn btn-sm btn-warning fw-bold px-3 touch-btn"
+                  (click)="resolveConflictWithOverride(conf.id)"
+                  title="Autorizar la venta ajustando el inventario para no descontar el dinero ya cobrado"
+                >
+                  ⚡ Forzar Venta (Ajuste de Stock)
+                </button>
+              }
+              @if (conf.conflictType === 'CUSTOMER_BLOCKED' || conf.payload.customerId) {
+                <button
+                  type="button"
+                  class="btn btn-sm btn-primary fw-bold px-3 touch-btn"
+                  (click)="resolveConflictWithCustomerReassign(conf.id)"
+                  title="Reasignar la venta a Consumidor Final para eludir el bloqueo de crédito"
+                >
+                  👤 Reasignar a Consumidor Final
+                </button>
+              }
+              <button
+                type="button"
+                class="btn btn-sm btn-outline-danger fw-bold px-3 touch-btn"
+                (click)="resolveConflictWithRefund(conf.id)"
+                title="Anular la venta y registrar una salida de dinero en caja por devolución"
+              >
+                💵 Anular y Devolver Efectivo
+              </button>
+            </div>
+          </div>
+        } @empty {
+          <div class="text-center py-4 text-muted">
+            <p class="mb-0">No hay conflictos pendientes.</p>
+          </div>
+        }
+      </div>
+
+      <div class="text-end">
+        <button type="button" class="btn btn-secondary px-4" (click)="closeConflictsModal()">
+          Cerrar
+        </button>
+      </div>
+    </div>
+  </div>
+}

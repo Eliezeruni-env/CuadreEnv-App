@@ -121,6 +121,40 @@
   animation: scaleUp 0.2s ease-out;
 }
 
+.touch-btn {
+  min-height: 44px;
+  min-width: 44px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  touch-action: manipulation;
+  user-select: none;
+}
+
+.product-touch-card {
+  min-height: 96px;
+  transition: all 0.15s ease-in-out;
+  touch-action: manipulation;
+
+  &:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+    border-color: #2563eb !important;
+  }
+}
+
+.pos-shortcut-bar {
+  kbd {
+    font-family: monospace;
+    font-size: 0.8rem;
+    font-weight: 700;
+  }
+}
+
+.text-secondary {
+  color: #475569 !important; /* WCAG AA Contrast Pass */
+}
+
 @keyframes fadeIn {
   from { opacity: 0; }
   to { opacity: 1; }

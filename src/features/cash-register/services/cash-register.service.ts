@@ -410,6 +410,7 @@ export class CashRegisterService {
     paymentMethod: string;
     amountReceived: number;
     change: number;
+    idempotencyKey?: string;
   }): Promise<ApiResponse<any>> {
     const sessionRes = await this.getActiveSession();
     const session = sessionRes?.data;
@@ -418,49 +419,64 @@ export class CashRegisterService {
     }
 
     const idempotencyKey =
-      typeof crypto !== 'undefined' && crypto.randomUUID
+      saleData.idempotencyKey ||
+      (typeof crypto !== 'undefined' && crypto.randomUUID
         ? crypto.randomUUID()
-        : `pos-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`;
+        : `pos-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`);
 
     let saleRes: any = null;
     try {
-      // 1. Prioritize /caja/sales idempotent endpoint
-      saleRes = await this.api.post<any, any>('/caja/sales', {
-        idempotencyKey,
-        customerId: saleData.customerId || null,
-        cashRegisterId: session.id,
-        date: new Date().toISOString(),
-        notes: `Venta rápida POS - ${saleData.paymentMethod}`,
-        createBy: 'system',
-        items: saleData.items.map((it) => ({
-          productId: it.productId,
-          quantity: it.quantity,
-          unitPrice: it.unitPrice,
-        })),
-      });
-    } catch (cajaErr: any) {
-      try {
-        // 2. Fallback to /Sale
-        saleRes = await this.api.post<any, any>('/Sale', {
+      // 1. Prioritize /caja/sales idempotent endpoint with X-Idempotency-Key header
+      saleRes = await this.api.post<any, any>(
+        '/caja/sales',
+        {
+          idempotencyKey,
           customerId: saleData.customerId || null,
-          total: saleData.total,
-          paidAmount: saleData.total,
           cashRegisterId: session.id,
-          details: saleData.items.map((it) => ({
+          date: new Date().toISOString(),
+          notes: `Venta rápida POS - ${saleData.paymentMethod}`,
+          createBy: 'system',
+          items: saleData.items.map((it) => ({
             productId: it.productId,
             quantity: it.quantity,
             unitPrice: it.unitPrice,
           })),
-        });
+        },
+        {
+          headers: { 'X-Idempotency-Key': idempotencyKey },
+        },
+      );
+    } catch (cajaErr: any) {
+      try {
+        // 2. Fallback to /Sale
+        saleRes = await this.api.post<any, any>(
+          '/Sale',
+          {
+            customerId: saleData.customerId || null,
+            total: saleData.total,
+            paidAmount: saleData.total,
+            cashRegisterId: session.id,
+            details: saleData.items.map((it) => ({
+              productId: it.productId,
+              quantity: it.quantity,
+              unitPrice: it.unitPrice,
+            })),
+          },
+          {
+            headers: { 'X-Idempotency-Key': idempotencyKey },
+          },
+        );
       } catch {
         saleRes = { id: Math.floor(1000 + Math.random() * 9000), total: saleData.total };
       }
     }
 
-    // Also record cash movement in DB if payment was in cash
+    // Also record cash movement in DB if payment was in cash and not a duplicate idempotent replay
+    const isIdempotentReplay = Boolean(saleRes?.isExisting || saleRes?.data?.isExisting);
     if (
-      saleData.paymentMethod.toUpperCase() === 'EFECTIVO' ||
-      saleData.paymentMethod.toUpperCase() === 'CASH'
+      !isIdempotentReplay &&
+      (saleData.paymentMethod.toUpperCase() === 'EFECTIVO' ||
+       saleData.paymentMethod.toUpperCase() === 'CASH')
     ) {
       try {
         await this.api.post('/CashMovement', {

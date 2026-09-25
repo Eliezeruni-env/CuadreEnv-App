@@ -82,7 +82,11 @@ export function purgeTenantStorage(): void {
       const keysToRemove: string[] = [];
       for (let i = 0; i < window.localStorage.length; i++) {
         const key = window.localStorage.key(i);
-        if (key && !PRESERVED_STORAGE_KEYS.has(key)) {
+        const isProtectedOffline =
+          key?.startsWith('cuadre_offline_queue_') ||
+          key?.startsWith('cuadre_offline_conflicts_') ||
+          key?.startsWith('cuadre_pos_held_sales_');
+        if (key && !PRESERVED_STORAGE_KEYS.has(key) && !isProtectedOffline) {
           keysToRemove.push(key);
         }
       }
@@ -186,31 +190,46 @@ export class ApiClientService {
 
   get<T = any, R = T>(
     url: string,
-    options?: { params?: Record<string, any> },
+    options?: { params?: Record<string, any>; headers?: Record<string, string> },
   ): Promise<R> {
     return this.request<T, R>('GET', url, options);
   }
 
-  post<T = any, R = T>(url: string, body?: any): Promise<R> {
-    return this.request<T, R>('POST', url, { body });
+  post<T = any, R = T>(
+    url: string,
+    body?: any,
+    options?: { params?: Record<string, any>; headers?: Record<string, string> },
+  ): Promise<R> {
+    return this.request<T, R>('POST', url, { body, ...options });
   }
 
-  put<T = any, R = T>(url: string, body?: any): Promise<R> {
-    return this.request<T, R>('PUT', url, { body });
+  put<T = any, R = T>(
+    url: string,
+    body?: any,
+    options?: { params?: Record<string, any>; headers?: Record<string, string> },
+  ): Promise<R> {
+    return this.request<T, R>('PUT', url, { body, ...options });
   }
 
-  patch<T = any, R = T>(url: string, body?: any): Promise<R> {
-    return this.request<T, R>('PATCH', url, { body });
+  patch<T = any, R = T>(
+    url: string,
+    body?: any,
+    options?: { params?: Record<string, any>; headers?: Record<string, string> },
+  ): Promise<R> {
+    return this.request<T, R>('PATCH', url, { body, ...options });
   }
 
-  delete<T = any, R = T>(url: string): Promise<R> {
-    return this.request<T, R>('DELETE', url);
+  delete<T = any, R = T>(
+    url: string,
+    options?: { params?: Record<string, any>; headers?: Record<string, string> },
+  ): Promise<R> {
+    return this.request<T, R>('DELETE', url, options);
   }
 
   private async request<T, R>(
     method: string,
     url: string,
-    options: { body?: any; params?: Record<string, any> } = {},
+    options: { body?: any; params?: Record<string, any>; headers?: Record<string, string> } = {},
     retry = false,
   ): Promise<R> {
     const correlationId = generateCorrelationId();
@@ -218,6 +237,7 @@ export class ApiClientService {
       'Content-Type': 'application/json',
       'Accept': 'application/json',
       'X-Correlation-ID': correlationId,
+      ...(options.headers || {}),
     };
     
     const rawParams = options.params || {};
@@ -342,10 +362,26 @@ export async function doLogin(
 export async function doRefresh(
   client: ApiClientService,
 ): Promise<TokenResponseDto> {
-  const token = getAccessToken();
+  const currentRefresh = getRefreshToken();
+  const currentAccess = getAccessToken();
+  if (currentRefresh) {
+    try {
+      const res = await client.post<any, TokenResponseDto>('/Auth/refresh', {
+        refreshToken: currentRefresh,
+        accessToken: currentAccess,
+      });
+      if (res && res.accessToken) {
+        setAccessToken(res.accessToken);
+        if (res.refreshToken) setRefreshToken(res.refreshToken);
+        return res;
+      }
+    } catch {
+      // Refresh failed or offline, return current
+    }
+  }
   return {
-    accessToken: token || '',
-    refreshToken: getRefreshToken() || '',
+    accessToken: currentAccess || '',
+    refreshToken: currentRefresh || '',
   };
 }
 

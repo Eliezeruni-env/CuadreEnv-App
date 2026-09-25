@@ -33,7 +33,7 @@
           [(ngModel)]="filterValues.clientId"
           (ngModelChange)="emitFilters()"
         >
-          <option [ngValue]="null">-- Todos los clientes --</option>
+          <option [ngValue]="null">Todos los clientes</option>
           @for (c of customers(); track c.id) {
             <option [ngValue]="c.id">{{ c.name }}</option>
           }
@@ -50,7 +50,7 @@
           [(ngModel)]="filterValues.statusId"
           (ngModelChange)="emitFilters()"
         >
-          <option [ngValue]="null">-- Todos --</option>
+          <option [ngValue]="null">Todos</option>
           <option [ngValue]="1">Emitida / Cobrada</option>
           <option [ngValue]="2">Pendiente</option>
           <option [ngValue]="3">Anulada</option>

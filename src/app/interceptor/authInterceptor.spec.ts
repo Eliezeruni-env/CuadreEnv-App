@@ -2,33 +2,27 @@ import '@angular/compiler';
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { HttpRequest, HttpHandler, HttpErrorResponse } from '@angular/common/http';
 import { of, throwError } from 'rxjs';
-import { AuthInterceptor, authInterceptorFn } from './authInterceptor';
-import { setAccessToken } from '../../features/cuadreEnv/services/apiClient';
+import { AuthInterceptor } from './authInterceptor';
+import { API_CONSTANTS } from '../constants';
 
 describe('AuthInterceptor', () => {
   let interceptor: AuthInterceptor;
   let mockHandler: any;
-  let mockRouter: any;
 
   beforeEach(() => {
-    if (typeof window !== 'undefined' && window.sessionStorage) {
-      window.sessionStorage.clear();
+    if (typeof window !== 'undefined' && window.localStorage) {
+      window.localStorage.clear();
     }
-    setAccessToken(null);
-
-    mockRouter = {
-      navigate: vi.fn(),
-    };
-
     mockHandler = {
       handle: vi.fn().mockReturnValue(of({ status: 200 })),
     };
-    interceptor = new AuthInterceptor(mockRouter);
+    interceptor = new AuthInterceptor();
   });
 
-  it('should inject Authorization: Bearer <token> header when token is present in sessionStorage', () => {
-    if (typeof window !== 'undefined' && window.sessionStorage) {
-      window.sessionStorage.setItem('accessToken', 'my-test-jwt-token');
+  it('should inject Authorization: Bearer <token> and X-Company-Id headers when present in localStorage', () => {
+    if (typeof window !== 'undefined' && window.localStorage) {
+      window.localStorage.setItem(API_CONSTANTS.AUTH_TOKEN_KEY, 'my-test-jwt-token');
+      window.localStorage.setItem(API_CONSTANTS.COMPANY_ID_KEY, '42');
     }
 
     const req = new HttpRequest('GET', '/v1/users');
@@ -37,6 +31,7 @@ describe('AuthInterceptor', () => {
     expect(mockHandler.handle).toHaveBeenCalled();
     const interceptedReq: HttpRequest<any> = mockHandler.handle.mock.calls[0][0];
     expect(interceptedReq.headers.get('Authorization')).toBe('Bearer my-test-jwt-token');
+    expect(interceptedReq.headers.get('X-Company-Id')).toBe('42');
   });
 
   it('should not inject Authorization header if no token is present', () => {
@@ -48,11 +43,7 @@ describe('AuthInterceptor', () => {
     expect(interceptedReq.headers.has('Authorization')).toBe(false);
   });
 
-  it('should propagate 401 error, redirect to /login and not return mock data', async () => {
-    if (typeof window !== 'undefined' && window.sessionStorage) {
-      window.sessionStorage.setItem('accessToken', 'expired-token');
-    }
-
+  it('should propagate errors from downstream handlers without suppressing them', async () => {
     const error401 = new HttpErrorResponse({
       status: 401,
       statusText: 'Unauthorized',
@@ -76,8 +67,5 @@ describe('AuthInterceptor', () => {
 
     expect(receivedError).toBeDefined();
     expect(receivedError.status).toBe(401);
-    expect(mockRouter.navigate).toHaveBeenCalledWith(['/login'], {
-      queryParams: { expired: 'true' },
-    });
   });
 });

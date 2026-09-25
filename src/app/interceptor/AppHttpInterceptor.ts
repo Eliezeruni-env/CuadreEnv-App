@@ -25,8 +25,11 @@ export const appHttpInterceptorFn: HttpInterceptorFn = (req, next) => {
       } else {
         if (error.status === 401) {
           errorMessage = 'Sesión expirada o no autorizada. Por favor inicie sesión nuevamente.';
+          if (typeof window !== 'undefined') {
+            window.dispatchEvent(new CustomEvent('cuadre:session-expired'));
+          }
           if (router && !router.url.includes('/login')) {
-            router.navigate(['/login']);
+            router.navigate(['/login'], { queryParams: { returnUrl: router.url } });
           }
         } else if (error.status === 403) {
           errorMessage = 'No tiene permisos suficientes para realizar esta acción.';
