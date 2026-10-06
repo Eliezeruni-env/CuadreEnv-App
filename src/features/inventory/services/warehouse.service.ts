@@ -45,9 +45,6 @@ export class WarehouseService {
   }
 
   async getWarehouses(): Promise<ApiResponse<Warehouse[]>> {
-    const localList = this.getLocalWarehouses();
-    const localMap = new Map<number, Warehouse>(localList.map((w) => [w.id, w]));
-
     try {
       let res: any;
       try {
@@ -60,35 +57,24 @@ export class WarehouseService {
       if (list && list.length > 0) {
         const normalized: Warehouse[] = list.map((item: any, idx: number) => {
           const id = item.id ?? item.warehouseId ?? (idx + 1);
-          const local = localMap.get(id);
-
           return {
             id,
-            name: local?.name || item.name || item.description || item.warehouseName || `Almacén #${id}`,
-            code: local?.code || item.code || item.warehouseCode || `ALM-${String(id).padStart(2, '0')}`,
-            address: local?.address || item.address || '',
-            phone: local?.phone || item.phone || '',
-            managerName: local?.managerName || item.managerName || '',
-            isMain: local?.isMain ?? item.isMain ?? (idx === 0),
-            isActive: local?.isActive ?? (item.isActive !== false),
-            createdAt: local?.createdAt || item.createdAt || new Date().toISOString(),
+            name: item.name || item.description || item.warehouseName || `Almacén #${id}`,
+            code: item.code || item.warehouseCode || `ALM-${String(id).padStart(2, '0')}`,
+            address: item.address || '',
+            phone: item.phone || '',
+            managerName: item.managerName || '',
+            isMain: item.isMain ?? (idx === 0),
+            isActive: item.isActive !== false,
+            createdAt: item.createdAt || new Date().toISOString(),
           };
         });
-
-        // Also add any purely local warehouses that don't exist in backend list
-        localList.forEach((lw) => {
-          if (!normalized.some((nw) => nw.id === lw.id)) {
-            normalized.push(lw);
-          }
-        });
-
-        this.saveLocalWarehouses(normalized);
         return { success: true, data: normalized };
       }
+      return { success: true, data: [] };
     } catch {
-      // local fallback
+      return { success: false, data: [], message: 'No se pudo conectar con el servidor.' };
     }
-    return { success: true, data: localList };
   }
 
   async getWarehouse(id: number): Promise<ApiResponse<Warehouse>> {

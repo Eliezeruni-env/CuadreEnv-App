@@ -10,8 +10,10 @@ describe('AuthService & Session Persistence', () => {
   let mockApiClient: any;
 
   beforeEach(() => {
-    if (typeof window !== 'undefined' && window.sessionStorage) {
-      window.sessionStorage.clear();
+    if (typeof window !== 'undefined') {
+      if (window.sessionStorage) window.sessionStorage.clear();
+      if (window.localStorage) window.localStorage.clear();
+      vi.spyOn(window, 'confirm').mockReturnValue(true);
     }
     setAccessToken(null);
 

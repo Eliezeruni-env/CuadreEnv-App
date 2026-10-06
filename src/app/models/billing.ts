@@ -9,6 +9,9 @@ export interface HeaderDto {
   warehouseId: number;
   rncOrCedula?: string;
   paymentTermDays?: number;
+  retentionItbisPercentage?: number; // 0, 30, 100
+  retentionIsrPercentage?: number;   // 0, 2, 10
+  applyLegalTip?: boolean;           // 10% Propina Legal Ley 16-92
 }
 
 export interface TotalModels {
@@ -16,6 +19,10 @@ export interface TotalModels {
   totalDiscount: number;
   subtotalAmount: number;
   totalAmount: number;
+  legalTipAmount?: number;
+  retentionItbisAmount?: number;
+  retentionIsrAmount?: number;
+  netPayableAmount?: number;
 }
 
 export interface Billing {
@@ -37,6 +44,10 @@ export interface Billing {
   amountDesc: number;
   amountItbis: number;
   amountTotal: number;
+  legalTipAmount?: number;
+  retentionItbisAmount?: number;
+  retentionIsrAmount?: number;
+  netPayableAmount?: number;
   hasAFullCreditNote?: boolean;
   showDetail?: boolean; // Control UI para expandir fila
   productDetails: ProductDetails[];

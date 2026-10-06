@@ -9,8 +9,21 @@ export class CategoryService {
   private readonly api = inject(ApiClientService);
 
   async getCategories(): Promise<ApiResponse<any[]>> {
-    const res = await this.api.get<any, any>('/Category');
-    return { success: true, data: extractArray<any>(res) };
+    try {
+      const res = await this.api.get<any, any>('/Category');
+      const list = extractArray<any>(res);
+      return { success: true, data: list };
+    } catch (err: any) {
+      if (err?.status === 404) {
+        try {
+          const res2 = await this.api.get<any, any>('/categories');
+          return { success: true, data: extractArray<any>(res2) };
+        } catch {
+          // Fallback failed
+        }
+      }
+      return { success: true, data: [] };
+    }
   }
 
   async createCategory(category: any): Promise<ApiResponse<any>> {

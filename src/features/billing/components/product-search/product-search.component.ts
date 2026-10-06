@@ -73,13 +73,16 @@ export class ProductSearchComponent implements OnInit {
 
   async loadProducts() {
     try {
-      const res = await this.productService.getPagedProducts(1, 200);
-      if (res?.success && res.data?.items) {
-        this.products.set(res.data.items);
+      const res = await this.productService.getPagedProducts(1, 100);
+      const items = res?.data?.items || (Array.isArray(res?.data) ? res.data : []);
+      if (items.length > 0) {
+        this.products.set(items);
       } else {
         const searchRes = await this.productService.searchProducts('');
-        if (searchRes?.success && searchRes.data) {
+        if (searchRes?.success && searchRes.data && searchRes.data.length > 0) {
           this.products.set(searchRes.data);
+        } else {
+          this.products.set([]);
         }
       }
     } catch {

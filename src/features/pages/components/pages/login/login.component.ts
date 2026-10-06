@@ -5,9 +5,24 @@ import {
   Validators,
   ReactiveFormsModule,
 } from '@angular/forms';
-import { Router, RouterLink } from '@angular/router';
+import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { AuthService } from '../../../../cuadreEnv/services/auth.service';
 import { TranslationService } from '../../../../cuadreEnv/services/translation.service';
+
+function getStableDeviceId(): string {
+  if (typeof window !== 'undefined' && window.localStorage) {
+    let id = localStorage.getItem('cuadre_device_id');
+    if (!id) {
+      id =
+        typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
+          ? crypto.randomUUID()
+          : 'device-' + Math.random().toString(36).substring(2, 12);
+      localStorage.setItem('cuadre_device_id', id);
+    }
+    return id;
+  }
+  return 'web-browser';
+}
 
 @Component({
   selector: 'app-login',
@@ -21,19 +36,20 @@ import { TranslationService } from '../../../../cuadreEnv/services/translation.s
 })
 export class LoginComponent {
   readonly translationService = inject(TranslationService);
+  private readonly route = inject(ActivatedRoute);
+  private readonly router = inject(Router);
+  private readonly authService = inject(AuthService);
+  private readonly fb = inject(FormBuilder);
+
   loginForm: FormGroup;
   isLoading = signal<boolean>(false);
   errorMessage = signal<string | null>(null);
   showPassword = signal<boolean>(false);
 
-  constructor(
-    private fb: FormBuilder,
-    private authService: AuthService,
-    private router: Router,
-  ) {
+  constructor() {
     this.loginForm = this.fb.group({
       email: ['', [Validators.required, Validators.email]],
-      password: ['', [Validators.required, Validators.minLength(6)]],
+      password: ['', [Validators.required]],
       rememberMe: [false],
     });
   }
@@ -43,6 +59,10 @@ export class LoginComponent {
   }
 
   async onSubmit() {
+    if (this.isLoading()) {
+      return;
+    }
+
     if (this.loginForm.invalid) {
       this.loginForm.markAllAsTouched();
       return;
@@ -51,67 +71,87 @@ export class LoginComponent {
     this.isLoading.set(true);
     this.errorMessage.set(null);
 
+    const email = this.loginForm.value.email?.trim() || '';
+    const password = this.loginForm.value.password || '';
+    const deviceId = getStableDeviceId();
+
     try {
       await this.authService.login({
-        email: this.loginForm.value.email,
-        password: this.loginForm.value.password,
-        deviceId: 'web-browser',
+        email,
+        password,
+        deviceId,
       });
+
+      const returnUrl = this.route.snapshot.queryParamMap.get('returnUrl');
+      const targetUrl = returnUrl && !returnUrl.includes('/login') ? returnUrl : '/dashboard';
+
       const companyId = this.authService.companyId();
       const isSuperUser = this.authService.isSuperUser();
 
       if (!companyId && !isSuperUser) {
         this.router.navigate(['/companies/create']);
       } else {
-        this.router.navigate(['/dashboard']);
+        this.router.navigateByUrl(targetUrl);
       }
     } catch (error: any) {
       const responseBody = error?.error ?? error?.response?.data;
-      console.error('login error', error);
-      try {
-        console.error(
-          'login error details',
-          JSON.stringify(
-            {
-              status: error?.status,
-              statusText: error?.statusText,
-              url: error?.url,
-              body: responseBody,
-            },
-            null,
-            2,
-          ),
-        );
-      } catch {
-        console.error('login error details', String(error));
-      }
+      const status = error?.status ?? error?.statusCode ?? responseBody?.statusCode ?? responseBody?.status ?? 0;
+      const errorCode = String(responseBody?.errorCode || responseBody?.code || error?.code || '').trim().toUpperCase();
+      const serverMsg = typeof responseBody?.message === 'string' ? responseBody.message : (typeof error?.message === 'string' ? error.message : '');
 
-      const errorCode = String(responseBody?.errorCode || responseBody?.code || '').trim().toUpperCase();
-      const serverMsg = typeof responseBody?.message === 'string' ? responseBody.message : (error?.message || '');
+      // Log técnico seguro (nunca contraseñas ni tokens)
+      console.error('[Login Diagnostic]', {
+        url: error?.url || 'http://localhost:8080/v1/auth/login',
+        method: 'POST',
+        status,
+        statusText: error?.statusText,
+        requestId: error?.requestId || error?.headers?.get?.('x-request-id'),
+        message: serverMsg,
+        rawError: error,
+      });
 
-      // Check specifically if the user is deactivated / inactive
       if (
         errorCode === 'USER_INACTIVE' ||
         serverMsg.toLowerCase().includes('desactivad') ||
         serverMsg.toLowerCase().includes('inactiv')
       ) {
         this.errorMessage.set(
-          serverMsg || 'Este usuario está desactivado. Comuníquese con el administrador para reactivar su cuenta.',
+          serverMsg || 'Este usuario está desactivado. Contacte al administrador para reactivar su cuenta.',
         );
         return;
       }
 
-      const errors = responseBody?.errors;
-      if (Array.isArray(errors) && errors.length > 0) {
-        this.errorMessage.set(errors.join(', '));
-      } else if (errors && typeof errors === 'object') {
-        const errorList = Object.values(errors).flat();
-        this.errorMessage.set(errorList.length > 0 ? errorList.join(', ') : (serverMsg || 'Error al iniciar sesión.'));
-      } else {
-        this.errorMessage.set(
-          serverMsg || 'No se pudo iniciar sesión. Por favor verifique sus credenciales.',
-        );
+      if (status === 0) {
+        this.errorMessage.set('No se pudo conectar con la API en http://localhost:8080/v1. Verifique que el backend esté disponible.');
+        return;
       }
+
+      if (status === 400 || status === 401) {
+        this.errorMessage.set('Correo o contraseña incorrectos.');
+        return;
+      }
+
+      if (status === 403) {
+        this.errorMessage.set(serverMsg || 'Acceso denegado. No tiene permisos para acceder al sistema.');
+        return;
+      }
+
+      if (status === 404) {
+        this.errorMessage.set(serverMsg || 'El servicio de autenticación no fue encontrado en http://localhost:8080/v1/auth/login.');
+        return;
+      }
+
+      if (status === 429) {
+        this.errorMessage.set('Demasiados intentos. Espera unos segundos e inténtalo nuevamente.');
+        return;
+      }
+
+      if (status >= 500) {
+        this.errorMessage.set('Ocurrió un error interno. Intenta nuevamente.');
+        return;
+      }
+
+      this.errorMessage.set(serverMsg || 'No se pudo iniciar sesión. Por favor verifique sus credenciales.');
     } finally {
       this.isLoading.set(false);
     }

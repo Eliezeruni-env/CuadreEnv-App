@@ -18,12 +18,25 @@
   border-radius: 1rem;
   box-shadow: 0 20px 35px -10px rgba(0, 0, 0, 0.25), 0 1px 3px 0 rgba(0, 0, 0, 0.05);
   width: 100%;
-  max-width: 580px;
+  max-width: 630px;
   max-height: 90vh;
   display: flex;
   flex-direction: column;
   overflow: hidden;
   animation: modalScaleIn 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+
+  form {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    min-height: 0;
+    overflow: hidden;
+  }
+
+  .modal-body {
+    overflow-y: auto;
+    flex: 1;
+  }
 }
 
 @keyframes modalScaleIn {
@@ -39,11 +52,22 @@
 
 .module-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
-  gap: 0.5rem;
-  max-height: 240px;
+  grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+  gap: 0.65rem;
+  max-height: 250px;
   overflow-y: auto;
-  padding-right: 2px;
+  padding: 2px 6px 2px 2px;
+
+  &::-webkit-scrollbar {
+    width: 5px;
+  }
+  &::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  &::-webkit-scrollbar-thumb {
+    background-color: #cbd5e1;
+    border-radius: 4px;
+  }
 }
 
 .module-chip {

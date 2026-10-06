@@ -49,6 +49,7 @@ describe('E2E POS Workflow: Login → Open Register → Mixed Sale → Hold Sale
     post: vi.fn().mockImplementation((url: string, body: any, options?: any) => {
       // 1. Session Open
       if (
+        url.includes('/cash-sessions/open') ||
         url.includes('/CashRegister/open') ||
         (url.includes('/CashRegister') && (body?.initialAmount !== undefined || body?.balance !== undefined))
       ) {
@@ -104,7 +105,7 @@ describe('E2E POS Workflow: Login → Open Register → Mixed Sale → Hold Sale
 
       // 4. Session Close
       if (url.includes('/close')) {
-        const counted = Number(body?.closingAmount || 0);
+        const counted = Number(body?.actualAmount ?? body?.closingAmount ?? 0);
         const expected = drawerBalance;
         const diff = Math.round((counted - expected) * 100) / 100;
         if (activeSession) {

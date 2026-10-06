@@ -80,7 +80,7 @@ export class ReceivableDetailModalComponent {
   @Output() visibleChange = new EventEmitter<boolean>();
   @Output() updated = new EventEmitter<void>();
 
-  activeTab = signal<'payment' | 'cuotas' | 'timeline' | 'client' | 'sale'>('payment');
+  activeTab = signal<'payment' | 'cuotas' | 'timeline' | 'sale' | 'client'>('payment');
   editingPayment = signal<PaymentRecordDto | null>(null);
   isLoading = signal<boolean>(false);
 
@@ -511,8 +511,6 @@ export class ReceivableDetailModalComponent {
   async saveActiveTab() {
     if (this.activeTab() === 'payment') {
       await this.savePayment();
-    } else if (this.activeTab() === 'client') {
-      await this.saveClient();
     } else if (this.activeTab() === 'sale') {
       await this.saveSale();
     }
@@ -603,40 +601,7 @@ export class ReceivableDetailModalComponent {
     }
   }
 
-  async saveClient() {
-    if (this.clientForm.invalid || !this.receivable) {
-      this.clientForm.markAllAsTouched();
-      return;
-    }
 
-    const val = this.clientForm.value;
-    this.isLoading.set(true);
-
-    try {
-      const res = await this.receivableService.updateReceivable(
-        this.receivable.id,
-        {
-          customerName: val.customerName,
-          customerPhone: val.customerPhone,
-          customerEmail: val.customerEmail,
-          customerIdentification: val.customerIdentification,
-        },
-      );
-
-      if (res.success && res.data) {
-        this.receivable = res.data;
-        this.notificationService.success(
-          'Información del cliente actualizada exitosamente.',
-        );
-        this.updated.emit();
-        this.close();
-      }
-    } catch (e: any) {
-      this.notificationService.showApiError(e);
-    } finally {
-      this.isLoading.set(false);
-    }
-  }
 
   async saveSale() {
     if (this.saleEditForm.invalid || !this.receivable) {

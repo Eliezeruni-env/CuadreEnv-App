@@ -127,14 +127,14 @@
       <table class="table table-hover align-middle mb-0 matrix-table">
         <thead class="sticky-top bg-light-subtle border-bottom">
           <tr>
-            <th class="ps-3 py-3 text-uppercase text-secondary fw-semibold" style="min-width: 250px; font-size: 0.75rem;">
+            <th class="ps-3 py-3 text-uppercase text-secondary fw-semibold align-middle" style="min-width: 260px; font-size: 0.75rem;">
               Módulo del Sistema
             </th>
 
             @for (act of actions; track act.key) {
-              <th class="text-center py-3" style="min-width: 120px;">
-                <div class="d-flex flex-column align-items-center gap-1 cursor-pointer" (click)="toggleAllForAction(act.key)">
-                  <span class="badge" [ngClass]="'bg-' + act.badgeColor + '-subtle text-' + act.badgeColor" style="font-size: 0.7rem;">
+              <th class="text-center py-2.5 align-middle" style="min-width: 125px;">
+                <div class="d-flex flex-column align-items-center justify-content-center gap-1 cursor-pointer py-1" (click)="toggleAllForAction(act.key)">
+                  <span class="badge" [ngClass]="'bg-' + act.badgeColor + '-subtle text-' + act.badgeColor" style="font-size: 0.72rem;">
                     {{ act.label }}
                   </span>
                   <span class="text-muted" style="font-size: 0.65rem;">
@@ -144,7 +144,7 @@
               </th>
             }
 
-            <th class="text-center pe-3 py-3" style="min-width: 100px; font-size: 0.75rem;">
+            <th class="text-center pe-3 py-2.5 align-middle" style="min-width: 110px; font-size: 0.75rem;">
               <span class="text-secondary fw-semibold text-uppercase">Módulo Completo</span>
             </th>
           </tr>
@@ -154,25 +154,25 @@
           @for (mod of modules; track mod.key) {
             <tr>
               <!-- Module Label & Description -->
-              <td class="ps-3 py-3">
-                <div class="d-flex align-items-center gap-2.5">
-                  <div class="module-avatar p-2 bg-primary-subtle text-primary rounded-3 d-flex align-items-center justify-content-center">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <td class="ps-3 py-3 align-middle">
+                <div class="d-flex align-items-center gap-3">
+                  <div class="module-avatar p-2 bg-primary-subtle text-primary rounded-3 d-flex align-items-center justify-content-center flex-shrink-0">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                       <rect x="2" y="3" width="20" height="14" rx="2" ry="2"></rect>
                       <line x1="8" y1="21" x2="16" y2="21"></line>
                       <line x1="12" y1="17" x2="12" y2="21"></line>
                     </svg>
                   </div>
-                  <div>
+                  <div class="text-truncate">
                     <div class="fw-bold text-dark fs-6">{{ mod.label }}</div>
-                    <small class="text-secondary" style="font-size: 0.72rem;">{{ mod.description }}</small>
+                    <small class="text-secondary d-block" style="font-size: 0.72rem;">{{ mod.description }}</small>
                   </div>
                 </div>
               </td>
 
               <!-- Action Checkboxes per Module -->
               @for (act of actions; track act.key) {
-                <td class="text-center py-3">
+                <td class="text-center py-2.5 align-middle">
                   @if (getPermission(mod.key, act.key); as perm) {
                     <div
                       class="permission-cell-box mx-auto d-flex align-items-center justify-content-center rounded-3 cursor-pointer"
@@ -182,9 +182,10 @@
                     >
                       <input
                         type="checkbox"
-                        class="form-check-input mt-0 cursor-pointer"
+                        class="form-check-input mt-0"
+                        style="pointer-events: none;"
                         [checked]="hasPermission(mod.key, act.key)"
-                        (click)="$event.stopPropagation(); togglePermission(mod.key, act.key)"
+                        tabindex="-1"
                       />
                     </div>
                   } @else {
@@ -194,10 +195,11 @@
               }
 
               <!-- Row Toggle (All Actions for this Module) -->
-              <td class="text-center pe-3 py-3">
+              <td class="text-center pe-3 py-2.5 align-middle">
                 <button
                   type="button"
-                  class="btn btn-xs py-1 px-2 rounded-2"
+                  class="btn btn-sm py-1 px-2.5 rounded-2 fw-medium"
+                  style="font-size: 0.74rem;"
                   [ngClass]="isModuleFullySelected(mod.key) ? 'btn-primary' : 'btn-outline-secondary'"
                   (click)="toggleAllForModule(mod.key)"
                   title="Activar / desactivar todas las acciones de este módulo"

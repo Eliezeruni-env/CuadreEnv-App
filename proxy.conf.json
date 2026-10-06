@@ -1,17 +1,23 @@
 {
   "/v1": {
-    "target": "http://localhost:52510",
+    "target": "http://localhost:8080",
     "secure": false,
     "changeOrigin": true,
     "logLevel": "debug"
   },
   "/auth": {
-    "target": "http://localhost:52510",
+    "target": "http://localhost:8080",
     "secure": false,
     "changeOrigin": true
   },
+  "/hubs": {
+    "target": "http://localhost:8080",
+    "secure": false,
+    "ws": true,
+    "changeOrigin": true
+  },
   "/hc": {
-    "target": "http://localhost:52510",
+    "target": "http://localhost:8080",
     "secure": false,
     "changeOrigin": true
   }

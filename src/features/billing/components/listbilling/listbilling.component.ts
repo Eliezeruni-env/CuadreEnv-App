@@ -12,7 +12,9 @@ import { NotificationService } from '../../../cuadreEnv/services/notification.se
 import { GenericFiltersComponent, BillingFilterValues } from '../generic-filters/generic-filters.component';
 import { KtPaginatorComponent } from '../kt-paginator/kt-paginator.component';
 import { SendInvoiceEmailModalComponent } from '../../../../app/shared/components/send-invoice-email-modal/send-invoice-email-modal.component';
+import { NcfAlertBannerComponent } from '../ncf-alert-banner/ncf-alert-banner.component';
 import { CompanyService } from '../../../companies/services/company.service';
+import { RealtimeAlertService } from '../../../cuadreEnv/services/realtime-alert.service';
 import type { Billing } from '../../../../app/models/billing';
 
 @Component({
@@ -23,6 +25,7 @@ import type { Billing } from '../../../../app/models/billing';
     GenericFiltersComponent,
     KtPaginatorComponent,
     SendInvoiceEmailModalComponent,
+    NcfAlertBannerComponent,
   ],
   templateUrl: './listbilling.component.html',
   styleUrls: ['./listbilling.component.scss'],
@@ -31,6 +34,7 @@ export class ListbillingComponent implements OnInit {
   private router = inject(Router);
   private billingService = inject(BillingService);
   private notificationService = inject(NotificationService);
+  private realtimeAlertService = inject(RealtimeAlertService);
   readonly companyService = inject(CompanyService);
 
   billings = signal<Billing[]>([]);
@@ -162,5 +166,19 @@ export class ListbillingComponent implements OnInit {
     setTimeout(() => {
       window.print();
     }, 150);
+  }
+
+  requestInvoiceCancellation(billing: Billing) {
+    const invNum = billing.billingNumber || `FAC-${billing.id}`;
+    const ncf = billing.ncf || '';
+    this.realtimeAlertService.triggerInvoiceCancelAttempt(
+      invNum,
+      ncf,
+      billing.amountTotal,
+      'Operador Facturación',
+    );
+    this.notificationService.warning(
+      `Alerta de seguridad emitida: Intento de anulación de factura ${invNum}. Notificado de inmediato al administrador.`,
+    );
   }
 }

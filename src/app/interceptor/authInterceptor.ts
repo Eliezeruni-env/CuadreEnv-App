@@ -1,4 +1,4 @@
-import { Injectable } from '@angular/core';
+import { Injectable, inject } from '@angular/core';
 import {
   HttpRequest,
   HttpHandler,
@@ -7,34 +7,69 @@ import {
   HttpInterceptorFn,
 } from '@angular/common/http';
 import { Observable } from 'rxjs';
-import { API_CONSTANTS } from '../constants';
+import { getAccessToken, getCompanyId } from '../../features/cuadreEnv/services/apiClient';
 
-import { getAccessToken } from '../../features/cuadreEnv/services/apiClient';
+/**
+ * Agrega automáticamente el encabezado Authorization: Bearer <jwt>.
+ * Garantiza que NO se envíe companyId en el body para determinar el tenant,
+ * ya que el backend obtiene la compañía del claim companyId del JWT.
+ * Agrega X-Company-Id para compatibilidad sólo en peticiones autenticadas.
+ */
+function isPublicAuthEndpoint(url: string): boolean {
+  const lower = url.toLowerCase();
+  return (
+    lower.includes('/auth/login') ||
+    lower.includes('/auth/register') ||
+    lower.includes('/auth/refresh') ||
+    lower.includes('/hc')
+  );
+}
 
 export const authInterceptorFn: HttpInterceptorFn = (req, next) => {
   const token = getAccessToken();
-  let companyId: string | null = null;
+  const companyId = getCompanyId();
+  const isAuth = isPublicAuthEndpoint(req.url);
 
-  if (typeof window !== 'undefined') {
-    try {
-      companyId =
-        (window.localStorage && (localStorage.getItem(API_CONSTANTS.COMPANY_ID_KEY) || localStorage.getItem('companyId') || localStorage.getItem('auth_company_id'))) ||
-        (window.sessionStorage && (sessionStorage.getItem(API_CONSTANTS.COMPANY_ID_KEY) || sessionStorage.getItem('companyId') || sessionStorage.getItem('auth_company_id'))) ||
-        null;
-    } catch {
-      // ignore
+  let headers = req.headers;
+  if (!isAuth && token && !headers.has('Authorization')) {
+    headers = headers.set('Authorization', `Bearer ${token}`);
+  }
+
+  if (!isAuth && companyId && !headers.has('X-Company-Id')) {
+    headers = headers.set('X-Company-Id', String(companyId));
+  }
+
+  if (
+    !headers.has('Content-Type') &&
+    !(req.body instanceof FormData) &&
+    !(req.body instanceof Blob) &&
+    req.method !== 'GET' &&
+    req.method !== 'DELETE'
+  ) {
+    headers = headers.set('Content-Type', 'application/json');
+  }
+
+  // Prevenir que companyId sea enviado en el body para determinar tenant
+  let body = req.body;
+  if (
+    body &&
+    typeof body === 'object' &&
+    !Array.isArray(body) &&
+    !(body instanceof FormData) &&
+    !(body instanceof Blob)
+  ) {
+    if ('companyId' in body || 'CompanyId' in body) {
+      // Excluir companyId del body para que el tenant provenga exclusivamente del JWT
+      const { companyId: _c, CompanyId: _C, ...rest } = body as Record<string, any>;
+      body = rest;
     }
   }
 
-  let headers = req.headers;
-  if (token) {
-    headers = headers.set('Authorization', `Bearer ${token}`);
-  }
-  if (companyId) {
-    headers = headers.set('X-Company-Id', companyId);
-  }
-
-  const authReq = req.clone({ headers });
+  const authReq = req.clone({
+    headers,
+    body,
+    withCredentials: req.withCredentials !== undefined ? req.withCredentials : true,
+  });
   return next(authReq);
 };
 
@@ -46,27 +81,48 @@ export class AuthInterceptor implements HttpInterceptor {
     req: HttpRequest<any>,
     next: HttpHandler,
   ): Observable<HttpEvent<any>> {
-    let token: string | null = null;
-    let companyId: string | null = null;
+    const token = getAccessToken();
+    const companyId = getCompanyId();
+    const isAuth = isPublicAuthEndpoint(req.url);
 
-    if (typeof window !== 'undefined' && window.localStorage) {
-      try {
-        token = window.localStorage.getItem(API_CONSTANTS.AUTH_TOKEN_KEY);
-        companyId = window.localStorage.getItem(API_CONSTANTS.COMPANY_ID_KEY);
-      } catch {
-        // ignore
+    let headers = req.headers;
+    if (!isAuth && token && !headers.has('Authorization')) {
+      headers = headers.set('Authorization', `Bearer ${token}`);
+    }
+
+    if (!isAuth && companyId && !headers.has('X-Company-Id')) {
+      headers = headers.set('X-Company-Id', String(companyId));
+    }
+
+    if (
+      !headers.has('Content-Type') &&
+      !(req.body instanceof FormData) &&
+      !(req.body instanceof Blob) &&
+      req.method !== 'GET' &&
+      req.method !== 'DELETE'
+    ) {
+      headers = headers.set('Content-Type', 'application/json');
+    }
+
+    let body = req.body;
+    if (
+      body &&
+      typeof body === 'object' &&
+      !Array.isArray(body) &&
+      !(body instanceof FormData) &&
+      !(body instanceof Blob)
+    ) {
+      if ('companyId' in body || 'CompanyId' in body) {
+        const { companyId: _c, CompanyId: _C, ...rest } = body as Record<string, any>;
+        body = rest;
       }
     }
 
-    let headers = req.headers;
-    if (token) {
-      headers = headers.set('Authorization', `Bearer ${token}`);
-    }
-    if (companyId) {
-      headers = headers.set('X-Company-Id', companyId);
-    }
-
-    const authReq = req.clone({ headers });
+    const authReq = req.clone({
+      headers,
+      body,
+      withCredentials: req.withCredentials !== undefined ? req.withCredentials : true,
+    });
     return next.handle(authReq);
   }
 }

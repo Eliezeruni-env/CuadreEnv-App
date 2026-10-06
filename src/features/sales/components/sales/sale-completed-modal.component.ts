@@ -95,6 +95,46 @@ export class SaleCompletedModalComponent {
     return Math.max(0, received - (this.saleData.total ?? 0));
   }
 
+  // =========================================================================
+  // Facturación Electrónica DGII (e-CF - Ley 32-23)
+  // =========================================================================
+  get isB2B(): boolean {
+    const rnc = (this.saleData?.customerRnc || '').replace(/[^0-9]/g, '');
+    return rnc.length >= 9 && rnc !== '000000000';
+  }
+
+  get eCfType(): string {
+    return this.isB2B ? 'E31' : 'E32';
+  }
+
+  get eCfName(): string {
+    return this.isB2B
+      ? 'Factura de Crédito Fiscal Electrónica (e-CF)'
+      : 'Factura de Consumo Electrónica (e-CF)';
+  }
+
+  get eNcfNumber(): string {
+    const raw = this.saleData?.invoiceNumber || '';
+    if (raw.startsWith('E')) return raw;
+    const numPart = raw.replace(/[^0-9]/g, '').slice(-10).padStart(10, '0') || '0000000101';
+    return `${this.eCfType}${numPart}`;
+  }
+
+  get securityCode(): string {
+    const id = this.saleData?.id || 101;
+    const tot = Math.round(this.saleData?.total || 100);
+    const hex = Math.abs((id * 9301 + tot * 49297) % 0xffffff).toString(16).toUpperCase();
+    return hex.padStart(6, '0');
+  }
+
+  get digitalStampQrUrl(): string {
+    const emisorRnc = this.companyService.currentSettings().rnc || '101000000';
+    const compRnc = this.saleData?.customerRnc || '00000000000';
+    const total = (this.saleData?.total || 0).toFixed(2);
+    const url = `https://ecf.dgii.gov.do/fe/consultatimbredigital?RncEmisor=${emisorRnc}&RncComprador=${compRnc}&eNCF=${this.eNcfNumber}&MontoTotal=${total}&CodigoSeguridad=${this.securityCode}`;
+    return `https://api.qrserver.com/v1/create-qr-code/?size=140x140&data=${encodeURIComponent(url)}`;
+  }
+
   open(data: CompletedSaleDto) {
     this.saleData = data;
     this.visible = true;

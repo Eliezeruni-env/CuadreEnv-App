@@ -25,11 +25,28 @@ describe('API Error Mapper (api-error-mapper)', () => {
 
       expect(mapped.type).toBe('danger');
       expect(mapped.isCritical).toBe(true);
-      expect(mapped.title).toBe('Error del Sistema');
-      expect(mapped.message).toBe('Ocurrió un error inesperado al procesar la solicitud en el servidor.');
+      expect(mapped.title).toBe('Avería del Servidor');
+      expect(mapped.message).toBe('Estamos trabajando en una avería del servidor. El equipo de desarrollo se encargará de resolverlo a la brevedad.');
       expect(mapped.message).not.toContain('SqlException');
       expect(mapped.requestId).toBe('req-abc-12345');
       expect(mapped.errorCode).toBe('DB_ERROR');
+    });
+
+    it('should map status 0 (backend offline / server down) to averia message', () => {
+      const rawError = {
+        name: 'HttpErrorResponse',
+        status: 0,
+        statusText: 'Unknown Error',
+        message: 'Http failure response for http://localhost:5000/api/product: 0 Unknown Error',
+      };
+
+      const mapped = mapApiErrorToUserMessage(rawError);
+
+      expect(mapped.type).toBe('danger');
+      expect(mapped.isCritical).toBe(true);
+      expect(mapped.title).toBe('Avería del Servidor');
+      expect(mapped.message).toBe('Estamos trabajando en una avería. El equipo de desarrollo se encargará de resolverlo a la brevedad.');
+      expect(mapped.errorCode).toBe('SERVER_OUTAGE');
     });
 
     it('should sanitize TABLE_MISSING error without exposing internal DB table details', () => {
@@ -46,7 +63,8 @@ describe('API Error Mapper (api-error-mapper)', () => {
 
       expect(mapped.isCritical).toBe(true);
       expect(mapped.type).toBe('danger');
-      expect(mapped.message).toBe('El servicio no está disponible temporalmente. Por favor, intenta de nuevo más tarde.');
+      expect(mapped.title).toBe('Avería del Servidor');
+      expect(mapped.message).toBe('El servicio no está disponible temporalmente por avería. El equipo de desarrollo se encargará de resolverlo.');
       expect(mapped.message).not.toContain('dbo.CustomerSettings');
       expect(mapped.requestId).toBe('req-table-999');
     });

@@ -10,6 +10,8 @@ import {
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { CustomerService } from '../../../customers/services/customer.service';
+import { TaxpayerService } from '../../services/taxpayer.service';
+import { NotificationService } from '../../../cuadreEnv/services/notification.service';
 import type { CustomerDto } from '../../../cuadreEnv/types/api';
 import type { HeaderDto } from '../../../../app/models/billing';
 
@@ -22,6 +24,8 @@ import type { HeaderDto } from '../../../../app/models/billing';
 })
 export class ClientSearchComponent implements OnInit {
   private customerService = inject(CustomerService);
+  private taxpayerService = inject(TaxpayerService);
+  private notificationService = inject(NotificationService);
 
   @Input() set initialHeader(h: HeaderDto | null | undefined) {
     if (h) {
@@ -32,6 +36,8 @@ export class ClientSearchComponent implements OnInit {
   @Output() headerChange = new EventEmitter<HeaderDto>();
 
   customers = signal<CustomerDto[]>([]);
+  isSearchingRnc = signal<boolean>(false);
+  rncSearchInput = signal<string>('');
 
   header: HeaderDto = {
     clientId: 1,
@@ -62,6 +68,35 @@ export class ClientSearchComponent implements OnInit {
     }
   }
 
+  async searchTaxpayerByRnc() {
+    const raw = this.rncSearchInput();
+    const clean = this.taxpayerService.normalizeDocument(raw);
+    if (!clean || clean.length < 9) {
+      this.notificationService.warning('Ingresa un RNC (9 dígitos) o Cédula (11 dígitos) válido.');
+      return;
+    }
+
+    this.isSearchingRnc.set(true);
+    try {
+      const res = await this.taxpayerService.getTaxpayer(clean);
+      if (res.success && res.data) {
+        const tp = res.data;
+        const formatted = this.taxpayerService.formatDocument(tp.rnc);
+        this.header.clientName = tp.commercialName || tp.name;
+        this.header.rncOrCedula = formatted;
+        this.header.voucherTypeId = 2; // Auto-seleccionar B01 Crédito Fiscal
+        this.notificationService.success(`RNC Validado: ${tp.name} (${tp.status})`);
+        this.emitHeader();
+      } else {
+        this.notificationService.error(res.message || 'RNC no encontrado en el padrón de la DGII.');
+      }
+    } catch (e: any) {
+      this.notificationService.showApiError(e);
+    } finally {
+      this.isSearchingRnc.set(false);
+    }
+  }
+
   onClientSelected(clientId: number) {
     const cust = this.customers().find((c) => c.id === clientId);
     if (cust) {
@@ -80,6 +115,7 @@ export class ClientSearchComponent implements OnInit {
     this.header.clientName = 'Consumidor Final';
     this.header.rncOrCedula = '000-0000000-0';
     this.header.voucherTypeId = 1;
+    this.rncSearchInput.set('');
     this.emitHeader();
   }
 

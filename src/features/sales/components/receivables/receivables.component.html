@@ -201,32 +201,47 @@
                   </div>
                 </div>
 
-                <!-- Status Badge with Dot -->
-                @if (item.pendingAmount <= 0 || item.status === 'Pagado') {
-                  <div class="status-pill status-paid">
-                    <span class="status-dot"></span>
-                    <span>Saldada por completo</span>
-                  </div>
-                } @else {
-                  <div
-                    class="status-pill"
-                    [ngClass]="{
-                      'status-pending': item.status === 'Pendiente',
-                      'status-partial': item.status === 'Parcial',
-                      'status-overdue': item.status === 'Vencido'
-                    }"
-                  >
-                    <span class="status-dot"></span>
-                    <span>{{ item.status }}</span>
-                  </div>
-                }
+                <!-- Status Badge & Semáforo de Crédito ("El Fiado Organizado") -->
+                <div class="d-flex flex-column align-items-end gap-1">
+                  @if (item.pendingAmount <= 0 || item.status === 'Pagado') {
+                    <div class="status-pill status-paid">
+                      <span class="status-dot"></span>
+                      <span>Saldada por completo</span>
+                    </div>
+                  } @else {
+                    @let sem = getCreditTrafficLight(item);
+                    <div
+                      class="status-pill"
+                      [ngClass]="{
+                        'status-pending': sem.color === 'green',
+                        'status-partial': sem.color === 'yellow',
+                        'status-overdue': sem.color === 'red'
+                      }"
+                    >
+                      <span class="status-dot"></span>
+                      <span>{{ sem.label }}</span>
+                    </div>
+                    @if (sem.isBlocked) {
+                      <span class="badge bg-danger text-white font-monospace" style="font-size: 0.65rem;">
+                        🚫 VENTAS BLOQUEADAS
+                      </span>
+                    }
+                  }
+                </div>
               </div>
 
               <!-- Middle Section: Monto a deber -->
               <div class="amount-section my-3">
-                <span class="amount-label text-muted d-block mb-1">
-                  {{ item.pendingAmount <= 0 ? 'Estado de Balance' : 'Monto a deber' }}
-                </span>
+                <div class="d-flex justify-content-between align-items-center mb-1">
+                  <span class="amount-label text-muted">
+                    {{ item.pendingAmount <= 0 ? 'Estado de Balance' : 'Monto a deber' }}
+                  </span>
+                  @if (item.dueDate) {
+                    <span class="small font-monospace text-secondary" style="font-size: 0.72rem;">
+                      Vence: {{ item.dueDate | date:'mediumDate' }}
+                    </span>
+                  }
+                </div>
                 @if (item.pendingAmount <= 0) {
                   <div class="amount-value text-success fw-bold fs-5">
                     ✓ Totalmente Saldado (RD$ {{ item.totalAmount | number:'1.2-2' }})
@@ -248,12 +263,12 @@
               </div>
             </div>
 
-            <!-- Card Footer: Actions Row -->
-            <div class="card-footer bg-transparent border-top p-3 px-4 d-flex align-items-center justify-content-between">
+            <!-- Card Footer: Actions Row & WhatsApp Reminder -->
+            <div class="card-footer bg-transparent border-top p-3 px-4 d-flex align-items-center justify-content-between flex-wrap gap-2">
               <!-- View Detail Action -->
               <button
                 type="button"
-                class="btn-card-action action-view d-flex align-items-center gap-2"
+                class="btn-card-action action-view d-flex align-items-center gap-1"
                 (click)="openDetailModal(item)"
               >
                 <svg
@@ -273,40 +288,54 @@
                 <span>Ver detalle</span>
               </button>
 
-              @if (item.pendingAmount <= 0 || item.status === 'Pagado') {
-                <!-- Reabrir Action (for settled accounts) -->
+              <div class="d-flex align-items-center gap-2">
+                <!-- WhatsApp Reminder Button ("Fiado Organizado") -->
+                @if (item.pendingAmount > 0 && item.status !== 'Pagado') {
+                  <button
+                    type="button"
+                    class="btn btn-sm btn-success text-white d-flex align-items-center gap-1 shadow-xs fw-semibold px-2 py-1"
+                    (click)="sendWhatsAppReminder(item); $event.stopPropagation()"
+                    title="Enviar recordatorio amistoso de cobro por WhatsApp"
+                  >
+                    <span>📲 Cobro WhatsApp</span>
+                  </button>
+                }
+
+                @if (item.pendingAmount <= 0 || item.status === 'Pagado') {
+                  <!-- Reabrir Action (for settled accounts) -->
+                  <button
+                    type="button"
+                    class="btn btn-sm btn-outline-warning d-flex align-items-center gap-1 fw-semibold"
+                    (click)="reopenReceivable(item)"
+                    title="Reactivar cuenta en caso de error contable"
+                  >
+                    <span>Reabrir</span>
+                  </button>
+                }
+
+                <!-- Delete Action -->
                 <button
                   type="button"
-                  class="btn btn-sm btn-outline-warning d-flex align-items-center gap-1 fw-semibold"
-                  (click)="reopenReceivable(item)"
-                  title="Reactivar cuenta en caso de error contable"
+                  class="btn-card-action action-delete d-flex align-items-center p-1"
+                  (click)="deleteReceivable(item)"
+                  title="Eliminar"
                 >
-                  <span>Reabrir</span>
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    width="16"
+                    height="16"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                  >
+                    <polyline points="3 6 5 6 21 6"></polyline>
+                    <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+                  </svg>
                 </button>
-              }
-
-              <!-- Delete Action -->
-              <button
-                type="button"
-                class="btn-card-action action-delete d-flex align-items-center gap-2"
-                (click)="deleteReceivable(item)"
-              >
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  width="16"
-                  height="16"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  stroke-width="2"
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                >
-                  <polyline points="3 6 5 6 21 6"></polyline>
-                  <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
-                </svg>
-                <span>Eliminar</span>
-              </button>
+              </div>
             </div>
           </div>
         </div>

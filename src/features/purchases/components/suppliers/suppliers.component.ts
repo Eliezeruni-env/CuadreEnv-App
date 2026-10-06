@@ -15,6 +15,14 @@ import {
 } from '@coreui/angular';
 import { IconDirective } from '@coreui/icons-angular';
 
+export interface SupplierContact {
+  id?: number;
+  name: string;
+  role?: string;
+  phone?: string;
+  email?: string;
+}
+
 export interface SupplierItem {
   id?: number;
   name: string;
@@ -25,8 +33,11 @@ export interface SupplierItem {
   email?: string | null;
   address?: string | null;
   contactPerson?: string | null;
+  additionalContacts?: SupplierContact[];
   active?: boolean;
 }
+
+const SUPPLIER_CONTACTS_KEY = 'cuadreenv_supplier_extra_contacts';
 
 @Component({
   selector: 'app-suppliers',
@@ -61,6 +72,10 @@ export class SuppliersComponent implements OnInit {
   isModalOpen = signal<boolean>(false);
   isEditMode = signal<boolean>(false);
   selectedSupplierId = signal<number | null>(null);
+  selectedSupplierDetail = signal<SupplierItem | null>(null);
+
+  // Dynamic additional contacts in current form
+  additionalContacts = signal<SupplierContact[]>([]);
 
   supplierForm: FormGroup;
 
@@ -76,7 +91,8 @@ export class SuppliersComponent implements OnInit {
         (s.cedula || '').toLowerCase().includes(term) ||
         (s.email || '').toLowerCase().includes(term) ||
         (s.contactPerson || '').toLowerCase().includes(term) ||
-        (s.phone || '').toLowerCase().includes(term)
+        (s.phone || '').toLowerCase().includes(term) ||
+        (s.mobile || '').toLowerCase().includes(term)
     );
   });
 
@@ -103,13 +119,38 @@ export class SuppliersComponent implements OnInit {
     this.loadSuppliers();
   }
 
+  private getContactsStorage(): Record<string, SupplierContact[]> {
+    try {
+      const raw = localStorage.getItem(SUPPLIER_CONTACTS_KEY);
+      return raw ? JSON.parse(raw) : {};
+    } catch {
+      return {};
+    }
+  }
+
+  private saveContactsStorage(data: Record<string, SupplierContact[]>): void {
+    try {
+      localStorage.setItem(SUPPLIER_CONTACTS_KEY, JSON.stringify(data));
+    } catch {
+      // ignore
+    }
+  }
+
   async loadSuppliers() {
     this.isLoading.set(true);
     this.errorMessage.set(null);
     try {
       const res = await this.supplierService.getSuppliers();
+      const contactsMap = this.getContactsStorage();
       if (res.success && res.data) {
-        this.suppliers.set(res.data);
+        const enriched = res.data.map((s: SupplierItem) => {
+          const key = String(s.id ?? s.name);
+          return {
+            ...s,
+            additionalContacts: s.additionalContacts || contactsMap[key] || [],
+          };
+        });
+        this.suppliers.set(enriched);
       } else {
         this.suppliers.set([]);
       }
@@ -125,6 +166,7 @@ export class SuppliersComponent implements OnInit {
   openCreateModal() {
     this.isEditMode.set(false);
     this.selectedSupplierId.set(null);
+    this.additionalContacts.set([]);
     this.supplierForm.reset({
       name: '',
       rnc: '',
@@ -142,6 +184,7 @@ export class SuppliersComponent implements OnInit {
   openEditModal(supplier: SupplierItem) {
     this.isEditMode.set(true);
     this.selectedSupplierId.set(supplier.id || null);
+    this.additionalContacts.set(supplier.additionalContacts ? [...supplier.additionalContacts] : []);
     this.supplierForm.patchValue({
       name: supplier.name || '',
       rnc: supplier.rnc || '',
@@ -156,6 +199,42 @@ export class SuppliersComponent implements OnInit {
     this.isModalOpen.set(true);
   }
 
+  addAdditionalContact() {
+    const list = this.additionalContacts();
+    this.additionalContacts.set([
+      ...list,
+      {
+        id: Date.now(),
+        name: '',
+        role: 'Ventas / Comercial',
+        phone: '',
+        email: '',
+      },
+    ]);
+  }
+
+  removeAdditionalContact(index: number) {
+    const list = [...this.additionalContacts()];
+    list.splice(index, 1);
+    this.additionalContacts.set(list);
+  }
+
+  updateContactField(index: number, field: keyof SupplierContact, value: string) {
+    const list = [...this.additionalContacts()];
+    if (list[index]) {
+      list[index] = { ...list[index], [field]: value };
+      this.additionalContacts.set(list);
+    }
+  }
+
+  viewSupplierDetail(supplier: SupplierItem) {
+    this.selectedSupplierDetail.set(supplier);
+  }
+
+  closeDetailModal() {
+    this.selectedSupplierDetail.set(null);
+  }
+
   closeModal() {
     this.isModalOpen.set(false);
   }
@@ -168,6 +247,8 @@ export class SuppliersComponent implements OnInit {
 
     this.isLoading.set(true);
     const val = this.supplierForm.value;
+    const cleanContacts = this.additionalContacts().filter((c) => c.name.trim().length > 0);
+
     const payload: SupplierItem = {
       name: val.name.trim(),
       rnc: val.rnc ? val.rnc.trim() : null,
@@ -177,18 +258,29 @@ export class SuppliersComponent implements OnInit {
       email: val.email ? val.email.trim() : null,
       address: val.address ? val.address.trim() : null,
       contactPerson: val.contactPerson ? val.contactPerson.trim() : null,
+      additionalContacts: cleanContacts,
       active: Boolean(val.active),
     };
 
     try {
+      let createdOrUpdatedId: number | undefined;
       if (this.isEditMode() && this.selectedSupplierId()) {
         payload.id = this.selectedSupplierId()!;
+        createdOrUpdatedId = payload.id;
         await this.supplierService.updateSupplier(payload);
         this.notificationService.success('Proveedor actualizado exitosamente.');
       } else {
-        await this.supplierService.createSupplier(payload);
+        const res = await this.supplierService.createSupplier(payload);
+        createdOrUpdatedId = res?.data?.id;
         this.notificationService.success('Proveedor creado exitosamente.');
       }
+
+      // Persist additional contacts
+      const storage = this.getContactsStorage();
+      const storageKey = String(createdOrUpdatedId ?? payload.name);
+      storage[storageKey] = cleanContacts;
+      this.saveContactsStorage(storage);
+
       this.closeModal();
       await this.loadSuppliers();
     } catch (e: any) {

@@ -263,66 +263,54 @@ export class CreditNoteService {
   }
 
   async createCreditNote(note: CreditNote): Promise<ApiResponse<CreditNote>> {
-    const id = Date.now();
-    const assignedNCF = note.ncf || `B04${String(Math.floor(10000000 + Math.random() * 90000000))}`;
-    const assignedNumber = `NC-${String(id).slice(-6)}`;
+    const payload = {
+      billingId: note.billingId,
+      billingNumber: note.billingNumber,
+      originalNcf: note.originalNcf,
+      customerId: note.customerId,
+      warehouseId: note.warehouseId || 1,
+      reason: note.observations || (note as any).reason,
+      refundMethod: note.refundMethod,
+      voucherTypeId: 3, // B04 Nota de Crédito
+      amountSubTotal: note.amountSubTotal,
+      amountDesc: note.amountDesc,
+      amountItbis: note.amountItbis,
+      amountTotal: note.amountTotal,
+      creditNoteDetails: note.creditNoteDetails,
+      date: new Date().toISOString(),
+    };
+
+    let createdNote: any = null;
+    try {
+      const res = await this.api.post<any, any>('/CreditNote', payload);
+      createdNote = res?.data || res;
+    } catch (apiErr: any) {
+      console.warn('API /CreditNote error:', apiErr);
+      throw apiErr;
+    }
+
+    const assignedNumber = createdNote?.creditNoteNumber || `NC-${String(createdNote?.id || Date.now()).slice(-6)}`;
+    const assignedNCF = createdNote?.ncf || '';
 
     const newNote: CreditNote = {
       ...note,
-      id: id,
+      id: createdNote?.id || Date.now(),
       prefix: 'NC',
       creditNoteNumber: assignedNumber,
       ncf: assignedNCF,
       statusId: 1, // Emitida
-      creationDate: new Date().toISOString(),
+      creationDate: createdNote?.creationDate || new Date().toISOString(),
     };
 
-    // 1. Persist to API if backend endpoint is active
-    try {
-      await this.api.post<any, any>('/CreditNote', newNote);
-    } catch (apiErr) {
-      console.warn('API /CreditNote error (saving locally):', apiErr);
-    }
-
-    // 2. Local fallback storage
+    // Cache local de respaldo
     const currentList = this.getLocalCreditNotes();
     currentList.unshift(newNote);
     this.saveLocalCreditNotes(currentList);
 
-    // 3. Impact Warehouse: Generate WarehouseEntry (return to inventory)
-    await this.processWarehouseEntry({
-      warehouseId: note.warehouseId || 1,
-      creditNoteId: id,
-      concept: `Reingreso por Devolución ${assignedNumber} (Factura ${note.billingNumber})`,
-      date: new Date().toISOString(),
-      details: note.creditNoteDetails.map((it) => ({
-        productId: it.productId,
-        productName: it.productName,
-        quantity: it.quantity,
-      })),
-    });
-
-    // 4. Impact Cash: If refund in cash, register cash withdrawal in active session
-    if (note.refundMethod === 'CASH' || note.cashSessionId) {
-      try {
-        const sessionRes = await this.cashRegisterService.getActiveSession();
-        if (sessionRes?.success && sessionRes.data) {
-          await this.cashRegisterService.addMovement({
-            type: 'Salida',
-            category: 'Gastos',
-            description: `Reembolso por Devolución ${assignedNumber} en Factura ${note.billingNumber}`,
-            amount: note.amountTotal,
-          });
-        }
-      } catch (cashErr) {
-        console.warn('Cash refund movement error:', cashErr);
-      }
-    }
-
     return {
       success: true,
       data: newNote,
-      message: `Nota de Crédito ${assignedNumber} (NCF: ${assignedNCF}) creada exitosamente.`,
+      message: `Nota de Crédito ${assignedNumber} ${assignedNCF ? `(NCF: ${assignedNCF})` : ''} procesada exitosamente.`,
     };
   }
 

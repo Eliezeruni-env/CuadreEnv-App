@@ -1,7 +1,7 @@
 import { Component, OnInit, signal, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { ActivatedRoute, Router } from '@angular/router';
+import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { PurchaseOrderReceiptService } from '../../services/purchase-order-receipt.service';
 import { ManageRequestService } from '../../../inventory/services/manage-request.service';
 import { WarehouseService } from '../../../inventory/services/warehouse.service';
@@ -16,7 +16,7 @@ import type { Warehouse } from '../../../../app/models/warehouse';
 @Component({
   selector: 'app-purchase-order-receipt-form',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule, RouterLink],
   templateUrl: './purchase-order-receipt-form.component.html',
   styleUrls: ['./purchase-order-receipt-form.component.scss'],
 })
@@ -33,6 +33,7 @@ export class PurchaseOrderReceiptFormComponent implements OnInit {
   isSearching = signal<boolean>(false);
   isSubmitting = signal<boolean>(false);
 
+  availableOrders = signal<PurchaseOrder[]>([]);
   selectedOrder: PurchaseOrder | null = null;
   selectedWarehouseId = 1;
   warehouses: Warehouse[] = [];
@@ -41,10 +42,24 @@ export class PurchaseOrderReceiptFormComponent implements OnInit {
 
   async ngOnInit() {
     await this.loadWarehouses();
-    const poId = this.route.snapshot.paramMap.get('id');
-    if (poId) {
-      this.searchPoNumber = poId;
+    await this.loadAvailableOrders();
+
+    const paramId = this.route.snapshot.paramMap.get('id') || this.route.snapshot.queryParamMap.get('id');
+    if (paramId) {
+      this.searchPoNumber = paramId;
       await this.searchOrder();
+    }
+  }
+
+  async loadAvailableOrders() {
+    try {
+      const res = await this.poService.getPurchaseOrders();
+      if (res?.success && res.data) {
+        // Pending or partially received
+        this.availableOrders.set(res.data.filter((o) => o.statusId !== 3));
+      }
+    } catch {
+      this.availableOrders.set([]);
     }
   }
 
@@ -56,6 +71,27 @@ export class PurchaseOrderReceiptFormComponent implements OnInit {
         this.selectedWarehouseId = this.warehouses[0].id;
       }
     }
+  }
+
+  selectOrderDirectly(order: PurchaseOrder) {
+    if (order.statusId === 3) {
+      this.notificationService.warning('Esta orden de compra ya fue completada.');
+      return;
+    }
+
+    this.selectedOrder = order;
+    this.selectedWarehouseId = order.warehouseId || 1;
+    this.receiptLines = (order.productDetails || []).map((d) => ({
+      productId: d.productId,
+      barCode: d.barCode,
+      productName: d.productName,
+      quantityOrdered: d.quantityOrdered,
+      quantityReceived: Math.max(0, d.quantityOrdered - (d.quantityReceived || 0)),
+      unitCost: d.unitCost,
+      subTotal: Math.max(0, d.quantityOrdered - (d.quantityReceived || 0)) * d.unitCost,
+      warehouseId: order.warehouseId || 1,
+    }));
+    this.currentStep.set(2);
   }
 
   async searchOrder() {
@@ -77,24 +113,7 @@ export class PurchaseOrderReceiptFormComponent implements OnInit {
       );
 
       if (found) {
-        if (found.statusId === 3) {
-          this.notificationService.warning('Esta orden de compra ya fue completada.');
-          return;
-        }
-
-        this.selectedOrder = found;
-        this.selectedWarehouseId = found.warehouseId || 1;
-        this.receiptLines = found.productDetails.map((d) => ({
-          productId: d.productId,
-          barCode: d.barCode,
-          productName: d.productName,
-          quantityOrdered: d.quantityOrdered,
-          quantityReceived: Math.max(0, d.quantityOrdered - d.quantityReceived),
-          unitCost: d.unitCost,
-          subTotal: (Math.max(0, d.quantityOrdered - d.quantityReceived)) * d.unitCost,
-          warehouseId: found.warehouseId || 1,
-        }));
-        this.currentStep.set(2);
+        this.selectOrderDirectly(found);
       } else {
         this.notificationService.error(`No se encontró la orden de compra "${term}".`);
       }

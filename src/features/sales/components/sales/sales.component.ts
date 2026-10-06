@@ -150,10 +150,8 @@ export class SalesComponent implements OnInit {
 
       const cRes = await this.customerService.getCustomers({
         pageNumber: 1,
-        pageSize: 1000,
-        PageNumber: 1,
-        PageSize: 1000
-      } as any);
+        pageSize: 100,
+      });
       if (cRes.success && cRes.data) {
         this.customers.set(cRes.data);
       }
@@ -297,6 +295,10 @@ export class SalesComponent implements OnInit {
     if (!customerId) return this.translationService.t('sales.table.unknownCustomer');
     const customer = this.customers().find((c) => c.id === customerId);
     return customer ? customer.name : this.translationService.t('sales.table.unknownCustomer');
+  }
+
+  openQuickSaleDirect() {
+    this.router.navigate(['/sales/quick']);
   }
 
   openCreateModal() {

@@ -1,8 +1,11 @@
 import { Injectable, inject } from '@angular/core';
-import { Observable, of } from 'rxjs';
+import { Observable, of, from } from 'rxjs';
+import { map, catchError } from 'rxjs/operators';
 import { ApiClientService, extractArray } from '../../cuadreEnv/services/apiClient';
 import { StockService } from '../../inventory/services/stock.service';
 import { WarehouseService } from '../../inventory/services/warehouse.service';
+import { ProductService } from '../../products/services/product.service';
+import { KardexService } from '../../inventory/services/kardex.service';
 import type { ApiResponse } from '../../cuadreEnv/types/api';
 import type {
   PurchaseOrder,
@@ -12,92 +15,7 @@ import type {
 const PURCHASE_ORDERS_STORAGE_KEY = 'cuadreenv_purchase_orders_db';
 const RECEIPTS_STORAGE_KEY = 'cuadreenv_po_receipts_db';
 
-const DEFAULT_ORDERS: PurchaseOrder[] = [
-  {
-    id: 101,
-    orderNumber: 'OC-000101',
-    prefix: 'OC',
-    supplierId: 1,
-    supplierName: 'Distribuidora Nacional C. por A.',
-    supplierRnc: '1-01-23456-7',
-    warehouseId: 1,
-    warehouseName: 'Almacén Principal Central',
-    orderDate: new Date(Date.now() - 86400000 * 2).toISOString(),
-    expectedDeliveryDate: new Date().toISOString(),
-    statusId: 1, // Creada
-    statusName: 'Pendiente de Recepción',
-    notes: 'Pedido mensual de bebidas y productos de alta rotación',
-    subTotal: 45000,
-    itbis: 8100,
-    total: 53100,
-    productDetails: [
-      {
-        productId: 1,
-        barCode: '74210001',
-        productName: 'Coca Cola 2L Regular',
-        quantityOrdered: 50,
-        quantityReceived: 0,
-        unitCost: 80,
-        subTotal: 4000,
-        itbis: 720,
-        total: 4720,
-      },
-      {
-        productId: 2,
-        barCode: '74210002',
-        productName: 'Arroz Premium 10lb',
-        quantityOrdered: 30,
-        quantityReceived: 0,
-        unitCost: 350,
-        subTotal: 10500,
-        itbis: 0,
-        total: 10500,
-      },
-      {
-        productId: 3,
-        barCode: '74210003',
-        productName: 'Aceite Vegetal 64oz',
-        quantityOrdered: 40,
-        quantityReceived: 0,
-        unitCost: 220,
-        subTotal: 8800,
-        itbis: 1584,
-        total: 10384,
-      },
-    ],
-  },
-  {
-    id: 102,
-    orderNumber: 'OC-000102',
-    prefix: 'OC',
-    supplierId: 2,
-    supplierName: 'Importadora del Caribe S.R.L.',
-    supplierRnc: '1-30-98765-4',
-    warehouseId: 1,
-    warehouseName: 'Almacén Principal Central',
-    orderDate: new Date(Date.now() - 86400000 * 5).toISOString(),
-    expectedDeliveryDate: new Date().toISOString(),
-    statusId: 3, // Completada
-    statusName: 'Completada',
-    notes: 'Recepción total procesada',
-    subTotal: 18000,
-    itbis: 3240,
-    total: 21240,
-    productDetails: [
-      {
-        productId: 4,
-        barCode: '74210004',
-        productName: 'Leche Entera 1L (Caja 12)',
-        quantityOrdered: 20,
-        quantityReceived: 20,
-        unitCost: 900,
-        subTotal: 18000,
-        itbis: 3240,
-        total: 21240,
-      },
-    ],
-  },
-];
+const DEFAULT_ORDERS: PurchaseOrder[] = [];
 
 @Injectable({
   providedIn: 'root',
@@ -106,17 +24,15 @@ export class PurchaseOrderReceiptService {
   private api = inject(ApiClientService);
   private stockService = inject(StockService);
   private warehouseService = inject(WarehouseService);
+  private productService = inject(ProductService);
+  private kardexService = inject(KardexService);
 
   private getLocalOrders(): PurchaseOrder[] {
     try {
       const raw = localStorage.getItem(PURCHASE_ORDERS_STORAGE_KEY);
-      if (!raw) {
-        this.saveLocalOrders(DEFAULT_ORDERS);
-        return DEFAULT_ORDERS;
-      }
-      return JSON.parse(raw);
+      return raw ? JSON.parse(raw) : [];
     } catch {
-      return DEFAULT_ORDERS;
+      return [];
     }
   }
 
@@ -149,48 +65,44 @@ export class PurchaseOrderReceiptService {
     try {
       const res = await this.api.get<any, any>('/PurchaseOrder');
       const list = extractArray<PurchaseOrder>(res);
-      if (list && list.length > 0) return { success: true, data: list };
+      return { success: true, data: list || [] };
     } catch {
-      // fallback
+      return { success: false, data: [], message: 'No se pudo conectar con el servidor.' };
     }
-    return { success: true, data: this.getLocalOrders() };
   }
 
   async getPurchaseOrder(id: number): Promise<ApiResponse<PurchaseOrder>> {
-    const list = this.getLocalOrders();
-    const found = list.find((o) => o.id === id);
-    if (found) return { success: true, data: found };
-    return { success: false, message: 'Orden de compra no encontrada.' };
+    try {
+      const res = await this.api.get<any, any>(`/PurchaseOrder/${id}`);
+      if (res?.data || res) {
+        return { success: true, data: (res.data ?? res) as PurchaseOrder };
+      }
+    } catch {
+      // offline / not found
+    }
+    return { success: false, message: 'Orden de compra no encontrada en el servidor.' };
   }
 
   existsReceiptOrRequest(purchaseOrderId: number): Observable<boolean> {
-    const list = this.getLocalOrders();
-    const po = list.find((o) => o.id === purchaseOrderId);
-    if (!po) return of(false);
-
-    // If already fully completed
-    if (po.statusId === 3) {
-      return of(true);
-    }
-
-    // Check if there is a pending receipt
-    const receipts = this.getLocalReceipts();
-    const exists = receipts.some(
-      (r) => r.purchaseOrderId === purchaseOrderId && (r.statusId === 1 || r.statusId === 2),
+    return from(this.getReceipts()).pipe(
+      map((res) => {
+        const list = res.data || [];
+        return list.some(
+          (r) => r.purchaseOrderId === purchaseOrderId && (r.statusId === 1 || r.statusId === 2),
+        );
+      }),
+      catchError(() => of(false))
     );
-
-    return of(exists);
   }
 
   async getReceipts(): Promise<ApiResponse<PurchaseOrderReceipt[]>> {
     try {
       const res = await this.api.get<any, any>('/PurchaseOrderReceipt');
       const list = extractArray<PurchaseOrderReceipt>(res);
-      if (list && list.length > 0) return { success: true, data: list };
+      return { success: true, data: list || [] };
     } catch {
-      // fallback
+      return { success: false, data: [], message: 'No se pudo conectar con el servidor.' };
     }
-    return { success: true, data: this.getLocalReceipts() };
   }
 
   async createReceipt(receipt: Partial<PurchaseOrderReceipt>): Promise<ApiResponse<PurchaseOrderReceipt>> {
@@ -228,6 +140,56 @@ export class PurchaseOrderReceiptService {
             item.productName,
             item.barCode,
           );
+
+          // Kardex Automático y Costo Promedio Ponderado Dinámico
+          try {
+            const productRes = await this.productService.getProduct(item.productId);
+            if (productRes?.success && productRes.data) {
+              const currentProd = productRes.data;
+              const currentCost = Number(currentProd.cost || 0);
+              const currentStock = Number(currentProd.stock || 0);
+              const newWeightedCost = this.kardexService.calculateWeightedAverageCost(
+                currentStock,
+                currentCost,
+                item.quantityReceived,
+                item.unitCost,
+              );
+
+              const sellPrice = currentProd.priceList || currentProd.price || (currentProd.cost ? currentProd.cost * 1.3 : 100);
+              const margin = this.kardexService.calculateProfitMargin(
+                sellPrice,
+                newWeightedCost,
+              );
+
+              // Ajuste automático de costo unitario por fletes/aumentos de proveedor
+              await this.productService.updateProduct({
+                ...currentProd,
+                cost: newWeightedCost,
+              });
+
+              // Asiento de trazabilidad en Kardex
+              this.kardexService.recordMovement({
+                productId: item.productId,
+                productName: item.productName,
+                warehouseId: newReceipt.warehouseId,
+                warehouseName: newReceipt.warehouseName,
+                movementType: 'COMPRA',
+                documentReference: receiptNum,
+                quantityIn: item.quantityReceived,
+                quantityOut: 0,
+                stockBalance: currentStock + item.quantityReceived,
+                unitCost: item.unitCost,
+                previousAverageCost: currentCost,
+                newAverageCost: newWeightedCost,
+                sellingPrice: sellPrice,
+                profitMarginPercentage: margin,
+                isMarginWarning: margin < 15,
+                notes: `Recepción de Orden de Compra ${newReceipt.purchaseOrderNumber}`,
+              });
+            }
+          } catch (kdxErr) {
+            console.warn('Error en cálculo de costo promedio ponderado Kardex:', kdxErr);
+          }
         }
       }
 

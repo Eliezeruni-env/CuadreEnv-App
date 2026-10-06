@@ -189,9 +189,13 @@ export class DashboardComponent implements OnInit {
       }
 
       // 5. Fetch general counts (Products, Warehouses, Users)
-      const productsRes = await this.productService.getPagedProducts(1, 1);
-      if (productsRes.success && productsRes.data) {
-        this.productsCount.set(productsRes.data.total || 0);
+      try {
+        const productsRes = await this.productService.getPagedProducts(1, 1);
+        if (productsRes.success && productsRes.data) {
+          this.productsCount.set(productsRes.data.total || 0);
+        }
+      } catch {
+        this.productsCount.set(0);
       }
 
       const warehousesRes = await this.inventoryService.getWarehouses();

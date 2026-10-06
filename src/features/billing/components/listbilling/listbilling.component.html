@@ -18,6 +18,9 @@
     </div>
   </div>
 
+  <!-- Alertas de Secuencias y Agotamiento DGII -->
+  <app-ncf-alert-banner></app-ncf-alert-banner>
+
   <!-- Filtros Genéricos -->
   <app-generic-filters (filtersChange)="onFiltersChange($event)"></app-generic-filters>
 
@@ -142,6 +145,19 @@
                           <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                             <polyline points="9 14 4 9 9 4"></polyline>
                             <path d="M20 20v-7a4 4 0 0 0-4-4H4"></path>
+                          </svg>
+                        </button>
+                        <!-- Solicitar Anulación (Alerta de Seguridad Inmediata) -->
+                        <button
+                          class="btn btn-sm btn-light border text-danger"
+                          type="button"
+                          (click)="requestInvoiceCancellation(b)"
+                          title="Solicitar Anulación de Factura (Notifica al Administrador)"
+                        >
+                          <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <circle cx="12" cy="12" r="10"></circle>
+                            <line x1="15" y1="9" x2="9" y2="15"></line>
+                            <line x1="9" y1="9" x2="15" y2="15"></line>
                           </svg>
                         </button>
                       </div>

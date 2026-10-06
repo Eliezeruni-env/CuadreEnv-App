@@ -113,11 +113,12 @@
               <tr>
                 <th class="ps-4">Proveedor / Empresa</th>
                 <th>RNC / Cédula</th>
-                <th>Contacto</th>
+                <th>Contacto Principal</th>
                 <th>Teléfono / Móvil</th>
+                <th>Contactos Adic.</th>
                 <th>Correo Electrónico</th>
                 <th class="text-center">Estado</th>
-                <th class="text-center pe-4" style="width: 130px;">Acciones</th>
+                <th class="text-center pe-4" style="width: 140px;">Acciones</th>
               </tr>
             </thead>
             <tbody>
@@ -136,6 +137,19 @@
                   <td class="small text-body">
                     {{ s.phone || s.mobile || '-' }}
                   </td>
+                  <td>
+                    @if (s.additionalContacts && s.additionalContacts.length > 0) {
+                      <span
+                        class="badge bg-primary-subtle text-primary border border-primary-subtle cursor-pointer"
+                        (click)="viewSupplierDetail(s)"
+                        [title]="s.additionalContacts.length + ' contactos adicionales registrados. Clic para ver.'"
+                      >
+                        +{{ s.additionalContacts.length }} contacto(s)
+                      </span>
+                    } @else {
+                      <span class="text-muted small">-</span>
+                    }
+                  </td>
                   <td class="small text-secondary">{{ s.email || '-' }}</td>
                   <td class="text-center">
                     @if (s.active !== false) {
@@ -146,6 +160,17 @@
                   </td>
                   <td class="text-center pe-4">
                     <div class="d-flex justify-content-center gap-1">
+                      <button
+                        type="button"
+                        class="btn btn-sm btn-light border text-primary"
+                        title="Ver Ficha Completa"
+                        (click)="viewSupplierDetail(s)"
+                      >
+                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                          <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+                          <circle cx="12" cy="12" r="3"></circle>
+                        </svg>
+                      </button>
                       <button
                         type="button"
                         class="btn btn-sm btn-light border"
@@ -177,15 +202,15 @@
 <!-- Modal: Create / Edit Supplier -->
 @if (isModalOpen()) {
   <div class="custom-modal-backdrop" (click)="closeModal()">
-    <div class="custom-modal-content modal-lg" (click)="$event.stopPropagation()">
-      <div class="custom-modal-header">
+    <div class="custom-modal-content modal-lg" (click)="$event.stopPropagation()" style="max-width: 820px;">
+      <div class="custom-modal-header bg-light">
         <h5 class="fw-bold mb-0 text-body">
           {{ isEditMode() ? 'Editar Proveedor' : 'Nuevo Proveedor' }}
         </h5>
         <button type="button" class="btn-close" (click)="closeModal()" aria-label="Close"></button>
       </div>
 
-      <div class="custom-modal-body">
+      <div class="custom-modal-body p-4" style="max-height: 75vh; overflow-y: auto;">
         <form cForm [formGroup]="supplierForm">
           <div class="row g-3 mb-3">
             <div class="col-md-8">
@@ -207,7 +232,7 @@
               <input cFormControl formControlName="cedula" placeholder="Ej. 001-0000000-0" />
             </div>
             <div class="col-md-6">
-              <label class="form-label small fw-semibold text-secondary">Persona de Contacto</label>
+              <label class="form-label small fw-semibold text-secondary">Persona de Contacto Principal</label>
               <input cFormControl formControlName="contactPerson" placeholder="Ej. Juan Pérez" />
             </div>
           </div>
@@ -237,16 +262,102 @@
             </div>
           </div>
 
-          <div class="form-check mt-3">
+          <div class="form-check mt-2 mb-4">
             <input class="form-check-input" type="checkbox" id="supplierActive" formControlName="active">
             <label class="form-check-label small fw-semibold text-secondary" for="supplierActive">
-              Proveedor Activo
+              Proveedor Activo para Operaciones Comerciales
             </label>
+          </div>
+
+          <!-- SECCIÓN: CONTACTOS ADICIONALES -->
+          <div class="border rounded-3 p-3 bg-light">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+              <div>
+                <h6 class="fw-bold mb-0 text-dark">Contactos Adicionales del Proveedor</h6>
+                <small class="text-secondary">Agrega representantes de ventas, cobranzas o despacho para este proveedor</small>
+              </div>
+              <button
+                type="button"
+                class="btn btn-sm btn-outline-primary fw-semibold d-flex align-items-center gap-1 shadow-xs"
+                (click)="addAdditionalContact()"
+              >
+                + Agregar Contacto
+              </button>
+            </div>
+
+            @if (additionalContacts().length === 0) {
+              <div class="text-center py-3 text-secondary small bg-white border border-dashed rounded-3">
+                No hay contactos adicionales. Presiona <strong>+ Agregar Contacto</strong> para registrar más representantes.
+              </div>
+            } @else {
+              <div class="d-flex flex-column gap-2">
+                @for (c of additionalContacts(); track $index; let idx = $index) {
+                  <div class="card border rounded-3 p-3 bg-white shadow-xs">
+                    <div class="row g-2 align-items-center">
+                      <div class="col-md-3">
+                        <label class="form-label small text-secondary mb-1">Nombre Completo *</label>
+                        <input
+                          type="text"
+                          class="form-control form-control-sm"
+                          placeholder="Ej. Ana Gómez"
+                          [ngModel]="c.name"
+                          (ngModelChange)="updateContactField(idx, 'name', $event)"
+                          [ngModelOptions]="{standalone: true}"
+                        />
+                      </div>
+                      <div class="col-md-3">
+                        <label class="form-label small text-secondary mb-1">Puesto / Rol</label>
+                        <input
+                          type="text"
+                          class="form-control form-control-sm"
+                          placeholder="Ej. Ejecutivo de Cuentas"
+                          [ngModel]="c.role"
+                          (ngModelChange)="updateContactField(idx, 'role', $event)"
+                          [ngModelOptions]="{standalone: true}"
+                        />
+                      </div>
+                      <div class="col-md-3">
+                        <label class="form-label small text-secondary mb-1">Teléfono / WhatsApp</label>
+                        <input
+                          type="text"
+                          class="form-control form-control-sm"
+                          placeholder="809-555-0000"
+                          [ngModel]="c.phone"
+                          (ngModelChange)="updateContactField(idx, 'phone', $event)"
+                          [ngModelOptions]="{standalone: true}"
+                        />
+                      </div>
+                      <div class="col-md-2">
+                        <label class="form-label small text-secondary mb-1">Correo</label>
+                        <input
+                          type="email"
+                          class="form-control form-control-sm"
+                          placeholder="ana@suplidor.com"
+                          [ngModel]="c.email"
+                          (ngModelChange)="updateContactField(idx, 'email', $event)"
+                          [ngModelOptions]="{standalone: true}"
+                        />
+                      </div>
+                      <div class="col-md-1 text-center pt-3">
+                        <button
+                          type="button"
+                          class="btn btn-sm btn-light border text-danger"
+                          title="Eliminar este contacto"
+                          (click)="removeAdditionalContact(idx)"
+                        >
+                          ✕
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                }
+              </div>
+            }
           </div>
         </form>
       </div>
 
-      <div class="custom-modal-footer d-flex justify-content-end gap-2">
+      <div class="custom-modal-footer d-flex justify-content-end gap-2 bg-light">
         <button cButton color="light" class="border px-4" (click)="closeModal()">
           Cancelar
         </button>
@@ -264,6 +375,92 @@
             {{ isEditMode() ? 'Guardar Cambios' : 'Registrar Proveedor' }}
           }
         </button>
+      </div>
+    </div>
+  </div>
+}
+
+<!-- Modal: View Supplier Detail Fiche -->
+@if (selectedSupplierDetail()) {
+  <div class="custom-modal-backdrop" (click)="closeDetailModal()">
+    <div class="custom-modal-content modal-lg" (click)="$event.stopPropagation()" style="max-width: 680px;">
+      <div class="custom-modal-header bg-light">
+        <div>
+          <h5 class="fw-bold mb-0 text-dark">{{ selectedSupplierDetail()?.name }}</h5>
+          <span class="text-secondary small">Ficha Completa de Suplidor</span>
+        </div>
+        <button type="button" class="btn-close" (click)="closeDetailModal()"></button>
+      </div>
+
+      <div class="custom-modal-body p-4" style="max-height: 75vh; overflow-y: auto;">
+        <!-- General Info Grid -->
+        <div class="row g-3 mb-4">
+          <div class="col-sm-6">
+            <div class="p-3 bg-light rounded-3 border">
+              <span class="text-secondary small d-block">RNC / Cédula:</span>
+              <strong class="text-dark font-monospace">{{ selectedSupplierDetail()?.rnc || selectedSupplierDetail()?.cedula || 'No especificado' }}</strong>
+            </div>
+          </div>
+          <div class="col-sm-6">
+            <div class="p-3 bg-light rounded-3 border">
+              <span class="text-secondary small d-block">Contacto Principal:</span>
+              <strong class="text-dark">{{ selectedSupplierDetail()?.contactPerson || 'No asignado' }}</strong>
+            </div>
+          </div>
+          <div class="col-sm-6">
+            <div class="p-3 bg-light rounded-3 border">
+              <span class="text-secondary small d-block">Teléfono Fijo / Móvil:</span>
+              <strong class="text-dark">{{ selectedSupplierDetail()?.phone || selectedSupplierDetail()?.mobile || 'No registrado' }}</strong>
+            </div>
+          </div>
+          <div class="col-sm-6">
+            <div class="p-3 bg-light rounded-3 border">
+              <span class="text-secondary small d-block">Correo Electrónico:</span>
+              <strong class="text-dark">{{ selectedSupplierDetail()?.email || 'No registrado' }}</strong>
+            </div>
+          </div>
+          <div class="col-12">
+            <div class="p-3 bg-light rounded-3 border">
+              <span class="text-secondary small d-block">Dirección Comercial:</span>
+              <strong class="text-dark">{{ selectedSupplierDetail()?.address || 'No registrada' }}</strong>
+            </div>
+          </div>
+        </div>
+
+        <!-- Additional Contacts Table -->
+        <h6 class="fw-bold text-dark mb-2">Directorio de Contactos Registrados:</h6>
+        @if (!selectedSupplierDetail()?.additionalContacts || selectedSupplierDetail()!.additionalContacts!.length === 0) {
+          <div class="p-3 text-center text-muted border border-dashed rounded-3 small">
+            Este proveedor no tiene contactos adicionales asociados.
+          </div>
+        } @else {
+          <div class="table-responsive border rounded-3">
+            <table class="table table-sm align-middle mb-0 small">
+              <thead class="table-light">
+                <tr>
+                  <th class="ps-3">Nombre</th>
+                  <th>Puesto / Rol</th>
+                  <th>Teléfono / WhatsApp</th>
+                  <th>Correo</th>
+                </tr>
+              </thead>
+              <tbody>
+                @for (c of selectedSupplierDetail()!.additionalContacts!; track $index) {
+                  <tr>
+                    <td class="ps-3 fw-semibold text-dark">{{ c.name }}</td>
+                    <td class="text-secondary">{{ c.role || 'Comercial' }}</td>
+                    <td class="font-monospace">{{ c.phone || '-' }}</td>
+                    <td class="text-primary">{{ c.email || '-' }}</td>
+                  </tr>
+                }
+              </tbody>
+            </table>
+          </div>
+        }
+      </div>
+
+      <div class="custom-modal-footer bg-light d-flex justify-content-end">
+        <button type="button" class="btn btn-light border px-4" (click)="closeDetailModal()">Cerrar</button>
       </div>
     </div>
   </div>

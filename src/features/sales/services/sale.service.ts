@@ -50,26 +50,39 @@ export class SaleService {
     pageNumber?: number;
     pageSize?: number;
   }): Promise<ApiResponse<SaleResponseDto[]>> {
+    const validParams = {
+      ...params,
+      pageSize: params?.pageSize ? Math.min(100, Math.max(1, params.pageSize)) : 100,
+    };
     try {
-      const res = await this.api.get<any, any>('/Sale', { params });
+      const res = await this.api.get<any, any>('/Sale', { params: validParams });
       const apiSales = extractArray<SaleResponseDto>(res);
-      if (apiSales && apiSales.length > 0) {
-        return { success: true, data: apiSales };
+      return { success: true, data: apiSales };
+    } catch (err: any) {
+      if (err?.status === 404) {
+        try {
+          const res2 = await this.api.get<any, any>('/sales', { params: validParams });
+          const apiSales2 = extractArray<SaleResponseDto>(res2);
+          return { success: true, data: apiSales2 || [] };
+        } catch {
+          // Fallback failed
+        }
       }
-    } catch {
-      // Fallback to local storage if backend /Sale endpoint has temporary 500 error
+      return { success: false, data: [], message: 'No se pudo conectar con el servidor.' };
     }
-    return { success: true, data: this.getLocalSales() };
   }
 
   async getSale(id: number): Promise<ApiResponse<SaleResponseDto>> {
     try {
       const res = await this.api.get<any, any>(`/Sale/${id}`);
-      return { success: true, data: res as SaleResponseDto };
+      return { success: true, data: (res?.data ?? res?.Data ?? res) as SaleResponseDto };
     } catch {
-      const local = this.getLocalSales().find((s) => s.id === id);
-      if (local) return { success: true, data: local };
-      return { success: false, message: 'Venta no encontrada.' };
+      try {
+        const res2 = await this.api.get<any, any>(`/sales/${id}`);
+        return { success: true, data: (res2?.data ?? res2?.Data ?? res2) as SaleResponseDto };
+      } catch {
+        return { success: false, message: 'Venta no encontrada en el servidor.' };
+      }
     }
   }
 
@@ -84,47 +97,45 @@ export class SaleService {
     let createdSale: SaleResponseDto | null = null;
 
     try {
-      // 1. Try idempotent POS /caja/sales endpoint
-      const cajaRes = await this.api.post<any, any>('/caja/sales', {
-        idempotencyKey,
-        customerId: sale.customerId || null,
-        cashRegisterId: sale.cashRegisterId || 1,
-        date: new Date().toISOString(),
-        createBy: 'system',
-        items: (sale.details || []).map((it) => ({
-          productId: it.productId,
-          quantity: it.quantity,
-          unitPrice: it.unitPrice,
-        })),
+      // 1. Direct transaccional /Sale endpoint con Idempotency-Key
+      const res = await this.api.post<any, any>('/Sale', sale, {
+        headers: { 'X-Idempotency-Key': idempotencyKey },
       });
-      createdSale = (cajaRes?.data || cajaRes) as SaleResponseDto;
-    } catch {
+      createdSale = (res?.data || res) as SaleResponseDto;
+    } catch (err: any) {
+      // Fallback a /caja/sales si la API tiene rutas unificadas de caja
       try {
-        // 2. Fallback to /Sale endpoint
-        const res = await this.api.post<any, any>('/Sale', sale);
-        createdSale = (res?.data || res) as SaleResponseDto;
-      } catch {
-        // 3. Fallback mock record if backend is executing database migrations
-        const fallbackId = Math.floor(1000 + Math.random() * 9000);
-        createdSale = {
-          id: fallbackId,
-          customerId: sale.customerId || 0,
-          total: sale.total,
-          paidAmount: sale.paidAmount,
-          creationDate: new Date().toISOString(),
-          cashRegisterId: sale.cashRegisterId,
-          details: sale.details || [],
-        } as SaleResponseDto;
+        const cajaRes = await this.api.post<any, any>('/caja/sales', {
+          idempotencyKey,
+          customerId: sale.customerId || null,
+          cashRegisterId: sale.cashRegisterId || 1,
+          date: new Date().toISOString(),
+          createBy: 'system',
+          items: (sale.details || []).map((it) => ({
+            productId: it.productId,
+            quantity: it.quantity,
+            unitPrice: it.unitPrice,
+          })),
+        }, {
+          headers: { 'X-Idempotency-Key': idempotencyKey },
+        });
+        createdSale = (cajaRes?.data || cajaRes) as SaleResponseDto;
+      } catch (cajaErr: any) {
+        // Propagar el error oficial de la API (ej. stock insuficiente, caja cerrada, etc.)
+        throw (err?.mappedError || err?.error ? err : cajaErr);
       }
     }
 
-    if (createdSale) {
-      this.saveLocalSale(createdSale);
+    if (!createdSale) {
+      throw new Error('No se pudo registrar la venta en el servidor.');
     }
+
+    this.saveLocalSale(createdSale);
 
     return {
       success: true,
       data: createdSale,
+      message: 'Venta registrada exitosamente.',
     };
   }
 

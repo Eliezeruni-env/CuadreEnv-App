@@ -116,9 +116,15 @@
                 </div>
 
                 <div class="text-end">
-                  <div class="fw-bold text-dark fs-6 font-monospace">FACTURA</div>
+                  <span class="badge bg-primary-subtle text-primary border border-primary-subtle font-monospace px-2 py-1 mb-1">
+                    e-CF Ley 32-23
+                  </span>
+                  <div class="fw-bold text-dark font-monospace" style="font-size: 0.8rem;">{{ eCfName }}</div>
                   <div class="fw-bold text-primary font-monospace fs-5">
-                    No. {{ saleData?.invoiceNumber || ('VTA-' + (saleData?.id || '000123')) }}
+                    e-NCF: {{ eNcfNumber }}
+                  </div>
+                  <div class="text-secondary font-monospace" style="font-size: 0.72rem;">
+                    Cód. Seguridad: <span class="fw-bold text-dark">{{ securityCode }}</span>
                   </div>
                 </div>
               </div>
@@ -236,12 +242,35 @@
                 </div>
               </div>
 
+              <!-- Timbre Digital QR e-CF (Ley 32-23) -->
+              <div class="d-flex align-items-center justify-content-between p-3 border rounded-3 bg-light-subtle my-3">
+                <div class="d-flex align-items-center gap-3">
+                  <img [src]="digitalStampQrUrl" alt="Timbre Digital DGII" style="width: 76px; height: 76px; image-rendering: pixelated;" class="border p-1 bg-white rounded-2" />
+                  <div>
+                    <div class="fw-bold text-dark small d-flex align-items-center gap-1">
+                      <span>Timbre Digital DGII</span>
+                      <span class="badge bg-success text-white" style="font-size: 0.65rem;">✓ Certificado e-CF</span>
+                    </div>
+                    <div class="text-secondary small font-monospace mt-1" style="font-size: 0.72rem;">
+                      e-NCF: {{ eNcfNumber }} · Cód. Seguridad: {{ securityCode }}
+                    </div>
+                    <div class="text-muted small" style="font-size: 0.68rem;">
+                      Consulte la validez fiscal escaneando el código QR o en ecf.dgii.gov.do
+                    </div>
+                  </div>
+                </div>
+                <div class="text-end font-monospace text-secondary small d-none d-sm-block">
+                  <div class="badge bg-secondary-subtle text-secondary border font-size-xs">Ley No. 32-23</div>
+                  <div class="text-success fw-bold font-size-xs mt-1">Emisión e-CF Activa</div>
+                </div>
+              </div>
+
               <!-- Invoice Footer Disclaimer -->
               <div class="text-center text-secondary small pt-3 border-top">
                 <div class="fw-semibold text-dark mb-1">
                   "{{ companyService.currentSettings().invoiceFooterPhrase || '¡Gracias por su preferencia!' }}"
                 </div>
-                <div class="font-size-xs text-muted">Este documento es un comprobante de venta válido emitido electrónicamente.</div>
+                <div class="font-size-xs text-muted">Este documento es un comprobante fiscal electrónico (e-CF) válido emitido bajo la Ley No. 32-23.</div>
               </div>
             </div>
 
@@ -259,6 +288,8 @@
 
               <div class="small mb-2">
                 <div><strong>TICKET:</strong> {{ saleData?.invoiceNumber || ('VTA-' + (saleData?.id || '000123')) }}</div>
+                <div><strong>e-NCF:</strong> {{ eNcfNumber }}</div>
+                <div><strong>CÓD. SEG:</strong> {{ securityCode }}</div>
                 <div><strong>FECHA:</strong> {{ formattedDate }}</div>
                 <div><strong>CLIENTE:</strong> {{ saleData?.customerName || 'Consumidor Final' }}</div>
                 @if (saleData?.customerRnc && saleData?.customerRnc !== '000-0000000-0') {
@@ -328,7 +359,11 @@
 
               <div class="text-center small mt-2">
                 <div class="fw-bold">¡GRACIAS POR SU PREFERENCIA!</div>
-                <div class="text-muted font-size-xs">Conserve su ticket para cualquier reclamo o garantía</div>
+                <div class="text-muted font-size-xs mb-2">Conserve su ticket para cualquier reclamo o garantía</div>
+                <div class="text-center my-1">
+                  <img [src]="digitalStampQrUrl" style="width: 80px; height: 80px; image-rendering: pixelated;" alt="QR e-CF" />
+                  <div class="text-muted font-size-xs mt-1">Timbre Digital DGII (Ley 32-23)</div>
+                </div>
               </div>
             </div>
           </div>

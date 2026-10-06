@@ -116,24 +116,25 @@
                   {{ selectedRoles().length }} {{ selectedRoles().length === 1 ? 'rol asignado' : 'roles asignados' }}
                 </span>
               </div>
-              <div class="p-2 border rounded-3 bg-light-subtle d-flex flex-wrap gap-2 align-items-center">
+              <div class="p-2.5 border rounded-3 bg-light bg-opacity-50 d-flex flex-wrap gap-2 align-items-center">
                 @for (role of companyRoles(); track role.id) {
                   <button
                     type="button"
-                    class="btn btn-sm py-1 px-2.5 rounded-pill d-flex align-items-center gap-1.5 transition-all"
-                    [ngClass]="isRoleSelected(role.name) ? 'btn-primary text-white shadow-2xs' : 'btn-outline-secondary bg-white text-secondary border'"
+                    class="btn btn-sm py-1.5 px-3 rounded-pill d-flex align-items-center gap-1.5 transition-all fw-medium"
+                    [ngClass]="isRoleSelected(role.name) ? 'btn-primary text-white shadow-xs' : 'btn-light bg-white text-dark border border-secondary-subtle'"
                     (click)="toggleRole(role.name)"
                   >
                     @if (isRoleSelected(role.name)) {
-                      <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                      <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" class="text-white">
                         <polyline points="20 6 9 17 4 12"></polyline>
                       </svg>
                     } @else {
-                      <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                        <circle cx="12" cy="12" r="9"></circle>
+                      <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="text-muted">
+                        <line x1="12" y1="5" x2="12" y2="19"></line>
+                        <line x1="5" y1="12" x2="19" y2="12"></line>
                       </svg>
                     }
-                    <span style="font-size: 0.76rem;">{{ role.name }}</span>
+                    <span style="font-size: 0.78rem;">{{ role.name }}</span>
                   </button>
                 }
               </div>

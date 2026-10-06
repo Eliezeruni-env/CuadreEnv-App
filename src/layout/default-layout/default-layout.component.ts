@@ -66,31 +66,33 @@ export class DefaultLayoutComponent {
 
   public readonly navItems = computed(() => {
     const translated = this.translationService.getTranslatedNavItems(staticNavItems);
-    const isAdmin =
-      this.authService.isSuperUser() ||
-      this.authService.hasRole(['Admin', 'SuperUser', 'SuperAdmin', 'SysAdmin']);
-    const isPrivileged =
-      isAdmin ||
-      this.authService.hasRole(['Auditor', 'Audit', 'Supervisor', 'Manager']);
 
-    return translated.filter((item) => {
+    // 1. Filtrar enlaces individuales con base en los módulos permitidos por USM
+    const filtered = translated.filter((item) => {
+      if (item.title) return true;
       const url = typeof item.url === 'string' ? item.url : (Array.isArray(item.url) ? item.url.join('/') : '');
-      if (url === '/metrics' || url.startsWith('/metrics')) {
-        return isPrivileged;
-      }
-      if (url === '/users' || url.startsWith('/users')) {
-        return isAdmin || this.permissionService.hasPermission('Company', 'View');
-      }
-      if (url.includes('/admin/roles')) {
-        return isAdmin;
-      }
-      if (url.includes('/admin/approvals')) {
-        return isPrivileged || this.permissionService.hasPermission('Audit', 'View');
-      }
-      if (url.includes('/company/settings')) {
-        return isAdmin;
-      }
-      return true;
+      return this.permissionService.hasModuleAccess(url);
     });
+
+    // 2. Limpiar encabezados de sección huérfanos que quedaron sin módulos permitidos
+    const finalItems: typeof translated = [];
+    for (let i = 0; i < filtered.length; i++) {
+      const current = filtered[i];
+      if (current.title) {
+        let hasChildren = false;
+        for (let j = i + 1; j < filtered.length; j++) {
+          if (filtered[j].title) break;
+          hasChildren = true;
+          break;
+        }
+        if (hasChildren) {
+          finalItems.push(current);
+        }
+      } else {
+        finalItems.push(current);
+      }
+    }
+
+    return finalItems;
   });
 }

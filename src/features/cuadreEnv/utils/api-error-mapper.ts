@@ -30,16 +30,38 @@ export function mapApiErrorToUserMessage(rawError: any): MappedApiError {
   // Extract structured field validation errors
   const fieldErrors = extractFieldErrors(payload);
 
-  // 1. Critical Database / Infrastructure Errors (TABLE_MISSING, DB_ERROR, statusCode >= 500)
+  // 1. Connection Failure / Server Outage / Backend Inaccessible (statusCode === 0)
+  if (
+    statusCode === 0 ||
+    (rawError?.name === 'HttpErrorResponse' && rawError?.status === 0) ||
+    rawMessage.includes('Http failure response') ||
+    rawMessage.includes('Failed to fetch') ||
+    rawMessage.includes('NetworkError')
+  ) {
+    return {
+      type: 'danger',
+      title: 'Avería del Servidor',
+      message: 'Estamos trabajando en una avería. El equipo de desarrollo se encargará de resolverlo a la brevedad.',
+      errorCode: errorCode || 'SERVER_OUTAGE',
+      statusCode: 0,
+      requestId,
+      timestamp,
+      path,
+      isCritical: true,
+      fieldErrors,
+    };
+  }
+
+  // 2. Critical Database / Infrastructure Errors (TABLE_MISSING, DB_ERROR, statusCode >= 500)
   if (errorCode === 'TABLE_MISSING' || errorCode === 'DB_ERROR' || statusCode >= 500) {
-    let friendlyMessage = 'Ocurrió un error inesperado al procesar la solicitud en el servidor.';
+    let friendlyMessage = 'Estamos trabajando en una avería del servidor. El equipo de desarrollo se encargará de resolverlo a la brevedad.';
     if (errorCode === 'TABLE_MISSING') {
-      friendlyMessage = 'El servicio no está disponible temporalmente. Por favor, intenta de nuevo más tarde.';
+      friendlyMessage = 'El servicio no está disponible temporalmente por avería. El equipo de desarrollo se encargará de resolverlo.';
     }
 
     return {
       type: 'danger',
-      title: 'Error del Sistema',
+      title: 'Avería del Servidor',
       message: friendlyMessage,
       errorCode: errorCode || 'SERVER_ERROR',
       statusCode: statusCode || 500,
@@ -179,6 +201,21 @@ export function mapApiErrorToUserMessage(rawError: any): MappedApiError {
       message: rawMessage || 'El registro o elemento solicitado no existe o fue eliminado.',
       errorCode: 'NOT_FOUND',
       statusCode: 404,
+      requestId,
+      timestamp,
+      path,
+      isCritical: false,
+    };
+  }
+
+  // 8. Method Not Allowed (405)
+  if (statusCode === 405 || errorCode === 'METHOD_NOT_ALLOWED') {
+    return {
+      type: 'warning',
+      title: 'Método No Permitido',
+      message: rawMessage || 'La operación solicitada no está habilitada en este endpoint del servidor.',
+      errorCode: 'METHOD_NOT_ALLOWED',
+      statusCode: 405,
       requestId,
       timestamp,
       path,

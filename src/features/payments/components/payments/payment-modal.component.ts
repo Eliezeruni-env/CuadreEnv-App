@@ -1,6 +1,6 @@
 import { Component, Input, Output, EventEmitter, OnInit, signal, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { FormBuilder, FormGroup, Validators, ReactiveFormsModule } from '@angular/forms';
+import { FormBuilder, FormGroup, Validators, ReactiveFormsModule, FormsModule } from '@angular/forms';
 import { PaymentService } from '../../services/payment.service';
 import { SaleService } from '../../../sales/services/sale.service';
 import { PurchaseService } from '../../../purchases/services/purchase.service';
@@ -24,6 +24,7 @@ import {
   imports: [
     CommonModule,
     ReactiveFormsModule,
+    FormsModule,
     ButtonDirective,
     FormControlDirective,
     FormDirective,
@@ -46,10 +47,28 @@ export class PaymentModalComponent implements OnInit {
   @Output() visibleChange = new EventEmitter<boolean>();
   @Output() saved = new EventEmitter<void>();
 
-  paymentType = signal<'sale' | 'purchase'>('sale');
+  paymentType = signal<'purchase' | 'sale'>('purchase');
   sales = signal<SaleResponseDto[]>([]);
   purchases = signal<PurchaseDto[]>([]);
   isLoading = signal<boolean>(false);
+
+  // Form Fields for specific methods
+  selectedMethod = signal<string>('Transferencia Bancaria');
+
+  // Card fields
+  cardType = signal<string>('Visa');
+  cardLastFour = signal<string>('');
+  cardAuthVoucher = signal<string>('');
+
+  // Transfer fields
+  transferSenderBank = signal<string>('Banco Popular Dominicano');
+  transferReceiverBank = signal<string>('Banco BHD');
+  transferReference = signal<string>('');
+
+  // Check fields
+  checkBank = signal<string>('Banco de Reservas');
+  checkNumber = signal<string>('');
+  checkDate = signal<string>(new Date().toISOString().split('T')[0]);
 
   paymentForm: FormGroup;
 
@@ -58,8 +77,9 @@ export class PaymentModalComponent implements OnInit {
       saleId: [''],
       purchaseId: [''],
       amount: [0, [Validators.required, Validators.min(0.01)]],
-      method: ['Efectivo', [Validators.required]],
-      reference: ['']
+      method: ['Transferencia Bancaria', [Validators.required]],
+      reference: [''],
+      notes: [''],
     });
 
     // Autofill amount when saleId changes
@@ -80,6 +100,10 @@ export class PaymentModalComponent implements OnInit {
           this.paymentForm.patchValue({ amount: found.total }, { emitEvent: false });
         }
       }
+    });
+
+    this.paymentForm.get('method')?.valueChanges.subscribe((m) => {
+      if (m) this.selectedMethod.set(m);
     });
   }
 
@@ -114,16 +138,33 @@ export class PaymentModalComponent implements OnInit {
     }
   }
 
-  openCreate() {
-    this.paymentType.set('sale');
+  openCreate(defaultPurchaseId?: number) {
+    this.paymentType.set('purchase');
+    this.selectedMethod.set('Transferencia Bancaria');
+    this.cardLastFour.set('');
+    this.cardAuthVoucher.set('');
+    this.transferReference.set('');
+    this.checkNumber.set('');
+
     this.paymentForm.reset({
       saleId: '',
-      purchaseId: '',
+      purchaseId: defaultPurchaseId ? String(defaultPurchaseId) : '',
       amount: 0,
-      method: 'Efectivo',
-      reference: ''
+      method: 'Transferencia Bancaria',
+      reference: '',
+      notes: '',
     });
+
     this.loadData();
+    if (defaultPurchaseId) {
+      setTimeout(() => {
+        const found = this.purchases().find((p) => p.id === Number(defaultPurchaseId));
+        if (found) {
+          this.paymentForm.patchValue({ amount: found.total });
+        }
+      }, 150);
+    }
+
     this.visible = true;
     this.visibleChange.emit(true);
   }
@@ -131,6 +172,36 @@ export class PaymentModalComponent implements OnInit {
   close() {
     this.visible = false;
     this.visibleChange.emit(false);
+  }
+
+  buildPaymentReference(): { methodFormatted: string; referenceFormatted: string } {
+    const m = this.selectedMethod();
+
+    if (m === 'Tarjeta de Crédito / Débito' || m === 'Tarjeta') {
+      const four = this.cardLastFour().trim();
+      const auth = this.cardAuthVoucher().trim();
+      const ref = `Tarjeta ${this.cardType()} ${four ? '(****' + four + ')' : ''} ${auth ? 'Auth: ' + auth : ''}`.trim();
+      return { methodFormatted: 'Tarjeta', referenceFormatted: ref };
+    }
+
+    if (m === 'Transferencia Bancaria' || m === 'Transferencia') {
+      const orig = this.transferSenderBank().trim();
+      const dest = this.transferReceiverBank().trim();
+      const refNum = this.transferReference().trim();
+      const ref = `Transf. ${orig} -> ${dest} ${refNum ? 'Ref: ' + refNum : ''}`.trim();
+      return { methodFormatted: 'Transferencia', referenceFormatted: ref };
+    }
+
+    if (m === 'Cheque') {
+      const bank = this.checkBank().trim();
+      const num = this.checkNumber().trim();
+      const date = this.checkDate();
+      const ref = `Cheque ${bank} #${num} (${date})`.trim();
+      return { methodFormatted: 'Cheque', referenceFormatted: ref };
+    }
+
+    const customRef = this.paymentForm.get('reference')?.value?.trim() || 'Pago en Efectivo';
+    return { methodFormatted: 'Efectivo', referenceFormatted: customRef };
   }
 
   async savePayment() {
@@ -141,23 +212,24 @@ export class PaymentModalComponent implements OnInit {
 
     this.isLoading.set(true);
     const formVal = this.paymentForm.value;
+    const { methodFormatted, referenceFormatted } = this.buildPaymentReference();
 
     const payload: PaymentDto = {
       saleId: this.paymentType() === 'sale' && formVal.saleId ? parseInt(formVal.saleId, 10) : null,
       purchaseId: this.paymentType() === 'purchase' && formVal.purchaseId ? parseInt(formVal.purchaseId, 10) : null,
       amount: Number(formVal.amount),
-      method: formVal.method,
-      reference: formVal.reference ? formVal.reference.trim() : null
+      method: methodFormatted,
+      reference: referenceFormatted,
     };
 
     try {
       const res = await this.paymentService.createPayment(payload);
       if (res.success) {
-        this.notificationService.success('Pago registrado exitosamente.');
+        this.notificationService.success('Pago a proveedor registrado y comprobante emitido exitosamente.');
         this.saved.emit();
         this.close();
       } else {
-        this.notificationService.error(res.message || 'Error al crear el pago.');
+        this.notificationService.error(res.message || 'Error al registrar el pago.');
       }
     } catch (e: any) {
       const mapped = this.notificationService.showApiError(e);

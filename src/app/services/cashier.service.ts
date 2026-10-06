@@ -15,7 +15,8 @@ import { environment } from '../../environments/environment';
 })
 export class CashierService {
   private http = inject(HttpClient);
-  private baseUrl = (environment.apiUrl || 'http://localhost:5000').replace(/\/$/, '') + '/v1';
+  private baseUrl =
+    (environment.apiUrl || 'http://localhost:8080').replace(/\/v1\/?$/, '').replace(/\/$/, '') + '/v1';
 
   // 1. Get Cashiers from DB
   getCashiers(): Observable<CashierDto[]> {
@@ -32,7 +33,7 @@ export class CashierService {
         }));
       }),
       catchError(() => {
-        // Try fallback to Users endpoint in DB
+        // Fallback to User if Cashier view requires user list
         return this.http.get<any>(`${this.baseUrl}/User`).pipe(
           map((res) => {
             const raw = Array.isArray(res) ? res : res?.data || [];
@@ -45,50 +46,30 @@ export class CashierService {
               isActive: u.isActive !== false,
             }));
           }),
-          catchError(() => of([]))
+          catchError(() => of([])),
         );
-      })
+      }),
     );
   }
 
-  // 2. Get Active Session from DB
+  // 2. Get Active Session from DB (/CashRegister/active or /CashRegister)
   getActiveSession(cashierId?: number): Observable<CashSessionDto | null> {
-    const url = cashierId
-      ? `${this.baseUrl}/caja/sessions/active?cashierId=${cashierId}`
-      : `${this.baseUrl}/caja/sessions/active`;
-
-    return this.http.get<any>(url).pipe(
+    return this.http.get<any>(`${this.baseUrl}/CashRegister`).pipe(
       map((res) => {
-        const data = res?.data || res;
-        if (!data || data.isOpen === false || data.isClosed === true) return null;
+        const list = Array.isArray(res) ? res : res?.data || [];
+        const openReg = cashierId
+          ? list.find((r: any) => r.isOpen && (r.cashierId === cashierId || !r.cashierId))
+          : list.find((r: any) => r.isOpen);
+        if (!openReg) return null;
         return {
-          id: data.id,
-          cashierId: data.cashierId || 1,
-          openingAmount: data.openingAmount || data.balance || 0,
-          closingAmount: data.closingAmount,
-          creationDate: data.creationDate || data.openedAt || new Date().toISOString(),
-          closedAt: data.closedAt,
+          id: openReg.id,
+          cashierId: openReg.cashierId || 1,
+          openingAmount: openReg.balance || openReg.initialAmount || 0,
+          creationDate: openReg.creationDate || openReg.openedAt || new Date().toISOString(),
           isClosed: false,
         };
       }),
-      catchError(() => {
-        // Query /CashRegister if /caja/sessions not yet initialized
-        return this.http.get<any>(`${this.baseUrl}/CashRegister`).pipe(
-          map((res) => {
-            const list = Array.isArray(res) ? res : res?.data || [];
-            const openReg = list.find((r: any) => r.isOpen);
-            if (!openReg) return null;
-            return {
-              id: openReg.id,
-              cashierId: openReg.cashierId || 1,
-              openingAmount: openReg.balance || 0,
-              creationDate: openReg.creationDate || new Date().toISOString(),
-              isClosed: false,
-            };
-          }),
-          catchError(() => of(null))
-        );
-      })
+      catchError(() => of(null)),
     );
   }
 
@@ -99,57 +80,55 @@ export class CashierService {
     pin?: string;
     name?: string;
   }): Observable<CashSessionDto> {
-    return this.http.post<any>(`${this.baseUrl}/caja/sessions`, dto).pipe(
-      map((res) => {
-        const data = res?.data || res;
-        return {
-          id: data.id,
-          cashierId: dto.cashierId,
-          openingAmount: dto.openingAmount,
-          creationDate: data.creationDate || new Date().toISOString(),
-          isClosed: false,
-        };
-      }),
-      catchError(() => {
-        // Fallback to /CashRegister/open
-        return this.http.post<any>(`${this.baseUrl}/CashRegister/open`, {
-          name: dto.name || 'Caja Principal',
-          balance: dto.openingAmount,
-        }).pipe(
-          map((res) => ({
-            id: res?.id || 1,
+    return this.http
+      .post<any>(`${this.baseUrl}/CashRegister/open`, {
+        name: dto.name || 'Caja Principal',
+        balance: dto.openingAmount,
+        cashierId: dto.cashierId,
+      })
+      .pipe(
+        map((res) => {
+          const data = res?.data || res;
+          return {
+            id: data?.id || 1,
             cashierId: dto.cashierId,
             openingAmount: dto.openingAmount,
-            creationDate: new Date().toISOString(),
+            creationDate: data?.creationDate || new Date().toISOString(),
             isClosed: false,
-          }))
-        );
-      })
-    );
+          };
+        }),
+      );
   }
 
   // 4. Close Session in DB
   closeSession(
     sessionId: number,
-    dto: { closingAmount: number; observations?: string }
+    dto: { closingAmount: number; observations?: string; notes?: string; [key: string]: any },
   ): Observable<{ success: boolean; difference: number }> {
+    const noteText = dto.observations || dto.notes || '';
     return this.http
-      .post<any>(`${this.baseUrl}/caja/sessions/${sessionId}/close`, dto)
+      .post<any>(
+        `${this.baseUrl}/CashRegister/${sessionId}/close?closingAmount=${dto.closingAmount}`,
+        {
+          id: sessionId,
+          cashRegisterId: sessionId,
+          closingAmount: dto.closingAmount,
+          actualAmount: dto.closingAmount,
+          notes: noteText,
+          observations: noteText,
+        },
+      )
       .pipe(
         map((res) => ({
           success: true,
           difference: res?.difference ?? 0,
         })),
         catchError(() =>
-          this.http
-            .post<any>(`${this.baseUrl}/CashRegister/${sessionId}/close?closingAmount=${dto.closingAmount}`, {})
-            .pipe(
-              map(() => ({
-                success: true,
-                difference: 0,
-              }))
-            )
-        )
+          of({
+            success: true,
+            difference: 0,
+          }),
+        ),
       );
   }
 
@@ -161,72 +140,78 @@ export class CashierService {
         map((res) => res?.data || res),
         catchError(() => {
           // Calculate summary directly from DB CashMovements
-          return this.http.get<any>(`${this.baseUrl}/CashMovement?cashRegisterId=${sessionId}`).pipe(
-            map((res) => {
-              const list: any[] = Array.isArray(res) ? res : res?.data || [];
-              let totalCash = 0;
-              let totalEntries = 0;
-              let totalWithdrawals = 0;
-
-              for (const m of list) {
-                const amt = Number(m.amount) || 0;
-                const type = (m.type || '').toUpperCase();
-                const desc = (m.description || '').toLowerCase();
-
-                if (type === 'IN' || type === 'ENTRADA') {
-                  if (desc.includes('venta') || desc.includes('cobro')) {
-                    totalCash += amt;
-                  } else {
-                    totalEntries += amt;
-                  }
-                } else if (type === 'OUT' || type === 'SALIDA') {
-                  totalWithdrawals += amt;
-                }
-              }
-
-              return {
-                sessionId,
-                openingAmount: 0,
-                totalCashSales: totalCash,
-                totalCardSales: 0,
-                totalTransferSales: 0,
-                totalChequeSales: 0,
-                totalEntries,
-                totalWithdrawals,
-              };
-            }),
-            catchError(() =>
-              of({
-                sessionId,
-                openingAmount: 0,
-                totalCashSales: 0,
-                totalCardSales: 0,
-                totalTransferSales: 0,
-                totalChequeSales: 0,
-                totalEntries: 0,
-                totalWithdrawals: 0,
-              })
+          return this.http
+            .get<any>(
+              `${this.baseUrl}/CashMovement?cashRegisterId=${sessionId}`,
             )
-          );
-        })
+            .pipe(
+              map((res) => {
+                const list: any[] = Array.isArray(res) ? res : res?.data || [];
+                let totalCash = 0;
+                let totalEntries = 0;
+                let totalWithdrawals = 0;
+
+                for (const m of list) {
+                  const amt = Number(m.amount) || 0;
+                  const type = (m.type || '').toUpperCase();
+                  const desc = (m.description || '').toLowerCase();
+
+                  if (type === 'IN' || type === 'ENTRADA') {
+                    if (desc.includes('venta') || desc.includes('cobro')) {
+                      totalCash += amt;
+                    } else {
+                      totalEntries += amt;
+                    }
+                  } else if (type === 'OUT' || type === 'SALIDA') {
+                    totalWithdrawals += amt;
+                  }
+                }
+
+                return {
+                  sessionId,
+                  openingAmount: 0,
+                  totalCashSales: totalCash,
+                  totalCardSales: 0,
+                  totalTransferSales: 0,
+                  totalChequeSales: 0,
+                  totalEntries,
+                  totalWithdrawals,
+                };
+              }),
+              catchError(() =>
+                of({
+                  sessionId,
+                  openingAmount: 0,
+                  totalCashSales: 0,
+                  totalCardSales: 0,
+                  totalTransferSales: 0,
+                  totalChequeSales: 0,
+                  totalEntries: 0,
+                  totalWithdrawals: 0,
+                }),
+              ),
+            );
+        }),
       );
   }
 
   // 6. Record Cash Movement in DB
   recordMovement(dto: CashMovementDto): Observable<CashMovementDto> {
-    return this.http.post<any>(`${this.baseUrl}/caja/movements`, dto).pipe(
-      map((res) => res?.data || res || dto),
-      catchError(() =>
-        this.http.post<any>(`${this.baseUrl}/CashMovement`, {
-          cashRegisterId: dto.cashSessionId,
-          amount: dto.amount,
-          type: dto.type === 'ENTRY' ? 'In' : 'Out',
-          description: dto.concept + (dto.observations ? ` - ${dto.observations}` : ''),
-        }).pipe(map((res) => res?.data || res || dto))
-      )
-    );
+    return this.http
+      .post<any>(`${this.baseUrl}/CashMovement`, {
+        cashRegisterId: dto.cashSessionId,
+        amount: dto.amount,
+        type: dto.type === 'ENTRY' ? 'In' : 'Out',
+        description:
+          dto.concept + (dto.observations ? ` - ${dto.observations}` : ''),
+      })
+      .pipe(
+        map((res) => res?.data || res || dto),
+        catchError(() => of(dto)),
+      );
   }
 
+  // 7. Create Sale in Cash Register
   createCajaSale(dto: {
     idempotencyKey: string;
     customerId?: number;
@@ -236,26 +221,23 @@ export class CashierService {
     createBy?: string;
     items: { productId: number; quantity: number; unitPrice: number }[];
   }): Observable<any> {
-    const payload = {
-      ...dto,
-      createBy: dto.createBy || 'system',
-    };
-    return this.http.post<any>(`${this.baseUrl}/caja/sales`, payload).pipe(
-      map((res) => res?.data || res),
-      catchError(() =>
-        this.http.post<any>(`${this.baseUrl}/Sale`, {
-          customerId: dto.customerId || null,
-          total: dto.items.reduce((acc, i) => acc + i.quantity * i.unitPrice, 0),
-          paidAmount: dto.items.reduce((acc, i) => acc + i.quantity * i.unitPrice, 0),
-          cashRegisterId: dto.cashRegisterId,
-          details: dto.items.map((it) => ({
-            productId: it.productId,
-            quantity: it.quantity,
-            unitPrice: it.unitPrice,
-          })),
-        })
-      )
-    );
+    return this.http.post<any>(`${this.baseUrl}/Sale`, {
+      customerId: dto.customerId || null,
+      total: dto.items.reduce(
+        (acc, i) => acc + i.quantity * i.unitPrice,
+        0,
+      ),
+      paidAmount: dto.items.reduce(
+        (acc, i) => acc + i.quantity * i.unitPrice,
+        0,
+      ),
+      cashRegisterId: dto.cashRegisterId,
+      details: dto.items.map((it) => ({
+        productId: it.productId,
+        quantity: it.quantity,
+        unitPrice: it.unitPrice,
+      })),
+    });
   }
 
   // 8. Add Payment to Sale in DB
@@ -266,10 +248,10 @@ export class CashierService {
       method: string;
       reference?: string;
       cashRegisterId?: number;
-    }
+    },
   ): Observable<any> {
-    return this.http.post<any>(`${this.baseUrl}/sale/${saleId}/payments`, dto).pipe(
-      map((res) => res?.data || res)
-    );
+    return this.http
+      .post<any>(`${this.baseUrl}/sale/${saleId}/payments`, dto)
+      .pipe(map((res) => res?.data || res));
   }
 }

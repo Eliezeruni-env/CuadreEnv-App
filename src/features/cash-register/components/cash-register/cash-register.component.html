@@ -36,9 +36,20 @@
       <!-- Formulario de Apertura -->
       <form cForm [formGroup]="openSessionForm" class="text-start mb-3">
         <div class="mb-3">
-          <label class="form-label fw-bold text-body"
-            >Monto inicial de apertura (Fondo de caja) *</label
-          >
+          <div class="d-flex justify-content-between align-items-center mb-1">
+            <label class="form-label fw-bold text-body mb-0"
+              >Monto inicial de apertura (Fondo de caja) *</label
+            >
+            <button
+              type="button"
+              class="btn btn-sm btn-outline-primary fw-semibold d-flex align-items-center gap-1"
+              (click)="toggleOpenDenominations()"
+            >
+              <span>💼 Billetera Visual (Desglose)</span>
+              <span>{{ showOpenDenominations() ? '▲' : '▼' }}</span>
+            </button>
+          </div>
+
           <div class="input-group">
             <span class="input-group-text fw-semibold bg-light">RD$</span>
             <input
@@ -48,7 +59,7 @@
               cFormControl
               formControlName="initialAmount"
               placeholder="10000.00"
-              class="form-control-lg fw-bold"
+              class="form-control-lg fw-bold font-monospace"
             />
           </div>
           @if (
@@ -57,6 +68,82 @@
           ) {
             <div class="text-danger small mt-1">
               El monto inicial debe ser mayor o igual a cero.
+            </div>
+          }
+
+          <!-- Billetera Visual Desplegable (Conteo Rápido Táctil) -->
+          @if (showOpenDenominations()) {
+            <div class="card border rounded-3 p-3 mt-2 bg-light-subtle shadow-xs">
+              <div class="d-flex justify-content-between align-items-center mb-2">
+                <span class="small fw-bold text-dark text-uppercase">Billetera Dominicana (Toque Rápido):</span>
+                <div class="d-flex align-items-center gap-2">
+                  <span class="badge bg-success-subtle text-success border font-monospace">
+                    Total: RD$ {{ openDenominationSum() | number:'1.2-2' }}
+                  </span>
+                  <button
+                    type="button"
+                    class="btn btn-sm text-secondary p-0 border-0"
+                    (click)="clearOpenDenominations()"
+                    title="Reiniciar a 0"
+                  >
+                    Limpiar
+                  </button>
+                </div>
+              </div>
+
+              <!-- Billetes -->
+              <div class="row g-2 mb-2">
+                @for (d of openBills(); track d.value; let idx = $index) {
+                  <div class="col-6 col-sm-4 col-md-2">
+                    <div class="card h-100 border p-2 text-center bg-white shadow-2xs rounded-3">
+                      <div class="fw-bold text-dark small font-monospace">RD$ {{ d.value | number:'1.0-0' }}</div>
+                      <div class="my-1 d-flex align-items-center justify-content-center gap-1">
+                        <button
+                          type="button"
+                          class="btn btn-sm btn-light border py-0 px-2 fw-bold"
+                          (click)="addOpenDenominationCount(idx, -1)"
+                        >-</button>
+                        <span class="fw-bold font-monospace px-1">{{ d.count }}</span>
+                        <button
+                          type="button"
+                          class="btn btn-sm btn-light border py-0 px-2 fw-bold"
+                          (click)="addOpenDenominationCount(idx, 1)"
+                        >+</button>
+                      </div>
+                      <div class="text-secondary small font-monospace" style="font-size: 0.7rem;">
+                        = RD$ {{ d.subtotal | number:'1.0-0' }}
+                      </div>
+                    </div>
+                  </div>
+                }
+              </div>
+
+              <!-- Monedas -->
+              <div class="row g-2">
+                @for (d of openCoins(); track d.value; let idx = $index) {
+                  <div class="col-6 col-sm-3 col-md-3">
+                    <div class="card h-100 border p-2 text-center bg-white shadow-2xs rounded-3">
+                      <div class="fw-bold text-secondary small font-monospace">RD$ {{ d.value }} (Moneda)</div>
+                      <div class="my-1 d-flex align-items-center justify-content-center gap-1">
+                        <button
+                          type="button"
+                          class="btn btn-sm btn-light border py-0 px-2 fw-bold"
+                          (click)="addOpenDenominationCount(idx + 6, -1)"
+                        >-</button>
+                        <span class="fw-bold font-monospace px-1">{{ d.count }}</span>
+                        <button
+                          type="button"
+                          class="btn btn-sm btn-light border py-0 px-2 fw-bold"
+                          (click)="addOpenDenominationCount(idx + 6, 1)"
+                        >+</button>
+                      </div>
+                      <div class="text-secondary small font-monospace" style="font-size: 0.7rem;">
+                        = RD$ {{ d.subtotal | number:'1.0-0' }}
+                      </div>
+                    </div>
+                  </div>
+                }
+              </div>
             </div>
           }
         </div>
@@ -227,6 +314,14 @@
           </svg>
           <span>{{ currentDateFormatted() }}</span>
         </div>
+
+        <a
+          [routerLink]="['/cash-register/fraud-guardian']"
+          class="btn btn-outline-danger fw-bold d-flex align-items-center gap-1 shadow-xs px-3"
+          title="Ver alertas de prevención de pérdidas y auditoría de cajeros"
+        >
+          <span>🛡️ Auditoría Antirrobo</span>
+        </a>
 
         <!-- Pausar / Reanudar Caja Button -->
         @if (activeSession()?.status !== 'PAUSED') {
@@ -668,7 +763,7 @@
   #closeRegisterModal
   [(visible)]="isCloseModalOpen"
   [session]="activeSession()"
-  (closed)="loadData()"
+  (closed)="onRegisterClosed()"
 ></app-close-register-modal>
 
 <!-- Sale Completed / Invoice Printable Receipt Modal -->

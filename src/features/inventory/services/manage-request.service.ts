@@ -39,11 +39,22 @@ export class ManageRequestService {
   }
 
   async getRequests(statusId?: number): Promise<ApiResponse<ManageRequest[]>> {
-    const list = this.getLocalRequests();
-    if (statusId) {
-      return { success: true, data: list.filter((r) => r.statusId === statusId) };
+    try {
+      const res = await this.api.get<any, any>('/ManageRequest');
+      const list = extractArray<ManageRequest>(res);
+      if (list && list.length > 0) {
+        if (statusId) {
+          return { success: true, data: list.filter((r) => r.statusId === statusId) };
+        }
+        return { success: true, data: list };
+      }
+      const local = this.getLocalRequests();
+      return { success: true, data: statusId ? local.filter((r) => r.statusId === statusId) : local };
+    } catch {
+      // Si el backend aún no implementa [HttpGet] en ManageRequest, recuperar cola local
+      const local = this.getLocalRequests();
+      return { success: true, data: statusId ? local.filter((r) => r.statusId === statusId) : local };
     }
-    return { success: true, data: list };
   }
 
   async getRequest(id: number): Promise<ApiResponse<ManageRequest>> {
@@ -128,13 +139,18 @@ export class ManageRequestService {
         for (const it of payload.items) {
           const qty = Number(it.quantityReceived ?? it.quantity ?? 0);
           if (qty !== 0) {
-            await this.stockService.updateStock(
-              payload.warehouseId || 1,
-              it.productId,
-              qty,
-              it.productName,
-              it.barCode,
-            );
+            if (req.requestType === ManageRequestType.WarehouseTransfer || payload.sourceWarehouseId) {
+              const srcWh = payload.sourceWarehouseId || payload.warehouseId || 1;
+              const tgtWh = payload.targetWarehouseId || 2;
+              await this.stockService.updateStock(srcWh, it.productId, -Math.abs(qty), it.productName, it.barCode);
+              await this.stockService.updateStock(tgtWh, it.productId, Math.abs(qty), it.productName, it.barCode);
+            } else if (req.requestType === ManageRequestType.WarehouseOutlet || payload.isOutlet) {
+              const wh = payload.warehouseId || 1;
+              await this.stockService.updateStock(wh, it.productId, -Math.abs(qty), it.productName, it.barCode);
+            } else {
+              const wh = payload.warehouseId || 1;
+              await this.stockService.updateStock(wh, it.productId, Math.abs(qty), it.productName, it.barCode);
+            }
           }
         }
       }

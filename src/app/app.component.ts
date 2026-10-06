@@ -50,6 +50,28 @@ export class AppComponent implements OnInit {
         }
       });
 
+    // Clean up legacy hardcoded mock cache keys if present
+    try {
+      if (typeof window !== 'undefined' && window.localStorage) {
+        const legacyMockKeys = [
+          'cuadreenv_purchase_orders_db',
+          'cuadreenv_po_receipts_db',
+          'cuadreenv_purchases_db',
+          'cuadreenv_local_sales_cache',
+          'cuadreEnv_inventory_movements',
+          'cuadreenv_stock_matrix_db',
+        ];
+        for (const k of legacyMockKeys) {
+          const val = localStorage.getItem(k);
+          if (val && (val.includes('Distribuidora Nacional') || val.includes('Coca Cola 2L Regular') || val.includes('Arroz Premium'))) {
+            localStorage.removeItem(k);
+          }
+        }
+      }
+    } catch {
+      // ignore
+    }
+
     this.#activatedRoute.queryParams
       .pipe(
         delay(1),

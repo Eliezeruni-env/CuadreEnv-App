@@ -99,7 +99,7 @@ export class ServiceSalePageComponent implements OnInit {
   async loadData() {
     try {
       const [custRes, services] = await Promise.all([
-        this.customerService.getCustomers({ pageNumber: 1, pageSize: 200 } as any),
+        this.customerService.getCustomers({ pageNumber: 1, pageSize: 100 } as any),
         this.serviceService.getServices({ activeOnly: true }),
       ]);
 

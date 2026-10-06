@@ -45,6 +45,9 @@
             </h5>
             <span class="text-muted small">
               {{ receivable.customerName }} · {{ receivable.invoiceNumber }}
+              @if (receivable.warehouseName) {
+                · 🏢 {{ receivable.warehouseName }}
+              }
             </span>
           </div>
         </div>
@@ -157,18 +160,10 @@
           <button
             type="button"
             class="tab-btn"
-            [class.active]="activeTab() === 'client'"
-            (click)="setTab('client')"
-          >
-            Editar Cliente
-          </button>
-          <button
-            type="button"
-            class="tab-btn"
             [class.active]="activeTab() === 'sale'"
             (click)="setTab('sale')"
           >
-            Editar Venta
+            Detalle de Venta y Artículos
           </button>
         </div>
 
@@ -633,50 +628,7 @@
           </div>
         }
 
-        <!-- TAB 4: EDITAR CLIENTE -->
-        @if (activeTab() === 'client') {
-          <form cForm [formGroup]="clientForm" class="py-2">
-            <div class="mb-3">
-              <label class="form-label required-label"
-                >Nombre del Cliente</label
-              >
-              <input
-                type="text"
-                cFormControl
-                formControlName="customerName"
-              />
-            </div>
-            <div class="row g-3 mb-3">
-              <div class="col-md-6">
-                <label class="form-label">Teléfono</label>
-                <input
-                  type="text"
-                  cFormControl
-                  formControlName="customerPhone"
-                />
-              </div>
-              <div class="col-md-6">
-                <label class="form-label">Correo Electrónico</label>
-                <input
-                  type="email"
-                  cFormControl
-                  formControlName="customerEmail"
-                />
-              </div>
-            </div>
-            <div class="mb-3">
-              <label class="form-label">Identificación / Cédula / RNC</label>
-              <input
-                type="text"
-                cFormControl
-                formControlName="customerIdentification"
-                placeholder="001-0000000-0"
-              />
-            </div>
-          </form>
-        }
-
-        <!-- TAB 5: EDITAR VENTA -->
+        <!-- TAB: DETALLE DE VENTA Y ARTÍCULOS -->
         @if (activeTab() === 'sale') {
           <form cForm [formGroup]="saleEditForm" class="py-2">
             <div class="mb-3">
@@ -710,6 +662,45 @@
                 />
               </div>
             </div>
+
+            @if (receivable.items && receivable.items.length > 0) {
+              <div class="mt-3 pt-3 border-top">
+                <h6 class="small fw-bold text-secondary mb-2">Artículos del Apartado / Venta a Crédito</h6>
+                <div class="table-responsive border rounded-3 overflow-hidden">
+                  <table class="table table-sm table-hover mb-0 align-middle">
+                    <thead class="table-light small">
+                      <tr>
+                        <th class="ps-3">Producto</th>
+                        <th class="text-center" style="width: 80px;">Cant.</th>
+                        <th class="text-end" style="width: 120px;">Precio</th>
+                        <th class="text-end pe-3" style="width: 130px;">Subtotal</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      @for (it of receivable.items; track it.productId) {
+                        <tr>
+                          <td class="ps-3">
+                            <span class="fw-semibold text-body">{{ it.productName }}</span>
+                            @if (it.barCode) {
+                              <small class="text-muted d-block font-monospace">{{ it.barCode }}</small>
+                            }
+                          </td>
+                          <td class="text-center">
+                            <span class="badge bg-secondary-subtle text-secondary border px-2">
+                              {{ it.quantity }}
+                            </span>
+                          </td>
+                          <td class="text-end font-monospace">RD$ {{ it.unitPrice | number:'1.2-2' }}</td>
+                          <td class="text-end pe-3 font-monospace fw-bold text-primary">
+                            RD$ {{ it.subtotal | number:'1.2-2' }}
+                          </td>
+                        </tr>
+                      }
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            }
           </form>
         }
       </div>

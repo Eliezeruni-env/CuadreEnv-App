@@ -251,4 +251,64 @@ export class ReceivablesComponent implements OnInit {
       this.isLoading.set(false);
     }
   }
+
+  // =========================================================================
+  // Control Inteligente de Cuentas por Cobrar ("El Fiado Organizado")
+  // =========================================================================
+  getCreditTrafficLight(item: ReceivableDto): {
+    color: 'green' | 'yellow' | 'red';
+    label: string;
+    isBlocked: boolean;
+  } {
+    if (item.pendingAmount <= 0 || item.status === 'Pagado') {
+      return { color: 'green', label: 'Al Día (Saldado)', isBlocked: false };
+    }
+
+    if (item.status === 'Vencido') {
+      return { color: 'red', label: 'Vencida · Crédito Bloqueado', isBlocked: true };
+    }
+
+    if (item.dueDate) {
+      const due = new Date(item.dueDate).getTime();
+      const now = new Date().setHours(0, 0, 0, 0);
+      const diffDays = Math.ceil((due - now) / (1000 * 60 * 60 * 24));
+
+      if (diffDays < 0) {
+        return {
+          color: 'red',
+          label: `Vencida (${Math.abs(diffDays)}d) · Bloqueada`,
+          isBlocked: true,
+        };
+      } else if (diffDays <= 3) {
+        return {
+          color: 'yellow',
+          label: `Vence en ${diffDays === 0 ? 'Hoy' : diffDays + 'd'} · Alerta`,
+          isBlocked: false,
+        };
+      } else {
+        return {
+          color: 'green',
+          label: `Al Día (${diffDays}d restantes)`,
+          isBlocked: false,
+        };
+      }
+    }
+
+    return { color: 'green', label: 'Al Día', isBlocked: false };
+  }
+
+  sendWhatsAppReminder(item: ReceivableDto): void {
+    const rawPhone = (item.customerPhone || '').replace(/[^0-9]/g, '');
+    const cleanPhone = rawPhone.length === 10 ? '1' + rawPhone : rawPhone;
+    const dueDateStr = item.dueDate
+      ? new Date(item.dueDate).toLocaleDateString('es-DO')
+      : 'fecha acordada';
+
+    const msg = `Hola ${item.customerName}, le saludamos de CuadreEnv. Le enviamos un recordatorio amistoso de su saldo pendiente de RD$ ${item.pendingAmount.toLocaleString('es-DO', { minimumFractionDigits: 2 })} correspondiente a la factura ${item.invoiceNumber} con fecha límite ${dueDateStr}. Agradecemos su pronta atención. Para cualquier consulta estamos a su entera orden. ¡Muchas gracias!`;
+
+    const url = `https://wa.me/${cleanPhone}?text=${encodeURIComponent(msg)}`;
+    if (typeof window !== 'undefined') {
+      window.open(url, '_blank');
+    }
+  }
 }

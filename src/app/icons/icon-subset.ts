@@ -133,12 +133,26 @@ export const cilWrench = [
   '<path fill="currentColor" d="M501.1 395.7L386.4 281c-4-4-10.5-4.1-14.7-.2l-37.3 37.3c-4 4-3.9 10.7.2 14.7l114.7 114.7c15.6 15.6 40.9 15.6 56.6 0s15.6-40.9-.2-56.6zM224 136c0-49.7 32.4-91.9 77.3-106.1 6.4-2 9.5-9.2 6.9-15.3-7.6-17.6-26.6-29.3-48.2-29.3-79.5 0-144 64.5-144 144 0 28.5 8.4 55.1 22.8 77.4L10.3 334.9c-13.7 13.7-13.7 36.1 0 49.8l117 117c13.7 13.7 36.1 13.7 49.8 0l128.2-128.2c22.3 14.4 48.9 22.8 77.4 22.8 79.5 0 144-64.5 144-144 0-21.6-11.7-40.6-29.3-48.2-6.1-2.6-13.3.5-15.3 6.9C368.6 256.3 326.4 288.7 276.7 288.7 200.2 288.7 136 224.5 136 148c0-4.1.3-8.1.8-12H224z"/>'
 ];
 
+export const cilDevices = [
+  '512 512',
+  '<path fill="currentColor" d="M400 96H80c-26.5 0-48 21.5-48 48v224c0 26.5 21.5 48 48 48h136v32h-40c-13.3 0-24 10.7-24 24s10.7 24 24 24h168c13.3 0 24-10.7 24-24s-10.7-24-24-24h-40v-32h136c26.5 0 48-21.5 48-48V144c0-26.5-21.5-48-48-48zm16 272c0 8.8-7.2 16-16 16H80c-8.8 0-16-7.2-16-16V144c0-8.8 7.2-16 16-16h320c8.8 0 16 7.2 16 16v224z"/>'
+];
+
+export const cilChartLine = [
+  '512 512',
+  '<path fill="currentColor" d="M496 416H48V48c0-8.8-7.2-16-16-16s-16 7.2-16 16v384c0 8.8 7.2 16 16 16h464c8.8 0 16-7.2 16-16s-7.2-16-16-16zM140.2 276.2l83.9-83.9 75.9 75.9c6.2 6.2 16.4 6.2 22.6 0l152-152c6.2-6.2 6.2-16.4 0-22.6s-16.4-6.2-22.6 0L311.3 234.3l-75.9-75.9c-6.2-6.2-16.4-6.2-22.6 0l-95.2 95.2c-6.2 6.2-6.2 16.4 0 22.6 6.2 6.3 16.4 6.3 22.6 0z"/>'
+];
+
 import { signet } from './signet';
 import { logo } from './logo';
 
 export const iconSubset = {
   cilWrench,
   'cil-wrench': cilWrench,
+  cilDevices,
+  'cil-devices': cilDevices,
+  cilChartLine,
+  'cil-chart-line': cilChartLine,
   cilReload,
   'cil-reload': cilReload,
   cilBank,
@@ -258,6 +272,10 @@ export const iconSubset = {
   cilUserUnfollow,
   cilFilter,
   cilChevronTop,
+  cilChevronBottom: ['512 512', '<path fill="var(--ci-primary-color, currentColor)" d="M128 192l128 128 128-128z"/>'],
+  'cil-chevron-bottom': ['512 512', '<path fill="var(--ci-primary-color, currentColor)" d="M128 192l128 128 128-128z"/>'],
+  cilBolt: ['512 512', '<path fill="var(--ci-primary-color, currentColor)" d="M296 16L120 272h120l-24 224 176-256H272z"/>'],
+  'cil-bolt': ['512 512', '<path fill="var(--ci-primary-color, currentColor)" d="M296 16L120 272h120l-24 224 176-256H272z"/>'],
   cilBriefcase,
   'cil-briefcase': cilBriefcase,
   cilContact,
@@ -418,6 +436,8 @@ export enum IconSubset {
   cilAddressBook = 'cilAddressBook',
   cilWallet = 'cilWallet',
   cilCash = 'cilCash',
+  cilChevronBottom = 'cilChevronBottom',
+  cilBolt = 'cilBolt',
   logo = 'logo',
   signet = 'signet'
 }

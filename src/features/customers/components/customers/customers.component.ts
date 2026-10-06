@@ -129,10 +129,8 @@ export class CustomersComponent implements OnInit {
     try {
       const res = await this.customerService.getCustomers({
         pageNumber: 1,
-        pageSize: 1000,
-        PageNumber: 1,
-        PageSize: 1000
-      } as any);
+        pageSize: 100,
+      });
       if (res.success && res.data) {
         this.customers.set(res.data);
         this.totalItems.set(this.getFilteredCustomersCount());

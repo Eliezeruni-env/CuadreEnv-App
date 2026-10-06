@@ -170,6 +170,39 @@
                   </p>
                 </div>
               }
+
+              <!-- BOT DE WHATSAPP DIARIO PARA EL ADMINISTRADOR -->
+              <div class="mt-3 p-3 rounded-4 bg-success-subtle border border-success border-opacity-50 text-start">
+                <div class="d-flex align-items-center justify-content-between mb-2">
+                  <div class="d-flex align-items-center gap-2">
+                    <span class="fs-4">📲</span>
+                    <div>
+                      <h6 class="mb-0 fw-bold text-success-emphasis">Notificar al Administrador por WhatsApp</h6>
+                      <small class="text-secondary font-size-xs">Envía el arqueo, balance del turno y diferencias directamente a su chat</small>
+                    </div>
+                  </div>
+                  <span class="badge bg-success text-white">Bot de Cierre</span>
+                </div>
+
+                <div class="d-flex flex-column flex-sm-row gap-2 align-items-sm-center mt-2">
+                  <div class="flex-grow-1">
+                    <input
+                      type="tel"
+                      class="form-control form-control-sm"
+                      placeholder="Teléfono del dueño / admin (ej. 809-555-0199)"
+                      [ngModel]="ownerPhone()"
+                      (ngModelChange)="ownerPhone.set($event)"
+                    />
+                  </div>
+                  <button
+                    type="button"
+                    class="btn btn-success btn-sm fw-bold d-flex align-items-center justify-content-center gap-1 px-3 py-1 text-nowrap shadow-xs"
+                    (click)="sendClosingReportToWhatsApp()"
+                  >
+                    <span>📲 Enviar Reporte WhatsApp</span>
+                  </button>
+                </div>
+              </div>
             </div>
           </div>
         } @else {
@@ -477,6 +510,55 @@
             }
           </div>
 
+          <!-- AUTORIZACIÓN DE SUPERVISOR POR DESCUADRE FUERA DE TOLERANCIA -->
+          @if (showSupervisorPinAuth() || isSupervisorPinApproved()) {
+            <div class="mb-3 p-3 rounded-3 border" [ngClass]="isSupervisorPinApproved() ? 'bg-success-subtle border-success' : 'bg-warning-subtle border-warning'">
+              <div class="d-flex align-items-center justify-content-between mb-2">
+                <div class="d-flex align-items-center gap-2">
+                  <span class="fs-5">{{ isSupervisorPinApproved() ? '✅' : '🔒' }}</span>
+                  <div>
+                    <h6 class="mb-0 fw-bold" [ngClass]="isSupervisorPinApproved() ? 'text-success' : 'text-warning-emphasis'">
+                      {{ isSupervisorPinApproved() ? 'Descuadre Autorizado por Supervisión' : 'Descuadre Fuera de Tolerancia (±RD$ ' + maxTolerance().toFixed(2) + ')' }}
+                    </h6>
+                    <small class="text-muted">
+                      {{ isSupervisorPinApproved() ? 'El cierre de turno ha sido desbloqueado por el supervisor.' : 'El sistema bloquea el cierre hasta que un supervisor introduzca su PIN de seguridad.' }}
+                    </small>
+                  </div>
+                </div>
+                @if (isSupervisorPinApproved()) {
+                  <span class="badge bg-success">PIN Aprobado</span>
+                }
+              </div>
+
+              @if (!isSupervisorPinApproved()) {
+                <div class="d-flex align-items-center gap-2 mt-2">
+                  <input type="text" name="username" autocomplete="username" style="display:none;" aria-hidden="true" tabindex="-1" />
+                  <input
+                    type="password"
+                    placeholder="Clave de Supervisor"
+                    autocomplete="current-password"
+                    class="form-control form-control-sm text-center fw-bold"
+                    style="max-width: 220px; font-size: 1rem;"
+                    #pinInput
+                    (keyup.enter)="verifySupervisorPin(pinInput.value)"
+                  />
+                  <button
+                    type="button"
+                    class="btn btn-warning btn-sm fw-bold px-3"
+                    (click)="verifySupervisorPin(pinInput.value)"
+                  >
+                    Autorizar Cierre
+                  </button>
+                </div>
+                @if (supervisorErrorMessage()) {
+                  <div class="small text-danger mt-1 fw-semibold">
+                    {{ supervisorErrorMessage() }}
+                  </div>
+                }
+              }
+            </div>
+          }
+
           <!-- 4. OBSERVACIONES / NOTAS -->
           <div class="notes-section">
             <form [formGroup]="form">
@@ -500,16 +582,25 @@
       <!-- Footer -->
       <div class="custom-modal-footer px-4 py-3 border-top bg-light-subtle">
         @if (closeAuditResult()) {
-          <button
-            type="button"
-            class="btn-finish-audit"
-            (click)="finishAndDismiss()"
-          >
-            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <polyline points="20 6 9 17 4 12"></polyline>
-            </svg>
-            Finalizar y Salir
-          </button>
+          <div class="d-flex align-items-center justify-content-between w-100 gap-2">
+            <button
+              type="button"
+              class="btn btn-outline-success d-flex align-items-center gap-1 fw-semibold px-3 py-2 rounded-3"
+              (click)="sendClosingReportToWhatsApp()"
+            >
+              <span>📲 Enviar a WhatsApp</span>
+            </button>
+            <button
+              type="button"
+              class="btn-finish-audit"
+              (click)="finishAndDismiss()"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="20 6 9 17 4 12"></polyline>
+              </svg>
+              Finalizar y Salir
+            </button>
+          </div>
         } @else {
           <button
             type="button"

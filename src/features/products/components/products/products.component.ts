@@ -7,6 +7,7 @@ import { NotificationService } from '../../../cuadreEnv/services/notification.se
 import { ConfirmDialogService } from '../../../cuadreEnv/services/confirm-dialog.service';
 import type { ProductDto } from '../../../cuadreEnv/types/api';
 import { ProductModalComponent } from './product-modal.component';
+import { ProductImportModalComponent } from './product-import-modal.component';
 import {
   FilterPanelComponent,
   type FilterConfig,
@@ -29,21 +30,30 @@ import { KtPaginatorComponent } from '../../../billing/components/kt-paginator/k
     AlertComponent,
     SpinnerComponent,
     ProductModalComponent,
+    ProductImportModalComponent,
     FilterPanelComponent,
     KtPaginatorComponent,
   ],
 })
 export class ProductsComponent implements OnInit {
   @ViewChild('productModal') productModal!: ProductModalComponent;
+  @ViewChild('importModal') importModal!: ProductImportModalComponent;
 
   readonly translationService = inject(TranslationService);
   readonly authService = inject(AuthService);
   private confirmService = inject(ConfirmDialogService);
   private notificationService = inject(NotificationService);
 
+  openImportModal(): void {
+    this.importModal?.open();
+  }
+
   products = signal<ProductDto[]>([]);
   isLoading = signal<boolean>(false);
   errorMessage = signal<string | null>(null);
+
+  expiringProducts = signal<{ product: ProductDto; daysRemaining: number }[]>([]);
+  showExpirationModal = signal<boolean>(false);
 
   lowStockCount = computed(() =>
     this.products().filter((p) => this.getStockState(p) !== 'healthy').length,
@@ -55,10 +65,12 @@ export class ProductsComponent implements OnInit {
     ),
   );
 
-  // Pagination
+  // Pagination & Stale Request Tracking
   currentPage = signal<number>(1);
   pageSize = 10;
   totalItems = signal<number>(0);
+  pageCount = signal<number>(1);
+  private latestRequestId = 0;
 
   filters = signal<FilterValues>({});
   readonly filterConfig = computed<FilterConfig[]>(() => [
@@ -131,37 +143,102 @@ export class ProductsComponent implements OnInit {
   }
 
   async loadProducts() {
+    const requestId = ++this.latestRequestId;
     this.isLoading.set(true);
     this.errorMessage.set(null);
+
+    const activeFilters = this.filters();
+    const search = String((activeFilters['search'] as string | undefined) || '').trim();
+    const validPage = Math.max(1, this.currentPage());
+    const validSize = Math.min(100, Math.max(1, this.pageSize));
+
     try {
       const res = await this.productService.getPagedProducts(
-        this.currentPage(),
-        this.pageSize,
+        validPage,
+        validSize,
+        search || undefined,
       );
+
+      // Cancelar o ignorar respuestas antiguas al escribir filtros rápidamente
+      if (requestId !== this.latestRequestId) {
+        return;
+      }
+
       if (res.success && res.data) {
         this.products.set(res.data.items || []);
-        this.totalItems.set(res.data.total || 0);
+        this.totalItems.set(res.data.totalItemCount ?? res.data.total ?? 0);
+        this.pageCount.set(res.data.pageCount || 1);
+        this.checkExpiringProducts();
       } else {
-        this.errorMessage.set(
-          res.message || 'Failed to load products catalogue.',
-        );
+        // No tratar un listado vacío como error
+        this.products.set([]);
+        this.totalItems.set(0);
+        this.pageCount.set(1);
       }
     } catch (e: any) {
-      const mapped = this.notificationService.showApiError(e);
-      this.errorMessage.set(mapped.message);
+      if (requestId === this.latestRequestId) {
+        this.products.set([]);
+        this.totalItems.set(0);
+        this.pageCount.set(1);
+        const mapped = this.notificationService.showApiError(e);
+        this.errorMessage.set(mapped.message);
+      }
     } finally {
-      this.isLoading.set(false);
+      if (requestId === this.latestRequestId) {
+        this.isLoading.set(false);
+      }
     }
   }
 
+  checkExpiringProducts() {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    const expiring: { product: ProductDto; daysRemaining: number }[] = [];
+
+    this.products().forEach((p) => {
+      if (!p.expirationDate) return;
+      const expDate = new Date(p.expirationDate);
+      expDate.setHours(0, 0, 0, 0);
+      if (isNaN(expDate.getTime())) return;
+
+      const diffMs = expDate.getTime() - today.getTime();
+      const diffDays = Math.round(diffMs / (1000 * 60 * 60 * 24));
+
+      if (diffDays <= 3) {
+        expiring.push({ product: p, daysRemaining: diffDays });
+      }
+    });
+
+    this.expiringProducts.set(expiring);
+    if (expiring.length > 0 && !sessionStorage.getItem('cuadreenv_dismissed_expiration_alert')) {
+      this.showExpirationModal.set(true);
+    }
+  }
+
+  dismissExpirationModal() {
+    this.showExpirationModal.set(false);
+    sessionStorage.setItem('cuadreenv_dismissed_expiration_alert', 'true');
+  }
+
+  openExpirationModalManually() {
+    this.showExpirationModal.set(true);
+  }
+
   onPageChange(page: number) {
-    if (page < 1) return;
+    // No solicitar páginas menores que 1 ni mayores que pageCount
+    if (page < 1 || page === this.currentPage()) return;
+    const maxPage = Math.max(1, this.pageCount());
+    if (page > maxPage) return;
     this.currentPage.set(page);
     this.loadProducts();
   }
 
   onFiltersChange(values: FilterValues) {
     this.filters.set(values);
+    // Reiniciar pageNumber a 1 cuando cambie un filtro
+    this.currentPage.set(1);
+    this.loadProducts();
   }
 
   getStockState(product: ProductDto): 'healthy' | 'low' | 'critical' {

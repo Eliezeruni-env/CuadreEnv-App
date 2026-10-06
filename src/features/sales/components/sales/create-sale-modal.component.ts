@@ -83,9 +83,7 @@ export class CreateSaleModalComponent implements OnInit {
       const cRes = await this.customerService.getCustomers({
         pageNumber: 1,
         pageSize: 100,
-        PageNumber: 1,
-        PageSize: 100,
-      } as any);
+      });
       if (cRes.success && cRes.data) {
         this.customers.set(cRes.data);
       }

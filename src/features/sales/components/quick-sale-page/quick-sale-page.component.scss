@@ -129,25 +129,71 @@
   justify-content: center;
   touch-action: manipulation;
   user-select: none;
+  transition: transform 0.08s ease, background-color 0.15s ease;
+
+  &:active {
+    transform: scale(0.96);
+  }
+}
+
+.btn-white {
+  background-color: #ffffff;
+  color: #1e293b;
+
+  &:hover {
+    background-color: #f8fafc;
+    color: #0f172a;
+  }
 }
 
 .product-touch-card {
-  min-height: 96px;
+  min-height: 104px;
   transition: all 0.15s ease-in-out;
   touch-action: manipulation;
+  background-color: #ffffff;
 
   &:hover {
     transform: translateY(-2px);
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+    box-shadow: 0 6px 16px rgba(37, 99, 235, 0.12);
     border-color: #2563eb !important;
+  }
+
+  &:active {
+    transform: scale(0.98);
+  }
+}
+
+.pos-selected-row {
+  background-color: rgba(37, 99, 235, 0.08) !important;
+  border-left: 4px solid #2563eb !important;
+  transition: background-color 0.12s ease;
+
+  td {
+    background-color: transparent !important;
   }
 }
 
 .pos-shortcut-bar {
+  button.touch-btn {
+    min-height: 38px;
+    font-size: 0.85rem;
+    transition: all 0.12s ease;
+
+    &:hover {
+      background-color: #f1f5f9;
+      border-color: #cbd5e1;
+    }
+
+    &:active {
+      transform: scale(0.97);
+    }
+  }
+
   kbd {
     font-family: monospace;
     font-size: 0.8rem;
     font-weight: 700;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
   }
 }
 
@@ -164,4 +210,5 @@
   from { transform: scale(0.95); opacity: 0; }
   to { transform: scale(1); opacity: 1; }
 }
+
 

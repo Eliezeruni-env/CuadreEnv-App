@@ -26,6 +26,8 @@ describe('HasPermissionDirective', () => {
       isSuperUser: vi.fn().mockReturnValue(false),
       currentRole: vi.fn().mockReturnValue('Cajero'),
       currentRoles: vi.fn().mockReturnValue(['Cajero']),
+      allowedModules: vi.fn().mockReturnValue([]),
+      userPermissions: vi.fn().mockReturnValue([]),
     };
 
     await TestBed.configureTestingModule({

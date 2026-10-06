@@ -1,18 +1,22 @@
-// ApiResponse<T>
-export interface ApiResponse<T> {
+// ApiResponse<T> estándar de la API CuadreEnv
+export interface ApiResponse<T = any> {
   success: boolean;
   data?: T | null;
   message?: string | null;
-  errors?: string[] | null;
+  errors?: string[];
 }
 
-// PagedList<T>
-export interface PagedList<T> {
+// PagedResult<T> canónico de CuadreEnv
+export interface PagedResult<T> {
   items: T[];
-  pageNumber: number;
   pageSize: number;
+  pageCount: number;
   totalItemCount: number;
-  pageCount?: number;
+}
+
+// PagedList<T> alias para compatibilidad
+export interface PagedList<T> extends PagedResult<T> {
+  pageNumber?: number;
   hasPreviousPage?: boolean;
   hasNextPage?: boolean;
 }
@@ -233,6 +237,9 @@ export interface ProductDto {
   companyId?: number;
   cost: number;
   stock: number;
+  price?: number;
+  priceList?: number;
+  taxRate?: number;
   shortDescription?: string | null;
   reference?: string | null;
   maximumQuantity?: number;

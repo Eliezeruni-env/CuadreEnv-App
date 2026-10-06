@@ -4,6 +4,7 @@ import { StockService } from './stock.service';
 import { WarehouseService } from './warehouse.service';
 import type { ApiResponse } from '../../cuadreEnv/types/api';
 import type { WarehouseEntry, WarehouseMovementHeader } from '../../../app/models/movement';
+import { normalizeWarehouseMovement } from '../utils/movement-normalizer';
 
 const ENTRIES_STORAGE_KEY = 'cuadreenv_warehouse_entries_db';
 
@@ -37,18 +38,28 @@ export class WarehouseEntryService {
       const res = await this.api.get<any, any>('/WarehouseEntry');
       const list = extractArray<WarehouseEntry>(res);
       if (list && list.length > 0) {
-        return { success: true, data: list };
+        const normalized = list.map((item) => normalizeWarehouseMovement<WarehouseEntry>(item));
+        return { success: true, data: normalized };
       }
+      return { success: true, data: [] };
     } catch {
-      // fallback
+      return { success: false, data: [], message: 'No se pudo conectar con el servidor.' };
     }
-    return { success: true, data: this.getLocalEntries() };
   }
 
   async getEntry(id: number): Promise<ApiResponse<WarehouseEntry>> {
+    try {
+      const res = await this.api.get<any, any>(`/WarehouseEntry/${id}`);
+      if (res) {
+        const entry = normalizeWarehouseMovement<WarehouseEntry>(res.data ?? res);
+        return { success: true, data: entry };
+      }
+    } catch {
+      // fallback to local
+    }
     const list = this.getLocalEntries();
     const found = list.find((e) => e.id === id);
-    if (found) return { success: true, data: found };
+    if (found) return { success: true, data: normalizeWarehouseMovement<WarehouseEntry>(found) };
     return { success: false, message: 'Entrada de almacén no encontrada.' };
   }
 

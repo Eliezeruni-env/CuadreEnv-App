@@ -96,6 +96,7 @@ describe('CloseRegisterModalComponent (Blind Cash Count Audit)', () => {
   });
 
   it('should submit physical count and show audit result upon successful close', async () => {
+    mockAuthService.isSuperUser.mockReturnValue(true);
     component.open({
       id: 1,
       name: 'Caja 1',
@@ -106,10 +107,11 @@ describe('CloseRegisterModalComponent (Blind Cash Count Audit)', () => {
     component.form.patchValue({ closingAmount: 4900, notes: 'Faltante de 100 verificado' });
     await component.confirmClose();
 
-    expect(mockCashRegisterService.closeSession).toHaveBeenCalledWith({
-      closingAmount: 4900,
-      notes: 'Faltante de 100 verificado',
-    });
+    expect(mockCashRegisterService.closeSession).toHaveBeenCalledWith(
+      expect.objectContaining({
+        closingAmount: 4900,
+      })
+    );
     expect(component.closeAuditResult()).toBeTruthy();
     expect(component.closeAuditResult()?.status).toBe('SHORTAGE');
     expect(component.closeAuditResult()?.difference).toBe(-100);

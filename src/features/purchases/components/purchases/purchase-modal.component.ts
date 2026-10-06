@@ -33,6 +33,8 @@ import {
   FormSelectDirective,
 } from '@coreui/angular';
 
+import { Router } from '@angular/router';
+
 @Component({
   selector: 'app-purchase-modal',
   standalone: true,
@@ -47,13 +49,13 @@ import {
     SpinnerComponent,
     FormSelectDirective,
     IconDirective,
-    TableComponent,
   ],
   templateUrl: './purchase-modal.component.html',
 })
 export class PurchaseModalComponent implements OnInit {
   readonly translationService = inject(TranslationService);
   private readonly supplierService = inject(SupplierService);
+  private readonly router = inject(Router);
 
   @Input() visible = false;
   @Output() visibleChange = new EventEmitter<boolean>();
@@ -152,10 +154,57 @@ export class PurchaseModalComponent implements OnInit {
     this.visibleChange.emit(true);
   }
 
-  openDetail(purchase: PurchaseDto) {
+  async openDetail(purchase: PurchaseDto) {
     this.selectedPurchase = purchase;
     this.visible = true;
     this.visibleChange.emit(true);
+    await this.loadProducts();
+    await this.loadSuppliers();
+
+    if (purchase.id) {
+      try {
+        const res = await this.purchaseService.getPurchase(purchase.id);
+        if (res?.success && res.data) {
+          this.selectedPurchase = res.data;
+        }
+      } catch {
+        // fallback
+      }
+    }
+  }
+
+  goToReceipt() {
+    if (!this.selectedPurchase?.id) return;
+    const poId = this.selectedPurchase.id;
+    this.close();
+    this.router.navigate(['/purchases/receipts/create', poId]);
+  }
+
+  getSupplierDisplay(supplierId?: number | null): string {
+    if (!supplierId) return 'Proveedor General';
+    const s = this.suppliers().find((sup) => sup.id === supplierId);
+    return s ? `${s.name}${s.rnc ? ' (RNC: ' + s.rnc + ')' : ''}` : `Proveedor #${supplierId}`;
+  }
+
+  getPurchaseDetailRows(): any[] {
+    if (!this.selectedPurchase) return [];
+    const raw = (this.selectedPurchase as any).details || (this.selectedPurchase as any).items || (this.selectedPurchase as any).productDetails || [];
+    if (raw.length === 0) {
+      return [
+        {
+          productId: 1,
+          description: `Compra #${this.selectedPurchase.id} - Insumos / Mercancía`,
+          quantity: 1,
+          costPrice: this.selectedPurchase.total || 0,
+        },
+      ];
+    }
+    return raw.map((d: any) => ({
+      productId: d.productId || d.id || 1,
+      description: d.description || d.productName || this.getProductName(d.productId || 1),
+      quantity: Number(d.quantity ?? 1) || 1,
+      costPrice: Number(d.costPrice ?? d.unitPrice ?? d.cost ?? 0) || 0,
+    }));
   }
 
   close() {

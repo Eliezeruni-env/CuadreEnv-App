@@ -68,17 +68,141 @@
             <c-col md="6" class="mb-3">
               <label class="small fw-semibold text-secondary mb-1">Método de Pago *</label>
               <select cSelect formControlName="method" class="form-select">
-                <option value="Efectivo">Efectivo</option>
-                <option value="Tarjeta de Crédito / Débito">Tarjeta de Crédito / Débito</option>
                 <option value="Transferencia Bancaria">Transferencia Bancaria</option>
-                <option value="Cheque">Cheque</option>
+                <option value="Tarjeta de Crédito / Débito">Tarjeta de Crédito / Débito</option>
+                <option value="Cheque">Cheque Comercial</option>
+                <option value="Efectivo">Efectivo</option>
               </select>
             </c-col>
           </c-row>
 
+          <!-- DYNAMIC FIELDS: TARJETA -->
+          @if (selectedMethod() === 'Tarjeta de Crédito / Débito' || selectedMethod() === 'Tarjeta') {
+            <div class="p-3 bg-light rounded-3 border mb-3">
+              <span class="fw-bold small text-dark d-block mb-2">Datos de la Transacción con Tarjeta</span>
+              <div class="row g-2">
+                <div class="col-sm-4">
+                  <label class="small text-secondary mb-1">Tipo de Tarjeta</label>
+                  <select class="form-select form-select-sm" [ngModel]="cardType()" (ngModelChange)="cardType.set($event)" [ngModelOptions]="{standalone: true}">
+                    <option value="Visa">Visa</option>
+                    <option value="Mastercard">Mastercard</option>
+                    <option value="American Express">American Express</option>
+                  </select>
+                </div>
+                <div class="col-sm-4">
+                  <label class="small text-secondary mb-1">Últimos 4 Dígitos *</label>
+                  <input
+                    type="text"
+                    maxlength="4"
+                    class="form-control form-control-sm font-monospace"
+                    placeholder="4242"
+                    [ngModel]="cardLastFour()"
+                    (ngModelChange)="cardLastFour.set($event)"
+                    [ngModelOptions]="{standalone: true}"
+                  />
+                </div>
+                <div class="col-sm-4">
+                  <label class="small text-secondary mb-1">Nº Autorización / Voucher *</label>
+                  <input
+                    type="text"
+                    class="form-control form-control-sm font-monospace"
+                    placeholder="AUT-009281"
+                    [ngModel]="cardAuthVoucher()"
+                    (ngModelChange)="cardAuthVoucher.set($event)"
+                    [ngModelOptions]="{standalone: true}"
+                  />
+                </div>
+              </div>
+            </div>
+          }
+
+          <!-- DYNAMIC FIELDS: TRANSFERENCIA -->
+          @if (selectedMethod() === 'Transferencia Bancaria' || selectedMethod() === 'Transferencia') {
+            <div class="p-3 bg-light rounded-3 border mb-3">
+              <span class="fw-bold small text-dark d-block mb-2">Datos de la Transferencia Bancaria</span>
+              <div class="row g-2">
+                <div class="col-sm-4">
+                  <label class="small text-secondary mb-1">Banco Emisor (Origen)</label>
+                  <input
+                    type="text"
+                    class="form-control form-control-sm"
+                    placeholder="Banco Popular"
+                    [ngModel]="transferSenderBank()"
+                    (ngModelChange)="transferSenderBank.set($event)"
+                    [ngModelOptions]="{standalone: true}"
+                  />
+                </div>
+                <div class="col-sm-4">
+                  <label class="small text-secondary mb-1">Banco Destino</label>
+                  <input
+                    type="text"
+                    class="form-control form-control-sm"
+                    placeholder="Banco BHD"
+                    [ngModel]="transferReceiverBank()"
+                    (ngModelChange)="transferReceiverBank.set($event)"
+                    [ngModelOptions]="{standalone: true}"
+                  />
+                </div>
+                <div class="col-sm-4">
+                  <label class="small text-secondary mb-1">Nº Referencia / Confirmación *</label>
+                  <input
+                    type="text"
+                    class="form-control form-control-sm font-monospace"
+                    placeholder="REF-884129"
+                    [ngModel]="transferReference()"
+                    (ngModelChange)="transferReference.set($event)"
+                    [ngModelOptions]="{standalone: true}"
+                  />
+                </div>
+              </div>
+            </div>
+          }
+
+          <!-- DYNAMIC FIELDS: CHEQUE -->
+          @if (selectedMethod() === 'Cheque') {
+            <div class="p-3 bg-light rounded-3 border mb-3">
+              <span class="fw-bold small text-dark d-block mb-2">Datos del Cheque Emitido</span>
+              <div class="row g-2">
+                <div class="col-sm-4">
+                  <label class="small text-secondary mb-1">Banco Librador</label>
+                  <input
+                    type="text"
+                    class="form-control form-control-sm"
+                    placeholder="Banco de Reservas"
+                    [ngModel]="checkBank()"
+                    (ngModelChange)="checkBank.set($event)"
+                    [ngModelOptions]="{standalone: true}"
+                  />
+                </div>
+                <div class="col-sm-4">
+                  <label class="small text-secondary mb-1">Nº de Cheque *</label>
+                  <input
+                    type="text"
+                    class="form-control form-control-sm font-monospace"
+                    placeholder="CHQ-00452"
+                    [ngModel]="checkNumber()"
+                    (ngModelChange)="checkNumber.set($event)"
+                    [ngModelOptions]="{standalone: true}"
+                  />
+                </div>
+                <div class="col-sm-4">
+                  <label class="small text-secondary mb-1">Fecha de Emisión</label>
+                  <input
+                    type="date"
+                    class="form-control form-control-sm"
+                    [ngModel]="checkDate()"
+                    (ngModelChange)="checkDate.set($event)"
+                    [ngModelOptions]="{standalone: true}"
+                  />
+                </div>
+              </div>
+            </div>
+          }
+
+          <!-- DYNAMIC FIELDS: EFECTIVO / NOTAS -->
           <div class="mb-3">
-            <label class="small fw-semibold text-secondary mb-1">Referencia / Comprobante (opcional)</label>
-            <input formControlName="reference" cFormControl placeholder="Ej. Transf #12345, Cheque #987, etc." />
+            <label class="small fw-semibold text-secondary mb-1">Observaciones o Notas Adicionales</label>
+            <input formControlName="reference" cFormControl placeholder="Ej. Pago parcial acordado, recibido conforme..." />
           </div>
         </form>
       </div>

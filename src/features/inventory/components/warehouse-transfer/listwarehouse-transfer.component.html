@@ -93,7 +93,7 @@
                   <td>
                     <div class="fw-bold font-monospace text-primary">{{ t.movementNumber || ('TRF-' + t.id) }}</div>
                     <span class="text-secondary font-monospace" style="font-size: 0.72rem;">
-                      {{ t.productDetails.length }} renglones
+                      {{ (t.productDetails.length || 0) }} renglones
                     </span>
                   </td>
                   <td>
@@ -138,7 +138,7 @@
                       <div class="card border border-secondary-subtle shadow-xs rounded-3 overflow-hidden">
                         <div class="card-header bg-white py-2 px-3 d-flex justify-content-between align-items-center flex-wrap gap-2">
                           <span class="fw-bold small text-secondary text-uppercase d-flex align-items-center gap-2">
-                            Detalle de Artículos en Tránsito ({{ t.productDetails.length }} ítems)
+                            Detalle de Artículos en Tránsito ({{ (t.productDetails.length || 0) }} ítems)
                           </span>
                           <div class="small font-monospace">
                             <span class="text-muted me-3">Origen: <strong>{{ t.warehouseOfOriginName }}</strong></span>
@@ -156,7 +156,7 @@
                               </tr>
                             </thead>
                             <tbody>
-                              @for (item of t.productDetails; track $index) {
+                              @for (item of (t.productDetails || []); track $index) {
                                 <tr>
                                   <td class="ps-3 font-monospace small text-secondary">{{ item.barCode || 'PROD-' + item.productId }}</td>
                                   <td class="fw-semibold text-dark">{{ item.productName }}</td>
@@ -239,7 +239,7 @@
               </tr>
             </thead>
             <tbody>
-              @for (item of selectedTransfer.productDetails; track $index) {
+              @for (item of (selectedTransfer.productDetails || []); track $index) {
                 <tr>
                   <td class="ps-3 fw-semibold">{{ item.productName }}</td>
                   <td class="font-monospace text-secondary">{{ item.barCode || '-' }}</td>

@@ -22,11 +22,58 @@
   </div>
 
   <div class="card-body p-3">
+    <!-- Búsqueda Rápida en Padrón DGII -->
+    <div class="row g-2 mb-3 align-items-end">
+      <div class="col-md-5">
+        <label class="form-label fw-semibold text-primary small mb-1 d-flex align-items-center gap-1">
+          <span class="badge bg-primary-subtle text-primary border border-primary-subtle">DGII</span>
+          Consultar Padrón por RNC o Cédula
+        </label>
+        <div class="input-group input-group-sm">
+          <input
+            type="text"
+            class="form-control font-monospace"
+            placeholder="Ej. 101000001 ó 00100000001"
+            [ngModel]="rncSearchInput()"
+            (ngModelChange)="rncSearchInput.set($event)"
+            (keyup.enter)="searchTaxpayerByRnc()"
+          />
+          <button
+            class="btn btn-primary"
+            type="button"
+            [disabled]="isSearchingRnc() || !rncSearchInput()"
+            (click)="searchTaxpayerByRnc()"
+          >
+            @if (isSearchingRnc()) {
+              <span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span>
+            } @else {
+              <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" fill="currentColor" class="me-1" viewBox="0 0 16 16">
+                <path d="M11.742 10.344a6.5 6.5 0 1 0-1.397 1.398h-.001c.03.04.062.078.098.115l3.85 3.85a1 1 0 0 0 1.415-1.414l-3.85-3.85a1.007 1.007 0 0 0-.115-.1zM12 6.5a5.5 5.5 0 1 1-11 0 5.5 5.5 0 0 1 11 0z"/>
+              </svg>
+            }
+            Validar DGII
+          </button>
+        </div>
+      </div>
+      <div class="col-md-7">
+        @if (header.clientName && header.clientName !== 'Consumidor Final') {
+          <div class="alert alert-light border py-1 px-2 mb-0 d-flex align-items-center justify-content-between small">
+            <div>
+              <span class="text-success fw-bold me-1">✓ Razón Social:</span>
+              <span class="fw-semibold text-dark">{{ header.clientName }}</span>
+              <span class="text-muted ms-2 font-monospace">({{ header.rncOrCedula }})</span>
+            </div>
+            <button class="btn btn-sm btn-link text-danger p-0 text-decoration-none" (click)="resetClient()">✕ Quitar</button>
+          </div>
+        }
+      </div>
+    </div>
+
     <div class="row g-3">
       <!-- Cliente -->
       <div class="col-md-5">
         <label class="form-label fw-semibold text-secondary small mb-1">
-          Cliente <span class="text-danger">*</span>
+          Cliente Registrado
         </label>
         <div class="input-group">
           <select

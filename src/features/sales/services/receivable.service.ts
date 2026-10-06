@@ -2,6 +2,7 @@ import { Injectable, inject } from '@angular/core';
 import { ApiClientService, extractArray } from '../../cuadreEnv/services/apiClient';
 import { CustomerService } from '../../customers/services/customer.service';
 import { CashRegisterService } from '../../cash-register/services/cash-register.service';
+import { WarehouseOutletService } from '../../inventory/services/warehouse-outlet.service';
 import type { ApiResponse, CustomerDto, SaleResponseDto } from '../../cuadreEnv/types/api';
 
 export interface PaymentPlanDto {
@@ -21,6 +22,16 @@ export interface PaymentRecordDto {
   isCurrent?: boolean;
 }
 
+export interface ReceivableItemDto {
+  productId: number;
+  productName: string;
+  quantity: number;
+  unitPrice: number;
+  subtotal: number;
+  barCode?: string;
+  cost?: number;
+}
+
 export interface ReceivableDto {
   id: number;
   invoiceNumber: string;
@@ -33,11 +44,15 @@ export interface ReceivableDto {
   totalAmount: number;
   paidAmount: number;
   pendingAmount: number;
+  downPayment?: number;
+  items?: ReceivableItemDto[];
   status: 'Pendiente' | 'Parcial' | 'Pagado' | 'Vencido';
   creationDate: string;
   dueDate?: string | null;
   paymentPlan?: PaymentPlanDto | null;
   payments: PaymentRecordDto[];
+  warehouseId?: number;
+  warehouseName?: string;
   avatarColor: string;
   isReopened?: boolean;
   reopenedDate?: string;
@@ -55,6 +70,11 @@ export interface CreateReceivableDto {
   totalInstallments: number;
   startDate: string;
   frequency: 'Semanal' | 'Quincenal' | 'Mensual' | 'Diaria';
+  downPayment?: number;
+  deductStock?: boolean;
+  warehouseId?: number;
+  warehouseName?: string;
+  items?: ReceivableItemDto[];
 }
 
 const AVATAR_COLORS = [
@@ -73,11 +93,13 @@ export class ReceivableService {
   private readonly api: ApiClientService;
   private readonly customerService: CustomerService;
   private readonly cashRegisterService?: CashRegisterService;
+  private readonly warehouseOutletService?: WarehouseOutletService;
 
   constructor(
     api?: ApiClientService,
     customerService?: CustomerService,
     cashRegisterService?: CashRegisterService,
+    warehouseOutletService?: WarehouseOutletService,
   ) {
     if (api) {
       this.api = api;
@@ -106,6 +128,16 @@ export class ReceivableService {
         this.cashRegisterService = inject(CashRegisterService, { optional: true }) as any;
       } catch {
         this.cashRegisterService = undefined;
+      }
+    }
+
+    if (warehouseOutletService) {
+      this.warehouseOutletService = warehouseOutletService;
+    } else {
+      try {
+        this.warehouseOutletService = inject(WarehouseOutletService, { optional: true }) as any;
+      } catch {
+        this.warehouseOutletService = undefined;
       }
     }
   }
@@ -195,8 +227,8 @@ export class ReceivableService {
       }
       return { success: true, data: stored };
     } catch {
-      // Fallback cleanly to local store
-      return { success: true, data: this.getStoredReceivables() };
+      // Backend is offline -> return empty list
+      return { success: false, data: [], message: 'No se pudo conectar con el servidor.' };
     }
   }
 
@@ -224,6 +256,9 @@ export class ReceivableService {
     };
 
     let backendId = nextId;
+    const downPayment = Math.max(0, Number(dto.downPayment) || 0);
+    const pendingAmount = Math.max(0, dto.totalAmount - downPayment);
+    const initialStatus: ReceivableDto['status'] = pendingAmount <= 0 ? 'Pagado' : downPayment > 0 ? 'Parcial' : 'Pendiente';
 
     // Attempt to record in new backend AccountReceivable API
     try {
@@ -232,7 +267,7 @@ export class ReceivableService {
         customerId: dto.customerId || null,
         saleId: null,
         totalAmount: dto.totalAmount,
-        paidAmount: 0,
+        paidAmount: downPayment,
         dueDate: dto.startDate,
         plan: {
           installmentAmount: dto.installmentAmount,
@@ -252,20 +287,37 @@ export class ReceivableService {
         await this.api.post('/Sale', {
           customerId: dto.customerId || null,
           total: dto.totalAmount,
-          paidAmount: 0,
+          paidAmount: downPayment,
           dueDate: dto.startDate,
-          details: [
-            {
-              productId: 1,
-              quantity: 1,
-              unitPrice: dto.totalAmount,
-            },
-          ],
+          details: (dto.items && dto.items.length > 0)
+            ? dto.items.map((it) => ({
+                productId: it.productId,
+                quantity: it.quantity,
+                unitPrice: it.unitPrice,
+              }))
+            : [
+                {
+                  productId: 1,
+                  quantity: 1,
+                  unitPrice: dto.totalAmount,
+                },
+              ],
         });
       } catch {
         // ignore
       }
     }
+
+    const initialPayments: PaymentRecordDto[] = downPayment > 0 ? [
+      {
+        id: 1,
+        amount: downPayment,
+        date: new Date().toISOString(),
+        method: 'Efectivo',
+        notes: 'Abono inicial / Monto de apartado',
+        isCurrent: true,
+      }
+    ] : [];
 
     const newReceivable: ReceivableDto = {
       id: backendId,
@@ -276,9 +328,13 @@ export class ReceivableService {
       customerEmail: dto.customerEmail || null,
       description: dto.description,
       totalAmount: dto.totalAmount,
-      paidAmount: 0,
-      pendingAmount: dto.totalAmount,
-      status: 'Pendiente',
+      paidAmount: downPayment,
+      pendingAmount: pendingAmount,
+      downPayment: downPayment,
+      items: dto.items || [],
+      warehouseId: dto.warehouseId || 1,
+      warehouseName: dto.warehouseName || 'Almacén Principal',
+      status: initialStatus,
       creationDate: new Date().toISOString(),
       dueDate: dto.startDate,
       avatarColor: AVATAR_COLORS[colorIdx].bg,
@@ -288,11 +344,50 @@ export class ReceivableService {
         startDate: dto.startDate,
         frequency: dto.frequency,
       },
-      payments: [],
+      payments: initialPayments,
     };
 
     list.unshift(newReceivable);
     this.saveStoredReceivables(list);
+
+    // 1. Descontar existencias de almacén inmediatamente si se especificaron productos
+    if (dto.items && dto.items.length > 0 && dto.deductStock !== false && this.warehouseOutletService) {
+      try {
+        const whId = dto.warehouseId || 1;
+        await this.warehouseOutletService.createOutlet({
+          warehouseId: whId,
+          conceptId: 2, // Venta / Apartado
+          statusId: 1,
+          commentary: `Salida de almacén #${whId} por Venta a Crédito / Apartado #${newReceivable.invoiceNumber} - Cliente: ${newReceivable.customerName}`,
+          productDetails: dto.items.map((it) => ({
+            productId: it.productId,
+            productName: it.productName,
+            quantity: it.quantity,
+            price: it.unitPrice,
+            cost: it.cost || it.unitPrice,
+            barCode: it.barCode,
+            warehouseId: whId,
+          })),
+        });
+      } catch (outletErr) {
+        console.warn('Could not register automatic warehouse outlet for credit sale:', outletErr);
+      }
+    }
+
+    // 2. Si hubo abono inicial / apartado en efectivo, registrar ingreso en caja registradora activa
+    if (downPayment > 0 && this.cashRegisterService) {
+      try {
+        await this.cashRegisterService.addMovement({
+          type: 'Entrada',
+          category: 'Cobros',
+          description: `Abono inicial / Apartado venta #${newReceivable.invoiceNumber} - Cliente: ${newReceivable.customerName}`,
+          amount: downPayment,
+          paymentMethod: 'Efectivo',
+        });
+      } catch (cashErr) {
+        console.warn('Could not record down payment in cash register:', cashErr);
+      }
+    }
 
     return { success: true, data: newReceivable };
   }

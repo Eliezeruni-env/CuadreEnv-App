@@ -54,7 +54,11 @@ export class ListwarehouseEntryComponent implements OnInit {
     try {
       const res = await this.entryService.getEntries();
       if (res?.success && res.data) {
-        this.entries.set(res.data);
+        const safeData = (res.data || []).map((e: any) => ({
+          ...e,
+          productDetails: e.productDetails || e.details || e.items || [],
+        }));
+        this.entries.set(safeData);
       }
     } catch {
       // ignore
@@ -67,12 +71,27 @@ export class ListwarehouseEntryComponent implements OnInit {
     this.currentPage.set(page);
   }
 
-  toggleDetail(entry: WarehouseEntry) {
+  async toggleDetail(entry: WarehouseEntry) {
     if (entry.id != null) {
       if (this.expandedEntryId() === entry.id) {
         this.expandedEntryId.set(null);
       } else {
         this.expandedEntryId.set(entry.id);
+        if (!entry.productDetails || entry.productDetails.length === 0) {
+          try {
+            const res = await this.entryService.getEntry(entry.id);
+            if (res.success && res.data) {
+              const current = this.entries();
+              const idx = current.findIndex((item) => item.id === entry.id);
+              if (idx !== -1) {
+                current[idx] = res.data;
+                this.entries.set([...current]);
+              }
+            }
+          } catch {
+            // ignore
+          }
+        }
       }
     }
   }

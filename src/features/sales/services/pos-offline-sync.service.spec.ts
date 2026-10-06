@@ -115,7 +115,7 @@ describe('PosOfflineSyncService (Offline Queue & Idempotency)', () => {
 
     expect(syncResult.successCount).toBe(1);
     expect(mockApiClient.post).toHaveBeenCalledWith(
-      '/CashRegister/quick-sale',
+      '/Sale',
       expect.any(Object),
       expect.objectContaining({
         headers: expect.objectContaining({

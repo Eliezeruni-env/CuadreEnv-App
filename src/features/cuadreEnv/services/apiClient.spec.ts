@@ -14,7 +14,7 @@ describe('ApiClient Central HTTP & /v1 configuration', () => {
   });
 
   it('should use the Angular API base URL', () => {
-    expect(API_BASE_URL).toBe('http://localhost:5160');
+    expect(API_BASE_URL).toBe('http://localhost:8080');
   });
 
   it('should store and retrieve access token for Authorization header', () => {

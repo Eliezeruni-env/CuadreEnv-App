@@ -16,7 +16,8 @@ export class TestService {
   }
 
   health() {
-    return this.http.get(`${environment.apiUrl}/hc`);
+    const rootUrl = environment.apiUrl.replace(/\/v1\/?$/, '');
+    return this.http.get(`${rootUrl}/hc`);
   }
 
   weatherForecast() {

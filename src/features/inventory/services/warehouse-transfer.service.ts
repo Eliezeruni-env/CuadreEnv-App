@@ -5,6 +5,7 @@ import { WarehouseService } from './warehouse.service';
 import { ProductService } from '../../products/services/product.service';
 import type { ApiResponse } from '../../cuadreEnv/types/api';
 import type { WarehouseTransfer, WarehouseMovementHeader } from '../../../app/models/movement';
+import { normalizeWarehouseMovement } from '../utils/movement-normalizer';
 
 const TRANSFERS_STORAGE_KEY = 'cuadreenv_warehouse_transfers_db';
 
@@ -39,18 +40,28 @@ export class WarehouseTransferService {
       const res = await this.api.get<any, any>('/WarehouseTransfer');
       const list = extractArray<WarehouseTransfer>(res);
       if (list && list.length > 0) {
-        return { success: true, data: list };
+        const normalized = list.map((item) => normalizeWarehouseMovement<WarehouseTransfer>(item));
+        return { success: true, data: normalized };
       }
+      return { success: true, data: [] };
     } catch {
-      // fallback
+      return { success: false, data: [], message: 'No se pudo conectar con el servidor.' };
     }
-    return { success: true, data: this.getLocalTransfers() };
   }
 
   async getTransfer(id: number): Promise<ApiResponse<WarehouseTransfer>> {
+    try {
+      const res = await this.api.get<any, any>(`/WarehouseTransfer/${id}`);
+      if (res) {
+        const transfer = normalizeWarehouseMovement<WarehouseTransfer>(res.data ?? res);
+        return { success: true, data: transfer };
+      }
+    } catch {
+      // fallback to local
+    }
     const list = this.getLocalTransfers();
     const found = list.find((t) => t.id === id);
-    if (found) return { success: true, data: found };
+    if (found) return { success: true, data: normalizeWarehouseMovement<WarehouseTransfer>(found) };
     return { success: false, message: 'Transferencia no encontrada.' };
   }
 

@@ -1,6 +1,7 @@
 import { inject } from '@angular/core';
 import { Router, CanActivateFn } from '@angular/router';
 import { AuthService } from '../../features/cuadreEnv/services/auth.service';
+import { PermissionService } from '../../features/roles/services/permission.service';
 import { toObservable } from '@angular/core/rxjs-interop';
 import { filter, map, take } from 'rxjs/operators';
 
@@ -63,3 +64,20 @@ export const adminGuard: CanActivateFn = () => {
   router.navigate(['/dashboard']);
   return false;
 };
+
+/**
+ * Guardia que valida que el usuario tenga acceso al módulo especificado por ruta,
+ * según los módulos configurados en el USM.
+ */
+export const moduleAccessGuard: CanActivateFn = (_route, state) => {
+  const permissionService = inject(PermissionService);
+  const router = inject(Router);
+
+  const targetUrl = state.url || '';
+  if (permissionService.hasModuleAccess(targetUrl)) {
+    return true;
+  }
+  router.navigate(['/dashboard']);
+  return false;
+};
+

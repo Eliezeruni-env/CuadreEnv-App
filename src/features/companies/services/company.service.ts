@@ -16,13 +16,13 @@ export interface CreateCompanyResult {
 const SETTINGS_STORAGE_KEY = 'cuadre_company_settings';
 
 const DEFAULT_COMPANY_SETTINGS: CompanySettingsDto = {
-  companyName: 'CuadreEnv Dominicana SRL',
-  commercialName: 'CuadreEnv Soluciones',
-  rnc: '1-01-00000-0',
-  address: 'Av. Winston Churchill #1099, Santo Domingo, D.N.',
-  phone: '(809) 555-0199',
+  companyName: '',
+  commercialName: '',
+  rnc: '',
+  address: '',
+  phone: '',
   logoUrl: '',
-  invoiceFooterPhrase: '¡Gracias por su preferencia! Garantía válida por 30 días con su comprobante.',
+  invoiceFooterPhrase: '',
   currency: 'DOP',
   defaultTaxPercentage: 18,
 };

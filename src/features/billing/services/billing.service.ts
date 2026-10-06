@@ -62,7 +62,7 @@ export class BillingService {
     };
   }
 
-  calculateTotals(items: ProductDetails[]): TotalModels {
+  calculateTotals(items: ProductDetails[], options?: Partial<HeaderDto>): TotalModels {
     let subtotalAmount = 0;
     let totalDiscount = 0;
     let totalItbis = 0;
@@ -86,11 +86,41 @@ export class BillingService {
       totalAmount += line.totalAmount;
     }
 
+    subtotalAmount = Math.round(subtotalAmount * 100) / 100;
+    totalDiscount = Math.round(totalDiscount * 100) / 100;
+    totalItbis = Math.round(totalItbis * 100) / 100;
+    totalAmount = Math.round(totalAmount * 100) / 100;
+
+    // 10% Propina Legal Ley 16-92 (Sector Gastronómico / Restaurantes / Hotelería)
+    const legalTipAmount = options?.applyLegalTip
+      ? Math.round(subtotalAmount * 0.10 * 100) / 100
+      : 0;
+
+    // Retención de ITBIS (30% o 100%)
+    const itbisRetRate = options?.retentionItbisPercentage || 0;
+    const retentionItbisAmount = itbisRetRate > 0
+      ? Math.round(totalItbis * (itbisRetRate / 100) * 100) / 100
+      : 0;
+
+    // Retención de ISR (2% servicios técnicos, 10% profesionales)
+    const isrRetRate = options?.retentionIsrPercentage || 0;
+    const retentionIsrAmount = isrRetRate > 0
+      ? Math.round(subtotalAmount * (isrRetRate / 100) * 100) / 100
+      : 0;
+
+    const netPayableAmount = Math.round(
+      (totalAmount + legalTipAmount - retentionItbisAmount - retentionIsrAmount) * 100,
+    ) / 100;
+
     return {
-      subtotalAmount: Math.round(subtotalAmount * 100) / 100,
-      totalDiscount: Math.round(totalDiscount * 100) / 100,
-      totalItbis: Math.round(totalItbis * 100) / 100,
-      totalAmount: Math.round(totalAmount * 100) / 100,
+      subtotalAmount,
+      totalDiscount,
+      totalItbis,
+      totalAmount,
+      legalTipAmount,
+      retentionItbisAmount,
+      retentionIsrAmount,
+      netPayableAmount,
     };
   }
 
@@ -139,11 +169,7 @@ export class BillingService {
         list = apiList.map((s: any) => this.mapSaleToBilling(s));
       }
     } catch {
-      // fallback
-    }
-
-    if (list.length === 0) {
-      list = this.getLocalBillings();
+      return { success: false, data: [], message: 'No se pudo conectar con el servidor.' };
     }
 
     list = this.applyCreditNotesToBillings(list);
@@ -200,9 +226,9 @@ export class BillingService {
       clientName: s.customerName || `Cliente #${s.customerId || ''}`,
       billingTypeId: s.paymentType === 1 ? 2 : 1,
       billingTypeName: s.paymentType === 1 ? 'Crédito' : 'Contado',
-      voucherTypeId: 1,
-      voucherTypeName: 'Consumidor Final',
-      ncf: s.invoiceFolio || `B02${String(s.id).padStart(8, '0')}`,
+      voucherTypeId: s.voucherTypeId || 1,
+      voucherTypeName: s.voucherTypeName || (s.voucherTypeId === 2 ? 'Crédito Fiscal' : 'Consumidor Final'),
+      ncf: s.ncf || (s.invoiceFolio && s.invoiceFolio.startsWith('B') ? s.invoiceFolio : ''),
       statusId: s.status === 2 ? 2 : 1,
       amountSubTotal: Number(s.subTotal ?? s.total ?? 0),
       amountDesc: 0,
@@ -222,14 +248,7 @@ export class BillingService {
   }
 
   async createBilling(header: HeaderDto, items: ProductDetails[]): Promise<ApiResponse<Billing>> {
-    const totals = this.calculateTotals(items);
-    const id = Date.now();
-    const billingSeq = String(Math.floor(1000 + Math.random() * 9000));
-    const assignedNumber = `FAC-${billingSeq}`;
-    
-    // NCF generator (B01 Crédito Fiscal, B02 Consumidor Final)
-    const ncfPrefix = header.voucherTypeId === 1 ? 'B02' : 'B01';
-    const assignedNCF = `${ncfPrefix}${String(Math.floor(10000000 + Math.random() * 90000000))}`;
+    const totals = this.calculateTotals(items, header);
 
     let cashSessionId: number | undefined;
     if (header.billingTypeId === 1) { // Contado
@@ -243,11 +262,73 @@ export class BillingService {
       }
     }
 
+    const payload = {
+      clientId: header.clientId,
+      clientName: header.clientName,
+      clientRnc: header.rncOrCedula || '000-0000000-0',
+      billingTypeId: header.billingTypeId,
+      voucherTypeId: header.voucherTypeId,
+      warehouseId: header.warehouseId || 1,
+      cashSessionId: cashSessionId,
+      subtotal: totals.subtotalAmount,
+      discount: totals.totalDiscount,
+      itbis: totals.totalItbis,
+      total: totals.totalAmount,
+      legalTip: totals.legalTipAmount || 0,
+      retentionItbis: totals.retentionItbisAmount || 0,
+      retentionIsr: totals.retentionIsrAmount || 0,
+      netPayable: totals.netPayableAmount ?? totals.totalAmount,
+      details: items.map((it) => ({
+        productId: it.productId,
+        productName: it.productName,
+        barCode: it.barCode,
+        quantity: it.quantity,
+        unitPrice: it.price,
+        discount: (it as any).discount || 0,
+        itbis: (it as any).itbis || 0,
+        subtotal: it.subTotal || it.quantity * it.price,
+      })),
+      productDetails: items,
+    };
+
+    // 1. Delegar operación transaccional completa al backend
+    let createdBilling: any = null;
+    try {
+      const res = await this.api.post<any, any>('/Billing', payload);
+      createdBilling = res?.data || res;
+    } catch (billingErr: any) {
+      // Fallback a /Sale transaccional si /Billing no está mapeado directamente
+      try {
+        const saleRes = await this.api.post<any, any>('/Sale', {
+          customerId: header.clientId,
+          voucherTypeId: header.voucherTypeId,
+          billingTypeId: header.billingTypeId,
+          total: totals.totalAmount,
+          paidAmount: header.billingTypeId === 1 ? totals.totalAmount : 0,
+          cashRegisterId: cashSessionId,
+          warehouseId: header.warehouseId || 1,
+          details: items.map((it) => ({
+            productId: it.productId,
+            quantity: it.quantity,
+            unitPrice: it.price,
+            discount: (it as any).discount || 0,
+          })),
+        });
+        createdBilling = saleRes?.data || saleRes;
+      } catch (saleErr: any) {
+        // Propagar el error oficial de la API (ej. stock insuficiente, secuencia NCF agotada)
+        throw (saleErr?.mappedError ? saleErr : billingErr);
+      }
+    }
+
+    const confirmedNCF = createdBilling?.ncf || createdBilling?.invoiceFolio || '';
+    const confirmedNumber = createdBilling?.billingNumber || createdBilling?.invoiceNumber || `FAC-${createdBilling?.id || Date.now()}`;
+
     const newBilling: Billing = {
-      id,
+      id: createdBilling?.id || Date.now(),
       prefix: 'FAC',
-      billingNumber: assignedNumber,
-      creationDate: new Date().toISOString(),
+      billingNumber: confirmedNumber,
+      creationDate: createdBilling?.creationDate || new Date().toISOString(),
       clientId: header.clientId,
       clientName: header.clientName || `Cliente #${header.clientId}`,
       clientRnc: header.rncOrCedula || '000-0000000-0',
@@ -255,13 +336,17 @@ export class BillingService {
       billingTypeName: header.billingTypeId === 1 ? 'Contado' : 'Crédito',
       voucherTypeId: header.voucherTypeId,
       voucherTypeName: header.voucherTypeId === 1 ? 'Consumidor Final' : 'Crédito Fiscal',
-      ncf: assignedNCF,
+      ncf: confirmedNCF,
       warehouseId: header.warehouseId,
       statusId: 1, // Emitida
-      amountSubTotal: totals.subtotalAmount,
-      amountDesc: totals.totalDiscount,
-      amountItbis: totals.totalItbis,
-      amountTotal: totals.totalAmount,
+      amountSubTotal: createdBilling?.amountSubTotal ?? totals.subtotalAmount,
+      amountDesc: createdBilling?.amountDesc ?? totals.totalDiscount,
+      amountItbis: createdBilling?.amountItbis ?? totals.totalItbis,
+      amountTotal: createdBilling?.amountTotal ?? totals.totalAmount,
+      legalTipAmount: totals.legalTipAmount,
+      retentionItbisAmount: totals.retentionItbisAmount,
+      retentionIsrAmount: totals.retentionIsrAmount,
+      netPayableAmount: totals.netPayableAmount,
       hasAFullCreditNote: false,
       showDetail: false,
       productDetails: items,
@@ -270,66 +355,15 @@ export class BillingService {
       paymentMethod: header.billingTypeId === 1 ? 'CASH' : 'MIXED',
     };
 
-    // 1. Try backend POST /Billing or /Sale
-    try {
-      await this.api.post<any, any>('/Billing', newBilling);
-    } catch {
-      try {
-        await this.api.post<any, any>('/Sale', {
-          customerId: header.clientId,
-          total: totals.totalAmount,
-          paidAmount: header.billingTypeId === 1 ? totals.totalAmount : 0,
-          cashRegisterId: cashSessionId,
-          details: items.map((it) => ({
-            productId: it.productId,
-            quantity: it.quantity,
-            unitPrice: it.price,
-          })),
-        });
-      } catch (err) {
-        console.warn('API sync warning:', err);
-      }
-    }
-
-    // 2. Persist locally
+    // 2. Cache local para consulta rápida offline
     const currentList = this.getLocalBillings();
     currentList.unshift(newBilling);
     this.saveLocalBillings(currentList);
 
-    // 3. If Cash, register cash movement in session
-    if (header.billingTypeId === 1 && cashSessionId) {
-      try {
-        await this.cashRegisterService.addMovement({
-          type: 'Entrada',
-          category: 'Ventas',
-          description: `Cobro Factura ${assignedNumber} (NCF: ${assignedNCF})`,
-          amount: totals.totalAmount,
-        });
-      } catch (movErr) {
-        console.warn('Cash movement error on billing:', movErr);
-      }
-    }
-
-    // 4. Update product stock locally/remotely
-    for (const item of items) {
-      try {
-        const prod = await this.productService.getProduct(item.productId);
-        if (prod?.success && prod.data) {
-          const currentStock = prod.data.stock || 0;
-          await this.productService.updateProduct({
-            ...prod.data,
-            stock: Math.max(0, currentStock - item.quantity),
-          });
-        }
-      } catch {
-        // ignore
-      }
-    }
-
     return {
       success: true,
       data: newBilling,
-      message: `Factura ${assignedNumber} emitida exitosamente con NCF ${assignedNCF}.`,
+      message: `Factura ${confirmedNumber} emitida exitosamente ${confirmedNCF ? `con NCF ${confirmedNCF}` : ''}.`,
     };
   }
 

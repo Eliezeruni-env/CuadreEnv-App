@@ -97,16 +97,14 @@ export class RoleService {
       const raw = localStorage.getItem(this.getTenantStorageKey());
       if (raw) {
         const parsed = JSON.parse(raw);
-        if (Array.isArray(parsed) && parsed.length > 0) {
+        if (Array.isArray(parsed)) {
           return parsed;
         }
       }
     } catch {
       // ignore
     }
-    const defaults = this.getDefaultRoles();
-    this.saveToStorage(defaults);
-    return defaults;
+    return [];
   }
 
   private saveToStorage(roles: RoleDto[]): void {
@@ -120,7 +118,12 @@ export class RoleService {
   async loadRoles(): Promise<RoleDto[]> {
     this.isLoading.set(true);
     try {
-      const res = await this.api.get<any, any>('/roles');
+      let res: any;
+      try {
+        res = await this.api.get<any, any>('/roles');
+      } catch {
+        res = await this.api.get<any, any>('/Role');
+      }
       const items: RoleDto[] = Array.isArray(res)
         ? res
         : Array.isArray(res?.data)
@@ -135,16 +138,32 @@ export class RoleService {
         this.permissionService.refreshUserPermissions(items);
         return items;
       }
+      const stored = this.loadFromStorage();
+      if (stored.length > 0) {
+        this.roles.set(stored);
+        this.permissionService.refreshUserPermissions(stored);
+        return stored;
+      }
+      const defaults = this.getDefaultRoles();
+      this.roles.set(defaults);
+      this.saveToStorage(defaults);
+      this.permissionService.refreshUserPermissions(defaults);
+      return defaults;
     } catch {
-      // Fallback to local storage
+      const stored = this.loadFromStorage();
+      if (stored.length > 0) {
+        this.roles.set(stored);
+        this.permissionService.refreshUserPermissions(stored);
+        return stored;
+      }
+      const defaults = this.getDefaultRoles();
+      this.roles.set(defaults);
+      this.saveToStorage(defaults);
+      this.permissionService.refreshUserPermissions(defaults);
+      return defaults;
     } finally {
       this.isLoading.set(false);
     }
-
-    const local = this.loadFromStorage();
-    this.roles.set(local);
-    this.permissionService.refreshUserPermissions(local);
-    return local;
   }
 
   async getRoleById(id: number): Promise<RoleDto | undefined> {
@@ -153,7 +172,12 @@ export class RoleService {
     if (existing) return existing;
 
     try {
-      const res = await this.api.get<any, any>(`/roles/${id}`);
+      let res: any;
+      try {
+        res = await this.api.get<any, any>(`/roles/${id}`);
+      } catch {
+        res = await this.api.get<any, any>(`/Role/${id}`);
+      }
       return res?.data || res;
     } catch {
       return list.find((r) => r.id === id);
@@ -162,7 +186,12 @@ export class RoleService {
 
   async createRole(req: CreateRoleRequest): Promise<RoleDto> {
     try {
-      const res = await this.api.post<any, any>('/roles', req);
+      let res: any;
+      try {
+        res = await this.api.post<any, any>('/roles', req);
+      } catch {
+        res = await this.api.post<any, any>('/Role', req);
+      }
       const created: RoleDto = res?.data || res;
       if (created && created.id) {
         await this.loadRoles();
@@ -197,7 +226,12 @@ export class RoleService {
 
   async updateRole(id: number, req: UpdateRoleRequest): Promise<RoleDto> {
     try {
-      const res = await this.api.put<any, any>(`/roles/${id}`, req);
+      let res: any;
+      try {
+        res = await this.api.put<any, any>(`/roles/${id}`, req);
+      } catch {
+        res = await this.api.put<any, any>(`/Role/${id}`, req);
+      }
       const updated: RoleDto = res?.data || res;
       if (updated) {
         await this.loadRoles();
@@ -238,7 +272,11 @@ export class RoleService {
     }
 
     try {
-      await this.api.delete(`/roles/${id}`);
+      try {
+        await this.api.delete(`/roles/${id}`);
+      } catch {
+        await this.api.delete(`/Role/${id}`);
+      }
       await this.loadRoles();
       return true;
     } catch {
@@ -254,7 +292,11 @@ export class RoleService {
 
   async updateRolePermissions(roleId: number, permissionIds: number[]): Promise<boolean> {
     try {
-      await this.api.put(`/roles/${roleId}/permissions`, { permissionIds });
+      try {
+        await this.api.put(`/roles/${roleId}/permissions`, { permissionIds });
+      } catch {
+        await this.api.put(`/Role/${roleId}/permissions`, { permissionIds });
+      }
       await this.loadRoles();
       return true;
     } catch {

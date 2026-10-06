@@ -43,6 +43,9 @@ export class StockService {
 
     const warehouses = whRes?.data || [];
     const products = prodRes?.data?.items || [];
+    if (warehouses.length === 0 || products.length === 0) {
+      return;
+    }
 
     const initialStock: Stock[] = [];
     let idCounter = 1;
@@ -54,7 +57,7 @@ export class StockService {
         const pBarcode = p.barcode || undefined;
         const pCost = p.cost || 0;
         const pPrice = (p as any).priceList || (p as any).price || (pCost ? pCost * 1.3 : 0);
-        const baseQty = wh.isMain ? (p.stock || 25) : Math.floor((p.stock || 25) / 2);
+        const baseQty = wh.isMain ? (Number(p.stock) || 0) : 0;
 
         initialStock.push({
           id: idCounter++,

@@ -85,6 +85,14 @@ export const AdminLayoutRoutes: Routes = [
         data: { breadcrumb: 'Facturar Cotización' },
       },
       {
+        path: 'billing/reports',
+        loadComponent: () =>
+          import(
+            '../../../features/billing/components/dgii-reports/dgii-reports.component'
+          ).then((m) => m.DgiiReportsComponent),
+        data: { breadcrumb: 'Reportes DGII (606/607)' },
+      },
+      {
         path: 'credit-notes',
         loadComponent: () =>
           import(

@@ -54,7 +54,11 @@ export class ListwarehouseTransferComponent implements OnInit {
     try {
       const res = await this.transferService.getTransfers();
       if (res?.success && res.data) {
-        this.transfers.set(res.data);
+        const safeData = (res.data || []).map((t: any) => ({
+          ...t,
+          productDetails: t.productDetails || t.details || t.items || [],
+        }));
+        this.transfers.set(safeData);
       }
     } catch {
       // ignore
@@ -67,12 +71,27 @@ export class ListwarehouseTransferComponent implements OnInit {
     this.currentPage.set(page);
   }
 
-  toggleDetail(transfer: WarehouseTransfer) {
+  async toggleDetail(transfer: WarehouseTransfer) {
     if (transfer.id != null) {
       if (this.expandedTransferId() === transfer.id) {
         this.expandedTransferId.set(null);
       } else {
         this.expandedTransferId.set(transfer.id);
+        if (!transfer.productDetails || transfer.productDetails.length === 0) {
+          try {
+            const res = await this.transferService.getTransfer(transfer.id);
+            if (res.success && res.data) {
+              const current = this.transfers();
+              const idx = current.findIndex((item) => item.id === transfer.id);
+              if (idx !== -1) {
+                current[idx] = res.data;
+                this.transfers.set([...current]);
+              }
+            }
+          } catch {
+            // ignore
+          }
+        }
       }
     }
   }

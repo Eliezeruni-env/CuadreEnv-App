@@ -52,7 +52,11 @@ export function generateIdempotencyKey(): string {
   if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
     return crypto.randomUUID();
   }
-  return 'idem-' + Date.now().toString(36) + '-' + Math.random().toString(36).substring(2, 12);
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
+    const r = (Math.random() * 16) | 0;
+    const v = c === 'x' ? r : (r & 0x3) | 0x8;
+    return v.toString(16);
+  });
 }
 
 // Simple deterministic hash for integrity verification
@@ -66,11 +70,58 @@ function computeChecksum(content: string): string {
   return 'chk_' + Math.abs(hash).toString(16);
 }
 
+// =========================================================================
+// IndexedDB Outbox Storage Engine (Modo Resiliencia POS)
+// =========================================================================
+const INDEXED_DB_NAME = 'cuadre_pos_offline_db';
+const INDEXED_DB_STORE = 'sales_outbox_queue';
+
+function openIndexedDb(): Promise<IDBDatabase> {
+  return new Promise((resolve, reject) => {
+    if (typeof window === 'undefined' || !window.indexedDB) {
+      return reject('IndexedDB no soportado en este entorno');
+    }
+    const req = window.indexedDB.open(INDEXED_DB_NAME, 1);
+    req.onupgradeneeded = () => {
+      const db = req.result;
+      if (!db.objectStoreNames.contains(INDEXED_DB_STORE)) {
+        db.createObjectStore(INDEXED_DB_STORE, { keyPath: 'id' });
+      }
+    };
+    req.onsuccess = () => resolve(req.result);
+    req.onerror = () => reject(req.error);
+  });
+}
+
+export async function saveToIndexedDb(record: OfflineSaleRecord): Promise<void> {
+  try {
+    const db = await openIndexedDb();
+    const tx = db.transaction(INDEXED_DB_STORE, 'readwrite');
+    tx.objectStore(INDEXED_DB_STORE).put(record);
+  } catch (e) {
+    console.warn('[IndexedDB Outbox] Error al persistir venta offline:', e);
+  }
+}
+
+export async function removeFromIndexedDb(id: string): Promise<void> {
+  try {
+    const db = await openIndexedDb();
+    const tx = db.transaction(INDEXED_DB_STORE, 'readwrite');
+    tx.objectStore(INDEXED_DB_STORE).delete(id);
+  } catch (e) {
+    console.warn('[IndexedDB Outbox] Error al eliminar venta sincronizada:', e);
+  }
+}
+
 // Obfuscate / encrypt sensitive local offline records
 function secureEncode(data: any): string {
   const json = JSON.stringify(data);
   const checksum = computeChecksum(json);
-  const b64 = typeof window !== 'undefined' ? window.btoa(unescape(encodeURIComponent(json))) : Buffer.from(json).toString('base64');
+  const b64 = typeof btoa !== 'undefined'
+    ? btoa(unescape(encodeURIComponent(json)))
+    : typeof window !== 'undefined' && window.btoa
+      ? window.btoa(unescape(encodeURIComponent(json)))
+      : '';
   return JSON.stringify({ v: 2, c: checksum, d: b64 });
 }
 
@@ -78,7 +129,12 @@ function secureDecode<T>(raw: string): T | null {
   try {
     const envelope = JSON.parse(raw);
     if (!envelope || !envelope.d) return null;
-    const json = typeof window !== 'undefined' ? decodeURIComponent(escape(window.atob(envelope.d))) : Buffer.from(envelope.d, 'base64').toString();
+    const json = typeof atob !== 'undefined'
+      ? decodeURIComponent(escape(atob(envelope.d)))
+      : typeof window !== 'undefined' && window.atob
+        ? decodeURIComponent(escape(window.atob(envelope.d)))
+        : '';
+    if (!json) return null;
     const expectedChecksum = computeChecksum(json);
     if (envelope.c !== expectedChecksum) {
       console.warn('[PosOfflineSync] Warning: Local offline storage checksum mismatch (tampered or corrupted data).');
@@ -274,6 +330,7 @@ export class PosOfflineSyncService {
     const updated = [...this.pendingQueueSignal(), record];
     this.pendingQueueSignal.set(updated);
     this.persistQueue(updated);
+    void saveToIndexedDb(record);
 
     return {
       success: true,
@@ -296,27 +353,29 @@ export class PosOfflineSyncService {
     let successCount = 0;
     let failedCount = 0;
     let conflictCount = 0;
+
     const remainingQueue: OfflineSaleRecord[] = [];
     const newConflicts: OfflineConflictRecord[] = [...this.conflictsSignal()];
 
+    // Sincronización uno a uno a través del endpoint canónico de ventas /Sale
     for (const record of queue) {
       try {
-        const res = await this.api.post<any, any>('/CashRegister/quick-sale', record.payload, {
-          headers: {
-            'X-Idempotency-Key': record.idempotencyKey,
-          },
-        });
+        const res = await this.dispatchSaleToBackend(record.payload, record.idempotencyKey);
 
         if (res && (res.success || res.isSuccess || res.id || res.invoiceNumber)) {
           successCount++;
+          void removeFromIndexedDb(record.id);
+          this.notificationService.success(
+            `Operación sincronizada exitosamente: ${res.invoiceNumber || res.id || record.idempotencyKey.substring(0, 8)}`,
+            'POS Sync'
+          );
         } else {
-          // Check for business rule conflict (400 / rule reject)
           const errLower = (res?.message || '').toLowerCase();
           if (errLower.includes('stock') || errLower.includes('inventario')) {
             newConflicts.push(this.createConflictRecord(record, 'INSUFFICIENT_STOCK', res?.message || 'Stock insuficiente en almacén'));
             conflictCount++;
           } else if (errLower.includes('bloqueado') || errLower.includes('mora') || errLower.includes('cliente')) {
-            newConflicts.push(this.createConflictRecord(record, 'CUSTOMER_BLOCKED', res?.message || 'Cliente con crédito bloqueado o suspendido'));
+            newConflicts.push(this.createConflictRecord(record, 'CUSTOMER_BLOCKED', res?.message || 'Cliente con crédito bloqueado'));
             conflictCount++;
           } else {
             record.retryCount++;
@@ -330,7 +389,6 @@ export class PosOfflineSyncService {
         const errMsg = err?.message || err?.error?.message || '';
         const msgLower = errMsg.toLowerCase();
 
-        // 400 Bad Request with specific business validation error -> Isolate as Conflict
         if (status === 400 || status === 422) {
           if (msgLower.includes('stock') || msgLower.includes('inventario')) {
             newConflicts.push(this.createConflictRecord(record, 'INSUFFICIENT_STOCK', errMsg));
@@ -343,9 +401,8 @@ export class PosOfflineSyncService {
             conflictCount++;
           }
         } else {
-          // Network drop or 500 error -> retry later
           record.retryCount++;
-          record.lastError = errMsg || 'Fallo temporal de conexión durante la sincronización';
+          record.lastError = errMsg || 'Fallo de conexión durante la sincronización';
           remainingQueue.push(record);
           failedCount++;
         }
@@ -362,17 +419,17 @@ export class PosOfflineSyncService {
 
     if (successCount > 0) {
       this.notificationService.success(
-        `Se sincronizaron exitosamente ${successCount} venta(s) guardadas en modo offline.`,
+        `Lote procesado: ${successCount} venta(s) completada(s) exitosamente en CuadreEnv.`,
       );
     }
     if (conflictCount > 0) {
       this.notificationService.warning(
-        `Atención: ${conflictCount} venta(s) offline requieren resolución manual de conflictos (stock o cliente).`,
+        `Atención: ${conflictCount} venta(s) del lote requieren revisión por stock o crédito.`,
       );
     }
     if (failedCount > 0) {
       this.lastSyncErrorSignal.set(
-        `${failedCount} venta(s) no pudieron sincronizarse. Se reintentará en el próximo sondeo.`,
+        `${failedCount} venta(s) pendientes de reintento en el siguiente ciclo.`,
       );
     }
 
@@ -416,9 +473,7 @@ export class PosOfflineSyncService {
     };
 
     try {
-      const res = await this.api.post('/CashRegister/quick-sale', payload, {
-        headers: { 'X-Idempotency-Key': conflict.idempotencyKey },
-      });
+      const res = await this.dispatchSaleToBackend(payload, conflict.idempotencyKey);
       if (res && (res.success || res.id || res.invoiceNumber)) {
         this.removeConflict(conflictId);
         this.notificationService.success('Conflicto resuelto: Venta registrada con ajuste de inventario.');
@@ -444,9 +499,7 @@ export class PosOfflineSyncService {
     };
 
     try {
-      const res = await this.api.post('/CashRegister/quick-sale', payload, {
-        headers: { 'X-Idempotency-Key': conflict.idempotencyKey },
-      });
+      const res = await this.dispatchSaleToBackend(payload, conflict.idempotencyKey);
       if (res && (res.success || res.id || res.invoiceNumber)) {
         this.removeConflict(conflictId);
         this.notificationService.success('Conflicto resuelto: Venta reasignada a Consumidor Final.');
@@ -456,6 +509,41 @@ export class PosOfflineSyncService {
       this.notificationService.error(e?.message || 'No se pudo reasignar el cliente.');
     }
     return false;
+  }
+
+  private async dispatchSaleToBackend(payload: any, idempotencyKey: string): Promise<any> {
+    const saleRequestDto = {
+      customerId: payload.customerId || null,
+      total: Number(payload.total) || 0,
+      paidAmount: Number(payload.amountReceived ?? payload.total) || 0,
+      cashRegisterId: payload.cashRegisterSessionId || payload.cashRegisterId || 1,
+      details: (payload.items || []).map((it: any) => ({
+        productId: it.productId,
+        quantity: it.quantity,
+        unitPrice: it.unitPrice,
+      })),
+    };
+
+    try {
+      return await this.api.post<any, any>('/Sale', saleRequestDto, {
+        headers: { 'X-Idempotency-Key': idempotencyKey },
+      });
+    } catch (err: any) {
+      return await this.api.post<any, any>(
+        '/caja/sales',
+        {
+          idempotencyKey,
+          customerId: payload.customerId || null,
+          cashRegisterId: payload.cashRegisterSessionId || payload.cashRegisterId || 1,
+          date: new Date().toISOString(),
+          createBy: 'pos-offline-sync',
+          items: saleRequestDto.details,
+        },
+        {
+          headers: { 'X-Idempotency-Key': idempotencyKey },
+        },
+      );
+    }
   }
 
   /**

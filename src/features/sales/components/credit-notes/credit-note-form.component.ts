@@ -263,7 +263,7 @@ export class CreditNoteFormComponent implements OnInit {
         cashSessionId: this.refundMethod === 'CASH' ? activeSessionId : undefined,
         statusId: 1,
         creditNoteType: this.creditNoteType,
-        ncf: `B04${String(Math.floor(10000000 + Math.random() * 90000000))}`,
+        ncf: '', // Asignado exclusivamente por el servidor backend transaccional
         originalNcf: this.loadedInvoice.originalNcf,
         warehouseId: this.loadedInvoice.warehouseId,
         amountSubTotal: this.calculatedSubtotal,

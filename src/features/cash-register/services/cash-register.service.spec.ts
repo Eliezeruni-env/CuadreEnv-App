@@ -17,6 +17,25 @@ describe('CashRegisterService', () => {
 
     const mockApi: any = {
       get: vi.fn().mockImplementation((url: string) => {
+        if (url === '/cash-sessions/active-session') {
+          const open = mockRegisters.find((r) => r.isOpen);
+          if (!open) return Promise.resolve(null);
+          let totalIn = 0;
+          let totalOut = 0;
+          for (const m of mockMovements) {
+            if (m.type === 'In') totalIn += Number(m.amount);
+            else if (m.type === 'Out') totalOut += Number(m.amount);
+          }
+          return Promise.resolve({
+            success: true,
+            data: {
+              ...open,
+              totalIn,
+              totalOut,
+              currentBalance: open.initialAmount + totalIn - totalOut,
+            },
+          });
+        }
         if (url === '/CashRegister') {
           return Promise.resolve(mockRegisters);
         }
@@ -26,28 +45,35 @@ describe('CashRegisterService', () => {
         return Promise.resolve([]);
       }),
       post: vi.fn().mockImplementation((url: string, body?: any) => {
-        if (url === '/CashRegister/open') {
+        if (url === '/cash-sessions/open' || url === '/CashRegister/open') {
+          const initial = Number(body?.balance ?? body?.initialAmount ?? 0);
           const reg = {
             id: 1,
             name: body?.name || 'Caja Principal',
-            balance: body?.balance || 0,
+            balance: initial,
+            initialAmount: initial,
             isOpen: true,
             createdDate: new Date().toISOString(),
           };
           mockRegisters.push(reg);
-          return Promise.resolve(reg);
+          return Promise.resolve({ success: true, id: 1, data: reg });
         }
         if (url.includes('/close')) {
           const reg = mockRegisters.find((r) => r.isOpen);
+          const closingAmt = Number(body?.actualAmount ?? body?.closingAmount ?? 0);
           if (reg) {
             reg.isOpen = false;
-            const match = url.match(/closingAmount=([0-9.]+)/);
-            if (match) {
-              reg.balance = Number(match[1]);
-            }
+            reg.balance = closingAmt;
             reg.updatedDate = new Date().toISOString();
           }
-          return Promise.resolve({ success: true });
+          return Promise.resolve({
+            success: true,
+            data: {
+              expected: 15000,
+              actual: closingAmt,
+              diff: closingAmt - 15000,
+            },
+          });
         }
         if (url === '/CashMovement') {
           const mov = {

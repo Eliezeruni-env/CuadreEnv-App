@@ -91,9 +91,7 @@ export class CreateServiceSaleModalComponent implements OnInit {
         this.customerService.getCustomers({
           pageNumber: 1,
           pageSize: 100,
-          PageNumber: 1,
-          PageSize: 100,
-        } as any),
+        }),
         this.serviceService.getServices({ activeOnly: true }),
       ]);
 

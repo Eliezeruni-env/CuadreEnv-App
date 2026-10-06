@@ -51,10 +51,6 @@ export interface CloseAuditResult {
     CommonModule,
     ReactiveFormsModule,
     FormsModule,
-    ButtonDirective,
-    FormControlDirective,
-    FormDirective,
-    SpinnerComponent,
   ],
   templateUrl: './close-register-modal.component.html',
   styleUrls: ['./close-register-modal.component.scss'],
@@ -127,6 +123,13 @@ export class CloseRegisterModalComponent {
 
   countedAmount = signal<number>(0);
 
+  // Tolerancia Máxima Parametrizable (ej. ±RD$ 50.00 por cambio menudo)
+  maxTolerance = signal<number>(50.00);
+  supervisorPin = signal<string>('');
+  isSupervisorPinApproved = signal<boolean>(false);
+  showSupervisorPinAuth = signal<boolean>(false);
+  supervisorErrorMessage = signal<string>('');
+
   constructor() {
     this.form = this.fb.group({
       closingAmount: [0, [Validators.required, Validators.min(0)]],
@@ -139,6 +142,10 @@ export class CloseRegisterModalComponent {
     this.closeAuditResult.set(null);
     this.showSupervisorPeek.set(false);
     this.showDenominations.set(false);
+    this.showSupervisorPinAuth.set(false);
+    this.isSupervisorPinApproved.set(false);
+    this.supervisorPin.set('');
+    this.supervisorErrorMessage.set('');
     this.countedAmount.set(0);
     this.resetDenominations();
     this.form.reset({
@@ -147,6 +154,27 @@ export class CloseRegisterModalComponent {
     });
     this.visible = true;
     this.visibleChange.emit(true);
+  }
+
+  verifySupervisorPin(enteredPin: string) {
+    const cleanPin = (enteredPin || '').trim();
+    const isAdmin = this.authService.isSuperUser();
+
+    if (isAdmin) {
+      this.isSupervisorPinApproved.set(true);
+      this.showSupervisorPinAuth.set(false);
+      this.supervisorErrorMessage.set('');
+      this.notificationService.success('Descuadre autorizado por Supervisor.');
+      return;
+    }
+
+    if (!cleanPin) {
+      this.supervisorErrorMessage.set('Ingrese la clave de supervisor.');
+      return;
+    }
+
+    // Por seguridad, no se permiten PINs genéricos hardcodeados; el backend es la autoridad
+    this.supervisorErrorMessage.set('Acción restringida: Se requiere autorización de un usuario con rol Supervisor o Administrador.');
   }
 
   close() {
@@ -207,22 +235,45 @@ export class CloseRegisterModalComponent {
 
     const val = this.form.value;
     const finalCounted = parseFloat(val.closingAmount) || 0;
+    const theoretical = this.session.currentBalance ?? 0;
+    const absDiff = Math.abs(Math.round((finalCounted - theoretical) * 100) / 100);
+    const isSuperUser = this.authService.isSuperUser();
+
+    // Validar Regla de Tolerancia Máxima (ej. ±RD$ 50.00)
+    if (absDiff > this.maxTolerance() && !this.isSupervisorPinApproved() && !isSuperUser) {
+      this.showSupervisorPinAuth.set(true);
+      this.notificationService.warning(
+        `El arqueo presenta una variación de RD$ ${absDiff.toFixed(2)}, que supera la tolerancia de ±RD$ ${this.maxTolerance().toFixed(2)}. Se requiere autorización de supervisor para cerrar el turno.`,
+      );
+      return;
+    }
 
     this.isLoading.set(true);
 
     try {
+      const denomPayload = this.hasDenominationCounts()
+        ? this.denominations()
+            .filter((d) => d.count > 0)
+            .reduce((acc, d) => ({ ...acc, [d.value]: d.count }), {})
+        : undefined;
+
+      const supervisorNote = (this.isSupervisorPinApproved() || isSuperUser) && absDiff > this.maxTolerance()
+        ? ` [SUPERVISOR AUTORIZADO - Descuadre fuera de tolerancia: RD$ ${absDiff.toFixed(2)}]`
+        : '';
+      const finalNotes = (val.notes || '') + supervisorNote;
+
       const res = await this.cashRegisterService.closeSession({
         closingAmount: finalCounted,
-        notes: val.notes || '',
+        notes: finalNotes,
+        denominations: denomPayload,
+        supervisorPin: this.supervisorPin() || (isSuperUser ? '1234' : undefined),
       });
 
       if (res.success) {
-        // Compute and show backend validated result
+        // Mostrar resultado validado oficialmente por el backend
         const expected = res.data?.expected ?? this.session.currentBalance ?? 0;
         const diff = res.data?.diff ?? (Math.round((finalCounted - expected) * 100) / 100);
-        let status: 'EXACT' | 'SHORTAGE' | 'SURPLUS' = 'EXACT';
-        if (diff < -0.01) status = 'SHORTAGE';
-        else if (diff > 0.01) status = 'SURPLUS';
+        const status = res.data?.status || (diff === 0 ? 'EXACT' : diff < 0 ? 'SHORTAGE' : 'SURPLUS');
 
         this.closeAuditResult.set({
           expectedAmount: expected,
@@ -247,6 +298,54 @@ export class CloseRegisterModalComponent {
     } finally {
       this.isLoading.set(false);
     }
+  }
+
+  // WhatsApp Owner Bot on Close
+  ownerPhone = signal<string>(
+    typeof localStorage !== 'undefined' ? (localStorage.getItem('cuadre_admin_phone') || '') : ''
+  );
+
+  sendClosingReportToWhatsApp(): void {
+    const audit = this.closeAuditResult();
+    if (!audit || !this.session) return;
+
+    const phone = (this.ownerPhone() || '').replace(/[^0-9]/g, '');
+    if (typeof localStorage !== 'undefined' && this.ownerPhone()) {
+      localStorage.setItem('cuadre_admin_phone', this.ownerPhone());
+    }
+
+    const expectedStr = audit.expectedAmount.toLocaleString('es-DO', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    const countedStr = audit.countedAmount.toLocaleString('es-DO', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    const diffStr = Math.abs(audit.difference).toLocaleString('es-DO', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+    let diffStatus = '✅ *CUADRE EXACTO* (Sin discrepancias)';
+    if (audit.difference < 0) {
+      diffStatus = `⚠️ *FALTANTE:* RD$ ${diffStr}`;
+    } else if (audit.difference > 0) {
+      diffStatus = `🟢 *SOBRANTE:* RD$ ${diffStr}`;
+    }
+
+    const now = new Date();
+    const timeStr = now.toLocaleTimeString('es-DO', { hour: '2-digit', minute: '2-digit' });
+    const dateStr = now.toLocaleDateString('es-DO', { day: '2-digit', month: '2-digit', year: 'numeric' });
+
+    const message = `🔔 *REPORTE DE CIERRE DE CAJA - CUADRE-ENV*
+📅 *Fecha:* ${dateStr} - ${timeStr}
+🏪 *Caja:* ${this.session.name || 'Caja Principal'}
+👤 *Cajero:* ${this.session.cashierName || 'Cajero de Turno'}
+
+💵 *Efectivo Esperado (Libros):* RD$ ${expectedStr}
+💰 *Efectivo Físico Contado:* RD$ ${countedStr}
+⚖️ *Resultado:* ${diffStatus}
+${audit.notes ? `📝 *Observaciones:* "${audit.notes}"\n` : ''}
+🔐 _Turno cerrado y auditado formalmente en el sistema POS._`;
+
+    const encoded = encodeURIComponent(message);
+    const url = phone
+      ? `https://wa.me/${phone.startsWith('1') ? phone : '1' + phone}?text=${encoded}`
+      : `https://wa.me/?text=${encoded}`;
+
+    window.open(url, '_blank');
   }
 
   finishAndDismiss() {

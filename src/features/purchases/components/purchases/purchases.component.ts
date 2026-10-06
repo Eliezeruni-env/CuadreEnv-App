@@ -1,5 +1,6 @@
 import { Component, computed, inject, OnInit, signal, ViewChild } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { Router } from '@angular/router';
 import { PurchaseService } from '../../services/purchase.service';
 import { AuthService } from '../../../cuadreEnv/services/auth.service';
 import { TranslationService } from '../../../cuadreEnv/services/translation.service';
@@ -204,11 +205,18 @@ export class PurchasesComponent implements OnInit {
     });
   }
 
+  private router = inject(Router);
+
   viewPurchaseDetail(purchase: PurchaseDto) {
     this.selectedPurchase = purchase;
     this.isModalOpen = true;
     setTimeout(() => {
       if (this.purchaseModal) this.purchaseModal.openDetail(purchase);
     });
+  }
+
+  receivePurchase(purchase: PurchaseDto) {
+    if (!purchase.id) return;
+    this.router.navigate(['/purchases/receipts/create', purchase.id]);
   }
 }

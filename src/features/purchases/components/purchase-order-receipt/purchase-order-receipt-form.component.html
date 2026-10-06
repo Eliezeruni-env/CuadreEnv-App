@@ -30,41 +30,115 @@
     </div>
   </div>
 
-  <!-- Step 1: Search Order -->
+  <!-- Step 1: Select or Search Order -->
   @if (currentStep() === 1) {
-    <div class="card border-0 shadow-sm rounded-4 p-4 bg-white mx-auto" style="max-width: 600px;">
-      <h5 class="fw-bold text-dark mb-3 text-center">Seleccione o Escanee la Orden de Compra</h5>
-      <div class="input-group mb-3">
-        <span class="input-group-text bg-light">
-          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <circle cx="11" cy="11" r="8"></circle>
-            <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+    <!-- Explanation Banner -->
+    <div class="card border-0 rounded-4 bg-primary-subtle text-primary-emphasis p-3 mb-4 shadow-xs">
+      <div class="d-flex align-items-start gap-3">
+        <div class="p-2 bg-white rounded-circle text-primary shadow-xs">
+          <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="10"></circle>
+            <line x1="12" y1="16" x2="12" y2="12"></line>
+            <line x1="12" y1="8" x2="12.01" y2="8"></line>
           </svg>
-        </span>
-        <input
-          type="text"
-          class="form-control"
-          placeholder="Número de orden (Ej: OC-000101 o 101)..."
-          [(ngModel)]="searchPoNumber"
-          (keydown.enter)="searchOrder()"
-        />
-        <button
-          type="button"
-          class="btn btn-primary fw-semibold px-4"
-          [disabled]="isSearching() || !searchPoNumber.trim()"
-          (click)="searchOrder()"
-        >
-          @if (isSearching()) {
-            <span class="spinner-border spinner-border-sm me-1"></span>
+        </div>
+        <div>
+          <h6 class="fw-bold mb-1 text-dark">¿Cómo funciona la Recepción de Mercancía?</h6>
+          <p class="small mb-0 text-secondary">
+            Una <strong>Orden de Compra</strong> representa el pedido acordado con el proveedor. En este módulo, el personal de almacén realiza el <strong>conteo físico real</strong> de los productos al momento de recibirlos del camión o transportista.
+            Al confirmar la recepción, el inventario del almacén seleccionado <strong>se incrementa de inmediato</strong>. Si el conteo coincide exactamente, se completa la orden; si hay variaciones (sobrantes o faltantes), se envía a la <strong>Bandeja de Aprobaciones</strong> para auditoría de un supervisor.
+          </p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Available Orders List -->
+    <div class="row g-4">
+      <div class="col-lg-8">
+        <div class="card border-0 shadow-sm rounded-4 p-4 bg-white h-100">
+          <div class="d-flex justify-content-between align-items-center mb-3">
+            <h5 class="fw-bold text-dark mb-0">Órdenes de Compra Pendientes de Recepción</h5>
+            <span class="badge bg-primary rounded-pill px-3">{{ availableOrders().length }} pendientes</span>
+          </div>
+
+          @if (availableOrders().length === 0) {
+            <div class="py-5 text-center text-muted">
+              <p class="mb-2">No hay órdenes de compra pendientes de recibir en este momento.</p>
+              <button class="btn btn-outline-primary btn-sm px-3" routerLink="/purchases">
+                Ver Módulo de Compras
+              </button>
+            </div>
+          } @else {
+            <div class="d-flex flex-column gap-2" style="max-height: 480px; overflow-y: auto;">
+              @for (order of availableOrders(); track order.id) {
+                <div class="card border rounded-3 p-3 bg-light hover-shadow transition">
+                  <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
+                    <div>
+                      <div class="d-flex align-items-center gap-2 mb-1">
+                        <strong class="font-monospace text-primary fs-6">{{ order.orderNumber }}</strong>
+                        <span class="badge bg-warning-subtle text-warning-emphasis border border-warning-subtle">
+                          {{ order.statusName }}
+                        </span>
+                      </div>
+                      <div class="fw-semibold text-dark">{{ order.supplierName }}</div>
+                      <div class="text-secondary small">
+                        Fecha: {{ order.orderDate | date:'dd/MM/yyyy' }} · {{ (order.productDetails || []).length }} productos en la orden
+                      </div>
+                    </div>
+
+                    <div class="text-end d-flex flex-column align-items-end gap-1">
+                      <div class="font-monospace fw-bold text-dark fs-6">
+                        RD$ {{ order.total | number:'1.2-2' }}
+                      </div>
+                      <button
+                        type="button"
+                        class="btn btn-sm btn-primary fw-semibold px-3 shadow-xs"
+                        (click)="selectOrderDirectly(order)"
+                      >
+                        📥 Iniciar Conteo Físico →
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              }
+            </div>
           }
-          Buscar
-        </button>
+        </div>
       </div>
 
-      <div class="p-3 bg-light rounded-3 border small text-secondary">
-        <strong class="text-dark d-block mb-1">Órdenes de Compra de Ejemplo Disponibles:</strong>
-        <div>• <strong>OC-000101</strong>: Distribuidora Nacional (Pendiente de Recepción)</div>
-        <div>• <strong>OC-000102</strong>: Importadora del Caribe (Completada)</div>
+      <!-- Search Box Sidebar -->
+      <div class="col-lg-4">
+        <div class="card border-0 shadow-sm rounded-4 p-4 bg-white h-100">
+          <h5 class="fw-bold text-dark mb-2">Búsqueda Directa</h5>
+          <p class="text-secondary small mb-3">Si tienes el comprobante o número impreso, ingrésalo o escanéalo aquí:</p>
+
+          <div class="input-group mb-3">
+            <input
+              type="text"
+              class="form-control"
+              placeholder="Ej: OC-000101 o 101"
+              [(ngModel)]="searchPoNumber"
+              (keydown.enter)="searchOrder()"
+            />
+            <button
+              type="button"
+              class="btn btn-primary fw-semibold px-3"
+              [disabled]="isSearching() || !searchPoNumber.trim()"
+              (click)="searchOrder()"
+            >
+              @if (isSearching()) {
+                <span class="spinner-border spinner-border-sm"></span>
+              } @else {
+                Buscar
+              }
+            </button>
+          </div>
+
+          <div class="p-3 bg-light rounded-3 border small text-secondary mt-auto">
+            <strong class="text-dark d-block mb-1">Consejo Operativo:</strong>
+            El personal de almacén no necesita saber códigos contables: únicamente selecciona la orden pendiente que está descargando el camión e introduce las unidades físicas contadas.
+          </div>
+        </div>
       </div>
     </div>
   }

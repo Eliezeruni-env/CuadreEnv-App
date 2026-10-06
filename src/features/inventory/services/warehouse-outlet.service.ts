@@ -5,6 +5,7 @@ import { WarehouseService } from './warehouse.service';
 import { ProductService } from '../../products/services/product.service';
 import type { ApiResponse } from '../../cuadreEnv/types/api';
 import type { WarehouseOutlet, WarehouseMovementHeader } from '../../../app/models/movement';
+import { normalizeWarehouseMovement } from '../utils/movement-normalizer';
 
 const OUTLETS_STORAGE_KEY = 'cuadreenv_warehouse_outlets_db';
 
@@ -39,18 +40,28 @@ export class WarehouseOutletService {
       const res = await this.api.get<any, any>('/WarehouseOutlet');
       const list = extractArray<WarehouseOutlet>(res);
       if (list && list.length > 0) {
-        return { success: true, data: list };
+        const normalized = list.map((item) => normalizeWarehouseMovement<WarehouseOutlet>(item));
+        return { success: true, data: normalized };
       }
+      return { success: true, data: [] };
     } catch {
-      // fallback
+      return { success: false, data: [], message: 'No se pudo conectar con el servidor.' };
     }
-    return { success: true, data: this.getLocalOutlets() };
   }
 
   async getOutlet(id: number): Promise<ApiResponse<WarehouseOutlet>> {
+    try {
+      const res = await this.api.get<any, any>(`/WarehouseOutlet/${id}`);
+      if (res) {
+        const outlet = normalizeWarehouseMovement<WarehouseOutlet>(res.data ?? res);
+        return { success: true, data: outlet };
+      }
+    } catch {
+      // fallback to local
+    }
     const list = this.getLocalOutlets();
     const found = list.find((o) => o.id === id);
-    if (found) return { success: true, data: found };
+    if (found) return { success: true, data: normalizeWarehouseMovement<WarehouseOutlet>(found) };
     return { success: false, message: 'Salida de almacén no encontrada.' };
   }
 

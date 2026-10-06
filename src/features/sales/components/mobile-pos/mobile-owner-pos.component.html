@@ -1,0 +1,938 @@
+<div class="mobile-pos-app">
+
+  <!-- ======================================================== -->
+  <!-- 1. HEADER MÓVIL (COMPACTO Y PROFESIONAL)                -->
+  <!-- ======================================================== -->
+  <header class="mobile-header">
+    <div class="header-main-row">
+      <button type="button" class="btn-header-action" (click)="isSideMenuOpen.set(true)" aria-label="Abrir menú">
+        <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#FFFFFF" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+          <line x1="4" x2="20" y1="12" y2="12"/>
+          <line x1="4" x2="20" y1="6" y2="6"/>
+          <line x1="4" x2="20" y1="18" y2="18"/>
+        </svg>
+      </button>
+
+      <div class="header-brand-block text-center">
+        <h6 class="brand-title mb-0">CuadreEnv</h6>
+        <span class="brand-subtitle">{{ tenantName() }}</span>
+      </div>
+
+      <button type="button" class="btn-header-action" (click)="setTab('mas')" aria-label="Perfil y opciones">
+        <div class="user-avatar-small">{{ (authService.currentUser()?.fullName || userName()).charAt(0).toUpperCase() }}</div>
+      </button>
+    </div>
+
+    <!-- REGISTER CONTEXT SUB-ROW -->
+    <div class="header-context-row">
+      <div class="context-left">
+        <span class="register-name">{{ activeSession()?.name || 'Caja #02' }}</span>
+        <span class="separator">·</span>
+        <span class="cashier-name">{{ authService.currentUser()?.fullName || userName() }}</span>
+      </div>
+      <div class="context-right">
+        <span class="status-indicator-dot"></span>
+        <span class="status-text">Caja abierta</span>
+      </div>
+    </div>
+  </header>
+
+  <!-- ======================================================== -->
+  <!-- MAIN SCROLLABLE VIEW CONTAINER                           -->
+  <!-- ======================================================== -->
+  <main class="mobile-body-container">
+
+    <!-- ======================================================== -->
+    <!-- TAB 1: INICIO (DASHBOARD MÓVIL)                         -->
+    <!-- ======================================================== -->
+    @if (activeTab() === 'inicio') {
+      <div class="view-content fade-in">
+
+        <!-- GREETING -->
+        <div class="greeting-section mb-3">
+          <h4 class="greeting-name">{{ greeting() }}, {{ userName() }}</h4>
+          <p class="greeting-subtitle mb-0">Aquí tienes el resumen</p>
+        </div>
+
+        <!-- HERO CARD: CAJA ACTUAL -->
+        <div class="caja-actual-card mb-3" (click)="setTab('caja')">
+          <div class="card-header-line">
+            <span class="caja-label">CAJA ACTUAL</span>
+            <span class="caja-badge-green">
+              <span class="mini-green-dot"></span> Abierta
+            </span>
+          </div>
+          <div class="caja-main-balance">
+            RD$ {{ totalCashInDrawers() | number:'1.2-2' }}
+          </div>
+          <div class="caja-footer-line">
+            <span>{{ activeSession()?.name || 'Caja #02' }} · Abierta desde 08:03 AM</span>
+            <span class="caja-arrow">Ver caja →</span>
+          </div>
+        </div>
+
+        <!-- RESUMEN DE HOY -->
+        <div class="section-heading mb-2">RESUMEN DE HOY</div>
+        <div class="summary-cards-row mb-3">
+          <div class="summary-card">
+            <span class="summary-card-label">Ventas de hoy</span>
+            <div class="summary-card-value font-monospace">
+              RD$ {{ todaySalesTotal() | number:'1.0-0' }}
+            </div>
+            <span class="summary-card-count">{{ todayInvoicesCount() }} ventas</span>
+          </div>
+
+          <div class="summary-card">
+            <span class="summary-card-label">Ticket promedio</span>
+            <div class="summary-card-value font-monospace">
+              RD$ {{ averageTicketDop() | number:'1.0-0' }}
+            </div>
+            <span class="summary-card-count">RD$ por cliente</span>
+          </div>
+        </div>
+
+        <!-- ALERTAS DE CAJA (Si existen riesgos detectados) -->
+        @if (fraudService.activeFlags().length > 0) {
+          <div class="alert-box-banner mb-3" (click)="setTab('mas')">
+            <div class="alert-banner-left">
+              <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#DC2626" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                <path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3"/>
+                <line x1="12" y1="9" x2="12" y2="13"/>
+                <line x1="12" y1="17" x2="12.01" y2="17"/>
+              </svg>
+              <div>
+                <strong class="d-block">{{ fraudService.activeFlags().length }} alertas de caja</strong>
+                <small class="text-secondary">Posibles discrepancias o cancelaciones</small>
+              </div>
+            </div>
+            <span class="alert-action-pill">Revisar →</span>
+          </div>
+        }
+
+        <!-- ACCIONES RÁPIDAS (Iconografía Outline Monocromática Profesional) -->
+        <div class="section-heading mb-2">ACCIONES RÁPIDAS</div>
+        <div class="quick-actions-grid mb-4">
+          <button type="button" class="quick-action-btn" (click)="setTab('ventas')">
+            <div class="action-icon-box">
+              <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="8" cy="21" r="1"/>
+                <circle cx="19" cy="21" r="1"/>
+                <path d="M2.05 2.05h2l2.66 12.42a2 2 0 0 0 2 1.58h9.78a2 2 0 0 0 1.95-1.57l1.65-7.43H5.12"/>
+              </svg>
+            </div>
+            <span class="action-btn-text">Nueva venta</span>
+          </button>
+
+          <button type="button" class="quick-action-btn" (click)="setTab('caja')">
+            <div class="action-icon-box">
+              <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                <rect width="20" height="12" x="2" y="6" rx="2"/>
+                <circle cx="12" cy="12" r="2"/>
+                <path d="M6 12h.01M18 12h.01"/>
+              </svg>
+            </div>
+            <span class="action-btn-text">Mi caja</span>
+          </button>
+
+          <button type="button" class="quick-action-btn" (click)="setTab('ventas')">
+            <div class="action-icon-box">
+              <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                <path d="m7.5 4.27 9 5.15"/>
+                <path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z"/>
+                <path d="m3.3 7 8.7 5 8.7-5"/>
+                <path d="M12 22V12"/>
+              </svg>
+            </div>
+            <span class="action-btn-text">Productos</span>
+          </button>
+
+          <button type="button" class="quick-action-btn" (click)="isClientsModalOpen.set(true)">
+            <div class="action-icon-box">
+              <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/>
+                <circle cx="9" cy="7" r="4"/>
+                <path d="M22 21v-2a4 4 0 0 0-3-3.87"/>
+                <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+              </svg>
+            </div>
+            <span class="action-btn-text">Clientes</span>
+          </button>
+        </div>
+
+      </div>
+    }
+
+    <!-- ======================================================== -->
+    <!-- TAB 2: VENTAS (PANTALLA DE NUEVA VENTA POS)              -->
+    <!-- ======================================================== -->
+    @if (activeTab() === 'ventas') {
+      <div class="view-content fade-in">
+
+        <!-- Top Navigation Line -->
+        <div class="view-top-bar mb-2">
+          <button type="button" class="btn-view-back" (click)="setTab('inicio')" aria-label="Volver">
+            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+              <path d="m12 19-7-7 7-7"/>
+              <path d="M19 12H5"/>
+            </svg>
+          </button>
+          <h5 class="view-top-title mb-0">Nueva venta</h5>
+          <button type="button" class="btn-view-more" (click)="clearCart()" title="Limpiar venta" aria-label="Opciones de venta">
+            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="12" cy="12" r="1.5"/>
+              <circle cx="19" cy="12" r="1.5"/>
+              <circle cx="5" cy="12" r="1.5"/>
+            </svg>
+          </button>
+        </div>
+
+        <!-- Search Bar -->
+        <div class="search-bar-wrap mb-2">
+          <svg class="search-lens" xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#94A3B8" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="11" cy="11" r="8"/>
+            <path d="m21 21-4.3-4.3"/>
+          </svg>
+          <input
+            type="text"
+            class="pos-search-input"
+            placeholder="Buscar producto por nombre o código..."
+            [(ngModel)]="searchTerm"
+          />
+          @if (searchTerm()) {
+            <button type="button" class="btn-clear-search" (click)="searchTerm.set('')" aria-label="Limpiar búsqueda">
+              <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <line x1="18" y1="6" x2="6" y2="18"/>
+                <line x1="6" y1="6" x2="18" y2="18"/>
+              </svg>
+            </button>
+          }
+        </div>
+
+        <!-- Category Filter Chips -->
+        <div class="categories-carousel-row no-scrollbar mb-2">
+          @for (cat of categories(); track cat.id) {
+            <button
+              type="button"
+              class="cat-chip-btn"
+              [class.active]="selectedCategoryId() === cat.id"
+              (click)="selectedCategoryId.set(cat.id)"
+            >
+              {{ cat.label }}
+            </button>
+          }
+        </div>
+
+        <!-- Product List Vertical POS -->
+        <div class="products-vertical-list mb-5">
+          <div class="list-section-title">Productos</div>
+
+          @for (prod of filteredProducts(); track prod.id) {
+            <div class="pos-product-row" (click)="addToCart(prod)">
+              <div class="product-left-info">
+                <span class="product-name">{{ prod.description }}</span>
+                <div class="product-meta-line">
+                  <span class="product-price">RD$ {{ (prod.price || prod.cost * 1.3) | number:'1.2-2' }}</span>
+                  <span class="product-stock-hint">· Stock: {{ prod.stock || 0 }}</span>
+                </div>
+              </div>
+
+              <div class="product-right-actions">
+                @if (getItemCartCount(prod.id) > 0) {
+                  <span class="item-cart-count-badge">
+                    {{ getItemCartCount(prod.id) }}
+                  </span>
+                }
+                <button
+                  type="button"
+                  class="btn-pos-add"
+                  (click)="addToCart(prod); $event.stopPropagation()"
+                  aria-label="Agregar producto"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                    <line x1="12" y1="5" x2="12" y2="19"/>
+                    <line x1="5" y1="12" x2="19" y2="12"/>
+                  </svg>
+                </button>
+              </div>
+            </div>
+          }
+
+          @if (filteredProducts().length === 0 && !isLoading()) {
+            <div class="empty-state-box">
+              <svg class="empty-icon" xmlns="http://www.w3.org/2000/svg" width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="#94A3B8" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                <path d="m7.5 4.27 9 5.15"/>
+                <path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z"/>
+                <path d="m3.3 7 8.7 5 8.7-5"/>
+                <path d="M12 22V12"/>
+              </svg>
+              <p class="mb-0">No se encontraron productos con ese filtro.</p>
+            </div>
+          }
+        </div>
+
+        <!-- STICKY BOTTOM CHECKOUT SUMMARY BAR -->
+        @if (cart().length > 0) {
+          <div class="bottom-checkout-sticky">
+            <div class="checkout-summary-line cursor-pointer" (click)="isCartDrawerOpen.set(true)">
+              <span class="items-count-indicator">
+                {{ totalCartItemsCount() }} {{ totalCartItemsCount() === 1 ? 'producto' : 'productos' }} <span class="text-primary fw-semibold font-size-xs">(Ver pedido)</span>
+              </span>
+              <div class="total-inline-display">
+                <span class="total-label-text">Total</span>
+                <span class="total-amount-text font-monospace">RD$ {{ cartTotal() | number:'1.2-2' }}</span>
+              </div>
+            </div>
+
+            <button
+              type="button"
+              class="btn-cobrar-navy"
+              (click)="openCheckout()"
+            >
+              COBRAR RD$ {{ cartTotal() | number:'1.2-2' }}
+            </button>
+          </div>
+        }
+
+      </div>
+    }
+
+    <!-- ======================================================== -->
+    <!-- TAB 3: CAJA (MI CAJA & MOVIMIENTOS)                      -->
+    <!-- ======================================================== -->
+    @if (activeTab() === 'caja') {
+      <div class="view-content fade-in">
+
+        <!-- Top Bar -->
+        <div class="view-top-bar mb-2">
+          <button type="button" class="btn-view-back" (click)="setTab('inicio')" aria-label="Volver">
+            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+              <path d="m12 19-7-7 7-7"/>
+              <path d="M19 12H5"/>
+            </svg>
+          </button>
+          <h5 class="view-top-title mb-0">Mi Caja</h5>
+          <span></span>
+        </div>
+
+        <!-- BIG NAVY CARD: CAJA #02 -->
+        <div class="caja-hero-navy mb-3">
+          <div class="caja-hero-header">
+            <span class="caja-hero-title">{{ activeSession()?.name || 'CAJA #02' }}</span>
+            <span class="caja-hero-status-pill">
+              <span class="green-indicator"></span> ABIERTA
+            </span>
+          </div>
+
+          <div class="caja-hero-amount">
+            RD$ {{ totalCashInDrawers() | number:'1.2-2' }}
+          </div>
+
+          <div class="caja-hero-details">
+            Apertura: 08:03 AM · Cajero: {{ authService.currentUser()?.fullName || userName() }}
+          </div>
+        </div>
+
+        <!-- MOVIMIENTOS RECIENTES -->
+        <div class="section-heading mb-2">Movimientos recientes</div>
+        <div class="movements-card mb-4">
+          @for (mov of recentMovements(); track mov.description) {
+            <div class="movement-item-row">
+              <div class="mov-info-left">
+                <span class="mov-symbol" [ngClass]="mov.amount >= 0 ? 'symbol-plus' : 'symbol-minus'">
+                  {{ mov.amount >= 0 ? '+' : '-' }}
+                </span>
+                <div>
+                  <span class="mov-desc-text">{{ mov.description }}</span>
+                  <small class="mov-time-text">{{ mov.time }}</small>
+                </div>
+              </div>
+
+              <strong class="mov-amount-val font-monospace" [ngClass]="mov.amount >= 0 ? 'text-success' : 'text-danger'">
+                RD$ {{ Math.abs(mov.amount) | number:'1.2-2' }}
+              </strong>
+            </div>
+          }
+        </div>
+
+        <!-- BOTÓN DE CERRAR CAJA -->
+        <div class="mb-4">
+          <button
+            type="button"
+            class="btn-close-caja-danger"
+            (click)="openCloseRegisterModal()"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" class="me-2">
+              <circle cx="12" cy="16" r="1"/>
+              <rect x="3" y="10" width="18" height="12" rx="2"/>
+              <path d="M7 10V7a5 5 0 0 1 10 0v3"/>
+            </svg>
+            <span>CERRAR CAJA / ARQUEO</span>
+          </button>
+        </div>
+
+      </div>
+    }
+
+    <!-- ======================================================== -->
+    <!-- TAB 4: MÁS (OPCIONES ADICIONALES & PERFIL)               -->
+    <!-- ======================================================== -->
+    @if (activeTab() === 'mas') {
+      <div class="view-content fade-in">
+
+        <!-- Top Bar -->
+        <div class="view-top-bar mb-3">
+          <button type="button" class="btn-view-back" (click)="setTab('inicio')" aria-label="Volver">
+            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+              <path d="m12 19-7-7 7-7"/>
+              <path d="M19 12H5"/>
+            </svg>
+          </button>
+          <h5 class="view-top-title mb-0">Más opciones</h5>
+          <span></span>
+        </div>
+
+        <!-- User profile summary card (Avatar Cuadrado Navy + Badge Rol Suave) -->
+        <div class="user-card-panel mb-3">
+          <div class="user-avatar-square">
+            {{ (authService.currentUser()?.fullName || userName()).charAt(0).toUpperCase() }}
+          </div>
+          <div class="user-card-details">
+            <h6 class="fw-bold mb-0 text-dark">{{ authService.currentUser()?.fullName || userName() }}</h6>
+            <span class="user-id-code font-monospace">{{ authService.currentUser()?.id || '6' }}</span>
+            <div class="mt-1">
+              <span class="badge-role-pill">
+                {{ authService.currentRole() || 'Admin' }}
+              </span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Menu Options Group con Iconos Outline Coherentes -->
+        <div class="more-options-group mb-3">
+          <div class="option-row-item cursor-pointer" (click)="isClientsModalOpen.set(true)">
+            <div class="option-left">
+              <div class="option-icon-box">
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#64748B" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/>
+                  <circle cx="9" cy="7" r="4"/>
+                  <path d="M22 21v-2a4 4 0 0 0-3-3.87"/>
+                  <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+                </svg>
+              </div>
+              <div>
+                <strong class="option-item-title">Directorio de Clientes</strong>
+                <small class="option-item-sub">Ver o seleccionar cliente para facturación</small>
+              </div>
+            </div>
+            <svg class="option-arrow" xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#94A3B8" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+              <path d="m9 18 6-6-6-6"/>
+            </svg>
+          </div>
+
+          <div class="option-row-item cursor-pointer" (click)="sendDailySummaryToOwnerWhatsApp()">
+            <div class="option-left">
+              <div class="option-icon-box">
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#64748B" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M3 21l1.65-3.8a9 9 0 1 1 3.4 2.9L3 21"/>
+                  <path d="M9 10a.5.5 0 0 0 1 0V9a.5.5 0 0 0-1 0v1a5 5 0 0 0 5 5h1a.5.5 0 0 0 0-1h-1a.5.5 0 0 0 0 1"/>
+                </svg>
+              </div>
+              <div>
+                <strong class="option-item-title">Reporte WhatsApp al Dueño</strong>
+                <small class="option-item-sub">Enviar balance ejecutivo en tiempo real</small>
+              </div>
+            </div>
+            <svg class="option-arrow" xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#94A3B8" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+              <path d="m9 18 6-6-6-6"/>
+            </svg>
+          </div>
+
+          <div class="option-row-item cursor-pointer" (click)="openCloseRegisterModal()">
+            <div class="option-left">
+              <div class="option-icon-box">
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#64748B" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                  <rect width="20" height="12" x="2" y="6" rx="2"/>
+                  <circle cx="12" cy="12" r="2"/>
+                  <path d="M6 12h.01M18 12h.01"/>
+                </svg>
+              </div>
+              <div>
+                <strong class="option-item-title">Arqueo y Cierre de Caja</strong>
+                <small class="option-item-sub">Conteo de billetes, cierre y bot</small>
+              </div>
+            </div>
+            <svg class="option-arrow" xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#94A3B8" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+              <path d="m9 18 6-6-6-6"/>
+            </svg>
+          </div>
+
+          <div class="option-row-item cursor-pointer" (click)="goToDesktop()">
+            <div class="option-left">
+              <div class="option-icon-box">
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#64748B" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                  <rect width="20" height="14" x="2" y="3" rx="2"/>
+                  <line x1="8" x2="16" y1="21" y2="21"/>
+                  <line x1="12" x2="12" y1="17" y2="21"/>
+                </svg>
+              </div>
+              <div>
+                <strong class="option-item-title">Cambiar a Vista de Escritorio</strong>
+                <small class="option-item-sub">Ir al panel web administrativo con sidebar</small>
+              </div>
+            </div>
+            <svg class="option-arrow" xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#94A3B8" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+              <path d="m9 18 6-6-6-6"/>
+            </svg>
+          </div>
+        </div>
+
+        <!-- Logout button con estilo outline destructivo -->
+        <button type="button" class="btn-logout-option" (click)="logout()">
+          <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#DC2626" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
+            <polyline points="16 17 21 12 16 7"/>
+            <line x1="21" x2="9" y1="12" y2="12"/>
+          </svg>
+          <span>Cerrar Sesión</span>
+        </button>
+
+      </div>
+    }
+
+  </main>
+
+  <!-- ======================================================== -->
+  <!-- 4. BARRA INFERIOR (BOTTOM NAVIGATION CON CÁPSULA AZUL)   -->
+  <!-- ======================================================== -->
+  <nav class="mobile-bottom-navigation">
+    <button
+      type="button"
+      class="bottom-nav-item"
+      [class.active]="activeTab() === 'inicio'"
+      (click)="setTab('inicio')"
+    >
+      <div class="nav-capsule">
+        <svg class="nav-icon" xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+          <path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>
+          <polyline points="9 22 9 12 15 12 15 22"/>
+        </svg>
+        <span class="nav-label">Inicio</span>
+      </div>
+    </button>
+
+    <button
+      type="button"
+      class="bottom-nav-item"
+      [class.active]="activeTab() === 'ventas'"
+      (click)="setTab('ventas')"
+    >
+      <div class="nav-capsule">
+        <svg class="nav-icon" xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="8" cy="21" r="1"/>
+          <circle cx="19" cy="21" r="1"/>
+          <path d="M2.05 2.05h2l2.66 12.42a2 2 0 0 0 2 1.58h9.78a2 2 0 0 0 1.95-1.57l1.65-7.43H5.12"/>
+        </svg>
+        <span class="nav-label">Ventas</span>
+      </div>
+    </button>
+
+    <button
+      type="button"
+      class="bottom-nav-item"
+      [class.active]="activeTab() === 'caja'"
+      (click)="setTab('caja')"
+    >
+      <div class="nav-capsule">
+        <svg class="nav-icon" xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+          <rect width="20" height="12" x="2" y="6" rx="2"/>
+          <circle cx="12" cy="12" r="2"/>
+          <path d="M6 12h.01M18 12h.01"/>
+        </svg>
+        <span class="nav-label">Caja</span>
+      </div>
+    </button>
+
+    <button
+      type="button"
+      class="bottom-nav-item"
+      [class.active]="activeTab() === 'mas'"
+      (click)="setTab('mas')"
+    >
+      <div class="nav-capsule">
+        <svg class="nav-icon" xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="12" r="1.5"/>
+          <circle cx="19" cy="12" r="1.5"/>
+          <circle cx="5" cy="12" r="1.5"/>
+        </svg>
+        <span class="nav-label">Más</span>
+      </div>
+    </button>
+  </nav>
+
+  <!-- ======================================================== -->
+  <!-- BOTTOM DRAWER: SHOPPING CART (MI PEDIDO)                 -->
+  <!-- ======================================================== -->
+  @if (isCartDrawerOpen()) {
+    <div class="drawer-backdrop fade-in" (click)="isCartDrawerOpen.set(false)"></div>
+    <div class="bottom-sheet-drawer">
+      <div class="sheet-drag-handle mx-auto mb-2"></div>
+
+      <div class="d-flex justify-content-between align-items-center pb-2 mb-2 border-bottom">
+        <div>
+          <h5 class="fw-bold mb-0 text-dark">Mi Pedido</h5>
+          <small class="text-secondary">{{ totalCartItemsCount() }} artículos seleccionados</small>
+        </div>
+        <button type="button" class="btn btn-sm btn-outline-danger px-2 py-1 font-size-xs" (click)="clearCart()">
+          Vaciar
+        </button>
+      </div>
+
+      <!-- Items List -->
+      <div class="sheet-items-scroll mb-3">
+        @for (item of cart(); track item.product.id; let idx = $index) {
+          <div class="d-flex justify-content-between align-items-center py-2 border-bottom">
+            <div class="flex-grow-1 pe-2">
+              <h6 class="mb-0 fw-semibold text-dark font-size-sm">{{ item.product.description }}</h6>
+              <small class="text-secondary font-monospace">RD$ {{ item.unitPrice | number:'1.2-2' }} c/u</small>
+            </div>
+            <div class="d-flex align-items-center gap-2">
+              <div class="sheet-stepper">
+                <button type="button" class="btn-stepper" (click)="updateItemQuantity(idx, -1)" aria-label="Disminuir">-</button>
+                <span class="stepper-count font-monospace">{{ item.quantity }}</span>
+                <button type="button" class="btn-stepper" (click)="updateItemQuantity(idx, 1)" aria-label="Aumentar">+</button>
+              </div>
+              <strong class="font-monospace text-dark font-size-sm" style="min-width: 65px; text-align: right;">
+                RD$ {{ item.total | number:'1.2-2' }}
+              </strong>
+            </div>
+          </div>
+        }
+      </div>
+
+      <!-- Fiscal Options -->
+      <div class="row g-2 mb-3 bg-light p-2 rounded-3">
+        <div class="col-6">
+          <label class="form-label small text-secondary mb-1">Comprobante DGII</label>
+          <select class="form-select form-select-sm" [(ngModel)]="ncfType">
+            <option value="B02">B02 - Consumo Final</option>
+            <option value="B01">B01 - Crédito Fiscal</option>
+          </select>
+        </div>
+        <div class="col-6">
+          <label class="form-label small text-secondary mb-1">Cliente</label>
+          <input type="text" class="form-control form-control-sm" [(ngModel)]="customerName" placeholder="Consumidor Final" />
+        </div>
+      </div>
+
+      <!-- Financial Totals -->
+      <div class="bg-light p-2 rounded-3 mb-3 small font-monospace">
+        <div class="d-flex justify-content-between text-secondary">
+          <span>Subtotal:</span>
+          <span>RD$ {{ cartSubtotal() | number:'1.2-2' }}</span>
+        </div>
+        <div class="d-flex justify-content-between text-secondary">
+          <span>ITBIS (18%):</span>
+          <span>RD$ {{ cartItbis() | number:'1.2-2' }}</span>
+        </div>
+        <div class="d-flex justify-content-between fw-bold fs-6 pt-1 border-top text-dark">
+          <span>Total a Pagar:</span>
+          <span class="text-success">RD$ {{ cartTotal() | number:'1.2-2' }}</span>
+        </div>
+      </div>
+
+      <button
+        type="button"
+        class="btn btn-navy-action w-100 py-3 rounded-3 fw-bold"
+        (click)="openCheckout()"
+      >
+        Continuar al Cobro (RD$ {{ cartTotal() | number:'1.2-2' }})
+      </button>
+    </div>
+  }
+
+  <!-- ======================================================== -->
+  <!-- MODAL: TOUCH CHECKOUT & PAYMENT                          -->
+  <!-- ======================================================== -->
+  @if (isPaymentModalOpen()) {
+    <div class="drawer-backdrop fade-in" (click)="isPaymentModalOpen.set(false)"></div>
+    <div class="bottom-sheet-drawer">
+      <div class="sheet-drag-handle mx-auto mb-2"></div>
+
+      <div class="d-flex justify-content-between align-items-center mb-3">
+        <h5 class="fw-bold mb-0">Cobrar Venta</h5>
+        <button type="button" class="btn-close" (click)="isPaymentModalOpen.set(false)"></button>
+      </div>
+
+      <!-- Method Switch Buttons con Iconos Outline -->
+      <div class="d-flex gap-2 mb-3">
+        <button
+          type="button"
+          class="method-btn"
+          [class.active]="selectedMethod() === 'Efectivo'"
+          (click)="selectedMethod.set('Efectivo')"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+            <rect width="20" height="12" x="2" y="6" rx="2"/>
+            <circle cx="12" cy="12" r="2"/>
+            <path d="M6 12h.01M18 12h.01"/>
+          </svg>
+          <span>Efectivo</span>
+        </button>
+        <button
+          type="button"
+          class="method-btn"
+          [class.active]="selectedMethod() === 'Tarjeta'"
+          (click)="selectedMethod.set('Tarjeta')"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+            <rect width="20" height="14" x="2" y="5" rx="2"/>
+            <line x1="2" x2="22" y1="10" y2="10"/>
+          </svg>
+          <span>Tarjeta</span>
+        </button>
+        <button
+          type="button"
+          class="method-btn"
+          [class.active]="selectedMethod() === 'Transferencia'"
+          (click)="selectedMethod.set('Transferencia')"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+            <rect width="5" height="5" x="3" y="3" rx="1"/>
+            <rect width="5" height="5" x="16" y="3" rx="1"/>
+            <rect width="5" height="5" x="3" y="16" rx="1"/>
+            <path d="M21 16h-3a2 2 0 0 0-2 2v3"/>
+            <path d="M21 21v.01"/>
+            <path d="M12 7v3a2 2 0 0 1-2 2H7"/>
+          </svg>
+          <span>QR / Transf.</span>
+        </button>
+      </div>
+
+      <!-- Total Banner -->
+      <div class="text-center p-3 bg-light rounded-3 mb-3">
+        <small class="text-secondary text-uppercase font-size-xs fw-bold">Total a Cobrar</small>
+        <h2 class="fw-bold text-success mb-0 font-monospace">RD$ {{ cartTotal() | number:'1.2-2' }}</h2>
+      </div>
+
+      @if (selectedMethod() === 'Efectivo') {
+        <div class="mb-3">
+          <label class="form-label small text-secondary mb-1 fw-bold">Billetes Rápidos:</label>
+          <div class="d-flex flex-wrap gap-2 mb-2">
+            <button type="button" class="btn-fast-cash-pill exact" (click)="applyExactCash()">Exacto</button>
+            <button type="button" class="btn-fast-cash-pill" (click)="applyCashQuick(100)">RD$ 100</button>
+            <button type="button" class="btn-fast-cash-pill" (click)="applyCashQuick(200)">RD$ 200</button>
+            <button type="button" class="btn-fast-cash-pill" (click)="applyCashQuick(500)">RD$ 500</button>
+            <button type="button" class="btn-fast-cash-pill" (click)="applyCashQuick(1000)">RD$ 1,000</button>
+            <button type="button" class="btn-fast-cash-pill" (click)="applyCashQuick(2000)">RD$ 2,000</button>
+          </div>
+
+          <div class="row g-2">
+            <div class="col-6">
+              <label class="form-label small text-secondary mb-0">Efectivo Recibido:</label>
+              <input type="number" class="form-control form-control-lg font-monospace fw-bold" [(ngModel)]="amountReceived" />
+            </div>
+            <div class="col-6">
+              <label class="form-label small text-secondary mb-0">Cambio / Vuelto:</label>
+              <div class="form-control form-control-lg bg-light font-monospace fw-bold text-success fs-5">
+                RD$ {{ changeDue() | number:'1.2-2' }}
+              </div>
+            </div>
+          </div>
+        </div>
+      }
+
+      <div class="mb-3">
+        <label class="form-label small text-secondary mb-1">WhatsApp del Cliente (para ticket digital):</label>
+        <input type="tel" class="form-control" placeholder="809-555-1234" [(ngModel)]="customerPhone" />
+      </div>
+
+      <button
+        type="button"
+        class="btn btn-navy-action w-100 py-3 rounded-3 fw-bold"
+        [disabled]="isSubmitting() || (selectedMethod() === 'Efectivo' && amountReceived() > 0 && amountReceived() < cartTotal())"
+        (click)="processMobileSale()"
+      >
+        @if (isSubmitting()) {
+          <span class="spinner-border spinner-border-sm me-2"></span>
+          <span>Facturando venta...</span>
+        } @else {
+          <span>✓ Finalizar Cobro (RD$ {{ cartTotal() | number:'1.2-2' }})</span>
+        }
+      </button>
+    </div>
+  }
+
+  <!-- ======================================================== -->
+  <!-- MODAL: SALE COMPLETED / TICKET DIGITAL                  -->
+  <!-- ======================================================== -->
+  @if (isSuccessModalOpen(); as sale) {
+    <div class="drawer-backdrop fade-in"></div>
+    <div class="bottom-sheet-drawer text-center">
+      <div class="success-icon-badge mx-auto mb-2 text-success">
+        <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#10B981" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="12" r="10"/>
+          <path d="m9 12 2 2 4-4"/>
+        </svg>
+      </div>
+      <h4 class="fw-bold text-dark mb-1">¡Venta Facturada!</h4>
+      <p class="small text-secondary mb-3">Comprobante fiscal emitido conforme a la DGII</p>
+
+      <div class="card bg-light border p-3 rounded-3 mb-3 text-start small font-monospace">
+        <div class="d-flex justify-content-between mb-1">
+          <span class="text-muted">Folio Venta:</span>
+          <strong>#{{ lastSaleSummary()?.folio }}</strong>
+        </div>
+        <div class="d-flex justify-content-between mb-1">
+          <span class="text-muted">NCF Fiscal:</span>
+          <strong class="text-primary">{{ lastSaleSummary()?.ncf }}</strong>
+        </div>
+        <div class="d-flex justify-content-between mb-1">
+          <span class="text-muted">Cliente:</span>
+          <span>{{ lastSaleSummary()?.customerName }}</span>
+        </div>
+        <div class="d-flex justify-content-between fw-bold pt-1 border-top text-dark">
+          <span>Total Pagado:</span>
+          <span class="text-success fs-6">RD$ {{ lastSaleSummary()?.total | number:'1.2-2' }}</span>
+        </div>
+      </div>
+
+      <div class="d-flex flex-column gap-2">
+        <button
+          type="button"
+          class="btn btn-success btn-lg w-100 py-3 rounded-3 fw-bold shadow-sm d-flex align-items-center justify-content-center gap-2"
+          (click)="sendTicketViaWhatsApp()"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M3 21l1.65-3.8a9 9 0 1 1 3.4 2.9L3 21"/>
+            <path d="M9 10a.5.5 0 0 0 1 0V9a.5.5 0 0 0-1 0v1a5 5 0 0 0 5 5h1a.5.5 0 0 0 0-1h-1a.5.5 0 0 0 0 1"/>
+          </svg>
+          <span>Enviar Ticket por WhatsApp</span>
+        </button>
+        <button
+          type="button"
+          class="btn btn-outline-secondary w-100 py-2 rounded-3 fw-semibold"
+          (click)="isSuccessModalOpen.set(false); setTab('ventas')"
+        >
+          Siguiente Venta
+        </button>
+      </div>
+    </div>
+  }
+
+  <!-- ======================================================== -->
+  <!-- MODAL: CLIENTS QUICK SELECTOR                            -->
+  <!-- ======================================================== -->
+  @if (isClientsModalOpen()) {
+    <div class="drawer-backdrop fade-in" (click)="isClientsModalOpen.set(false)"></div>
+    <div class="bottom-sheet-drawer">
+      <div class="sheet-drag-handle mx-auto mb-2"></div>
+      <div class="d-flex justify-content-between align-items-center mb-3">
+        <h5 class="fw-bold mb-0">Directorio de Clientes</h5>
+        <button type="button" class="btn-close" (click)="isClientsModalOpen.set(false)"></button>
+      </div>
+
+      <div class="d-flex flex-column gap-2 mb-3">
+        @for (client of clientsList(); track client.rnc) {
+          <div
+            class="card p-3 border rounded-3 bg-white cursor-pointer d-flex justify-content-between align-items-center flex-row"
+            (click)="selectCustomer(client)"
+          >
+            <div>
+              <strong class="d-block text-dark">{{ client.name }}</strong>
+              <small class="text-muted font-monospace">{{ client.rnc }} · {{ client.type }}</small>
+            </div>
+            <button type="button" class="btn btn-sm btn-outline-primary rounded-pill">Elegir</button>
+          </div>
+        }
+      </div>
+    </div>
+  }
+
+  <!-- ======================================================== -->
+  <!-- OFFCANVAS SIDE MENU DRAWER CON OUTLINE ICONS              -->
+  <!-- ======================================================== -->
+  @if (isSideMenuOpen()) {
+    <div class="drawer-backdrop fade-in" (click)="isSideMenuOpen.set(false)"></div>
+    <div class="side-menu-drawer shadow-lg">
+      <div class="side-menu-header">
+        <div class="brand-block">
+          <h5 class="fw-bold mb-0 text-white">CuadreEnv</h5>
+          <small class="text-white-50">{{ tenantName() }}</small>
+        </div>
+        <button type="button" class="btn-close btn-close-white" (click)="isSideMenuOpen.set(false)"></button>
+      </div>
+
+      <div class="side-menu-body p-3">
+        <div class="user-strip-box mb-3 p-2 rounded-3 bg-light">
+          <div class="d-flex align-items-center gap-2">
+            <div class="user-avatar-small">{{ (authService.currentUser()?.fullName || userName()).charAt(0).toUpperCase() }}</div>
+            <div>
+              <strong class="d-block text-dark font-size-sm">{{ authService.currentUser()?.fullName || userName() }}</strong>
+              <small class="text-muted font-size-xs">{{ activeSession()?.name || 'Caja #02' }}</small>
+            </div>
+          </div>
+        </div>
+
+        <div class="menu-links-list">
+          <button type="button" class="side-link-btn" (click)="setTab('inicio'); isSideMenuOpen.set(false)">
+            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+              <path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>
+              <polyline points="9 22 9 12 15 12 15 22"/>
+            </svg>
+            <span>Inicio</span>
+          </button>
+          <button type="button" class="side-link-btn" (click)="setTab('ventas'); isSideMenuOpen.set(false)">
+            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="8" cy="21" r="1"/>
+              <circle cx="19" cy="21" r="1"/>
+              <path d="M2.05 2.05h2l2.66 12.42a2 2 0 0 0 2 1.58h9.78a2 2 0 0 0 1.95-1.57l1.65-7.43H5.12"/>
+            </svg>
+            <span>Punto de Venta</span>
+          </button>
+          <button type="button" class="side-link-btn" (click)="setTab('caja'); isSideMenuOpen.set(false)">
+            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+              <rect width="20" height="12" x="2" y="6" rx="2"/>
+              <circle cx="12" cy="12" r="2"/>
+              <path d="M6 12h.01M18 12h.01"/>
+            </svg>
+            <span>Mi Caja & Turnos</span>
+          </button>
+          <button type="button" class="side-link-btn" (click)="setTab('mas'); isSideMenuOpen.set(false)">
+            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="12" cy="12" r="1.5"/>
+              <circle cx="19" cy="12" r="1.5"/>
+              <circle cx="5" cy="12" r="1.5"/>
+            </svg>
+            <span>Más opciones</span>
+          </button>
+          <div class="dropdown-divider my-2"></div>
+          <button type="button" class="side-link-btn text-primary fw-bold" (click)="goToDesktop()">
+            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#2563EB" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+              <rect width="20" height="14" x="2" y="3" rx="2"/>
+              <line x1="8" x2="16" y1="21" y2="21"/>
+              <line x1="12" x2="12" y1="17" y2="21"/>
+            </svg>
+            <span>Ir a Vista de Escritorio</span>
+          </button>
+          <button type="button" class="side-link-btn text-danger" (click)="logout()">
+            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#DC2626" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
+              <polyline points="16 17 21 12 16 7"/>
+              <line x1="21" x2="9" y1="12" y2="12"/>
+            </svg>
+            <span>Salir / Cerrar Sesión</span>
+          </button>
+        </div>
+      </div>
+    </div>
+  }
+
+  <!-- MODAL: CERRAR CAJA (REUTILIZANDO CLOSE-REGISTER-MODAL CON BOT DE WHATSAPP) -->
+  <app-close-register-modal
+    #closeRegisterModal
+    [(visible)]="isCloseModalOpen"
+    [session]="activeSession()"
+    (closed)="onRegisterClosed()"
+  ></app-close-register-modal>
+
+</div>

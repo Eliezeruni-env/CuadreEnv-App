@@ -18,6 +18,9 @@
         Recargar
       </button>
       @if (authService.hasRole(['Admin', 'Manager', 'Employee'])) {
+        <button class="btn btn-outline-success fw-bold shadow-sm d-flex align-items-center gap-2 px-3" (click)="openQuickSaleDirect()">
+          <span>⚡ Venta Rápida (POS)</span>
+        </button>
         <button class="btn btn-cuadre-primary fw-bold shadow-sm d-flex align-items-center gap-2 px-3" (click)="openCreateModal()">
           <span>+ Nueva Venta</span>
         </button>

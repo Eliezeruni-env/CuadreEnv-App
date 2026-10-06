@@ -40,6 +40,14 @@ export class NotificationService {
       copied: false,
     };
 
+    // Prevent duplicate toast if already showing the exact same title & message
+    const existing = this.toasts().find(
+      (t) => t.visible && t.title === title && t.message === message,
+    );
+    if (existing) {
+      return existing.id;
+    }
+
     this.toasts.update((prev) => [...prev, newToast]);
 
     // Keep critical errors longer (10s) so user has time to copy requestId

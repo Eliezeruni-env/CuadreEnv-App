@@ -103,12 +103,13 @@ export class SaleDetailModalComponent implements OnInit, OnChanges {
 
   async loadProducts() {
     try {
-      const pRes = await this.productService.getPagedProducts(1, 200);
-      if (pRes.success && pRes.data?.items) {
-        this.products.set(pRes.data.items);
+      const pRes = await this.productService.getPagedProducts(1, 100);
+      const items = pRes?.data?.items || (Array.isArray(pRes?.data) ? pRes.data : []);
+      if (items.length > 0) {
+        this.products.set(items);
       } else {
         const searchRes = await this.productService.searchProducts('');
-        if (searchRes.success && searchRes.data) {
+        if (searchRes.success && searchRes.data && searchRes.data.length > 0) {
           this.products.set(searchRes.data);
         }
       }

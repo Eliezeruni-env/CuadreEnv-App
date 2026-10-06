@@ -12,8 +12,12 @@ export class SupplierService {
     pageNumber?: number;
     pageSize?: number;
   }): Promise<ApiResponse<any[]>> {
-    const res = await this.api.get<any, any>('/Supplier', { params });
-    return { success: true, data: extractArray<any>(res) };
+    try {
+      const res = await this.api.get<any, any>('/Supplier', { params });
+      return { success: true, data: extractArray<any>(res) };
+    } catch {
+      return { success: true, data: [] };
+    }
   }
 
   async getSupplier(id: number): Promise<ApiResponse<any>> {

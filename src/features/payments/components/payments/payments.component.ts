@@ -5,7 +5,7 @@ import { AuthService } from '../../../cuadreEnv/services/auth.service';
 import { NotificationService } from '../../../cuadreEnv/services/notification.service';
 import { ConfirmDialogService } from '../../../cuadreEnv/services/confirm-dialog.service';
 import { TranslationService } from '../../../cuadreEnv/services/translation.service';
-import type { PaymentDto } from '../../../cuadreEnv/types/api';
+import type { PaymentDto, PurchaseDto } from '../../../cuadreEnv/types/api';
 import { IconDirective } from '@coreui/icons-angular';
 import { PaymentModalComponent } from './payment-modal.component';
 import {
@@ -23,6 +23,9 @@ import {
 } from '@coreui/angular';
 import { TableComponent } from '../../../cuadreEnv/components/table/table.component';
 import { ListPaginationComponent } from '../../../cuadreEnv/components/list-pagination/list-pagination.component';
+
+import { PurchaseService } from '../../../purchases/services/purchase.service';
+import { SupplierService } from '../../../purchases/services/supplier.service';
 
 @Component({
   selector: 'app-payments',
@@ -48,8 +51,15 @@ export class PaymentsComponent implements OnInit {
 
   readonly translationService = inject(TranslationService);
   private confirmService = inject(ConfirmDialogService);
+  private purchaseService = inject(PurchaseService);
+  private supplierService = inject(SupplierService);
+
+  activeTab = signal<'payments' | 'pending'>('payments');
 
   payments = signal<PaymentDto[]>([]);
+  purchases = signal<PurchaseDto[]>([]);
+  suppliers = signal<any[]>([]);
+
   isLoading = signal<boolean>(false);
   errorMessage = signal<string | null>(null);
   filters = signal<FilterValues>({});
@@ -57,59 +67,81 @@ export class PaymentsComponent implements OnInit {
   pageSize = 10;
   totalItems = signal<number>(0);
 
+  // Computeds for KPI Cards
+  readonly supplierPayments = computed(() => {
+    return this.payments().filter((p) => p.purchaseId || (!p.saleId && !p.purchaseId));
+  });
+
+  readonly totalPaidToSuppliers = computed(() => {
+    return this.supplierPayments().reduce((acc, p) => acc + (p.amount || 0), 0);
+  });
+
+  readonly pendingPurchasesList = computed(() => {
+    const pays = this.payments();
+    return this.purchases().map((pur) => {
+      const purPayments = pays.filter((p) => p.purchaseId === pur.id);
+      const paid = purPayments.reduce((sum, p) => sum + (p.amount || 0), 0);
+      const balance = Math.max(0, (pur.total || 0) - paid);
+      return {
+        ...pur,
+        paidAmount: paid,
+        balance,
+        isFullyPaid: balance <= 0.01,
+      };
+    });
+  });
+
+  readonly totalPendingAmount = computed(() => {
+    return this.pendingPurchasesList().reduce((acc, p) => acc + (p.balance || 0), 0);
+  });
+
+  readonly countPendingPurchases = computed(() => {
+    return this.pendingPurchasesList().filter((p) => !p.isFullyPaid).length;
+  });
+
   readonly filterConfig = computed<FilterConfig[]>(() => [
     {
       key: 'search',
       label: this.translationService.t('payments.filterSearch'),
       type: 'text',
-      placeholder: this.translationService.t('payments.filterSearch'),
+      placeholder: 'Buscar por referencia, ID...',
     },
     {
-      key: 'type',
-      label: this.translationService.t('payments.filterType'),
+      key: 'method',
+      label: 'Método de Pago',
       type: 'select',
       options: [
-        { label: this.translationService.t('payments.filterAll'), value: '' },
-        {
-          label: this.translationService.t('payments.filterSale'),
-          value: 'sale',
-        },
-        {
-          label: this.translationService.t('payments.filterPurchase'),
-          value: 'purchase',
-        },
+        { label: 'Todos los métodos', value: '' },
+        { label: 'Transferencia', value: 'Transferencia' },
+        { label: 'Tarjeta', value: 'Tarjeta' },
+        { label: 'Cheque', value: 'Cheque' },
+        { label: 'Efectivo', value: 'Efectivo' },
       ],
     },
   ]);
 
   isModalOpen = false;
 
-  get columns() {
-    return [
-      {
-        field: 'id',
-        label: this.translationService.t('payments.table.paymentId'),
-      },
-      {
-        field: 'date',
-        label: this.translationService.t('payments.table.date'),
-      },
-      { field: 'ref', label: 'Sale/Purchase ID' },
-      {
-        field: 'method',
-        label: this.translationService.t('payments.table.method'),
-      },
-      {
-        field: 'reference',
-        label: this.translationService.t('payments.table.reference'),
-      },
-      {
-        field: 'amount',
-        label: this.translationService.t('payments.table.amount'),
-      },
-      { field: 'actions', label: this.translationService.t('common.actions') },
-    ];
-  }
+  columns = [
+    { field: 'id', label: '#' },
+    { field: 'creationDate', label: 'Fecha' },
+    { field: 'target', label: 'Destino / Proveedor' },
+    { field: 'method', label: 'Método' },
+    { field: 'reference', label: 'Referencia / Detalle' },
+    { field: 'amount', label: 'Monto' },
+    { field: 'actions', label: 'Acciones' },
+  ];
+
+  pendingColumns = [
+    { field: 'id', label: 'No. Factura' },
+    { field: 'date', label: 'Fecha' },
+    { field: 'supplier', label: 'Proveedor' },
+    { field: 'total', label: 'Total Factura' },
+    { field: 'paid', label: 'Abonado' },
+    { field: 'balance', label: 'Balance Pendiente' },
+    { field: 'status', label: 'Estado' },
+    { field: 'actions', label: 'Acción' },
+  ];
 
   constructor(
     private paymentService: PaymentService,
@@ -125,17 +157,49 @@ export class PaymentsComponent implements OnInit {
     this.isLoading.set(true);
     this.errorMessage.set(null);
     try {
-      const payRes = await this.paymentService.getPayments();
-      if (payRes.success && payRes.data) {
+      const [payRes, purRes, supRes] = await Promise.all([
+        this.paymentService.getPayments(),
+        this.purchaseService.getPurchases(),
+        this.supplierService.getSuppliers(),
+      ]);
+
+      if (payRes?.success && payRes.data) {
         this.payments.set(payRes.data);
-        this.totalItems.set(this.getFilteredPaymentsCount());
       }
+      if (purRes?.success && purRes.data) {
+        this.purchases.set(purRes.data);
+      }
+      if (supRes?.success && supRes.data) {
+        this.suppliers.set(supRes.data);
+      }
+      this.totalItems.set(this.getFilteredPaymentsCount());
     } catch (e: any) {
       const mapped = this.notificationService.showApiError(e);
       this.errorMessage.set(mapped.message);
     } finally {
       this.isLoading.set(false);
     }
+  }
+
+  getSupplierName(supplierId?: number | null): string {
+    if (!supplierId) return 'Proveedor General';
+    const s = this.suppliers().find((sup) => sup.id === supplierId);
+    return s ? s.name : `Proveedor #${supplierId}`;
+  }
+
+  getPurchaseSupplier(purchaseId?: number | null): string {
+    if (!purchaseId) return '-';
+    const p = this.purchases().find((pur) => pur.id === purchaseId);
+    return p ? this.getSupplierName(p.supplierId) : `Orden #${purchaseId}`;
+  }
+
+  paySpecificPurchase(purchaseId: number) {
+    this.isModalOpen = true;
+    setTimeout(() => {
+      if (this.paymentModal) {
+        this.paymentModal.openCreate(purchaseId);
+      }
+    });
   }
 
   onFiltersChange(values: FilterValues) {

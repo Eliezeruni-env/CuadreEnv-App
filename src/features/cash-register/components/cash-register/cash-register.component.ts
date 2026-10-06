@@ -14,7 +14,7 @@ import {
   ReactiveFormsModule,
   FormsModule,
 } from '@angular/forms';
-import { ActivatedRoute } from '@angular/router';
+import { ActivatedRoute, RouterLink } from '@angular/router';
 import {
   CashRegisterService,
   type CashRegisterSessionDto,
@@ -65,6 +65,7 @@ import { UserService } from '../../../users/services/user.service';
     SaleCompletedModalComponent,
     AuthPosModalComponent,
     ListPaginationComponent,
+    RouterLink,
   ],
 })
 export class CashRegisterComponent implements OnInit {
@@ -111,6 +112,62 @@ export class CashRegisterComponent implements OnInit {
 
   openSessionForm: FormGroup;
   pauseForm: FormGroup;
+
+  // Billetera Visual para Apertura de Caja
+  showOpenDenominations = signal<boolean>(false);
+  openDenominations = signal<{ value: number; count: number; subtotal: number }[]>([
+    { value: 2000, count: 0, subtotal: 0 },
+    { value: 1000, count: 0, subtotal: 0 },
+    { value: 500, count: 0, subtotal: 0 },
+    { value: 200, count: 0, subtotal: 0 },
+    { value: 100, count: 0, subtotal: 0 },
+    { value: 50, count: 0, subtotal: 0 },
+    { value: 25, count: 0, subtotal: 0 },
+    { value: 10, count: 0, subtotal: 0 },
+    { value: 5, count: 0, subtotal: 0 },
+    { value: 1, count: 0, subtotal: 0 },
+  ]);
+
+  readonly openDenominationSum = computed(() => {
+    return this.openDenominations().reduce((acc, d) => acc + d.subtotal, 0);
+  });
+
+  readonly openBills = computed(() => this.openDenominations().slice(0, 6));
+  readonly openCoins = computed(() => this.openDenominations().slice(6));
+
+  toggleOpenDenominations() {
+    this.showOpenDenominations.update((v) => !v);
+  }
+
+  addOpenDenominationCount(index: number, delta: number) {
+    const items = [...this.openDenominations()];
+    const current = items[index].count || 0;
+    const next = Math.max(0, current + delta);
+    items[index].count = next;
+    items[index].subtotal = items[index].value * next;
+    this.openDenominations.set(items);
+
+    const sum = this.openDenominationSum();
+    this.openSessionForm.patchValue({ initialAmount: sum });
+  }
+
+  updateOpenDenomination(index: number, count: number) {
+    const qty = Math.max(0, Math.floor(Number(count) || 0));
+    const items = [...this.openDenominations()];
+    items[index].count = qty;
+    items[index].subtotal = items[index].value * qty;
+    this.openDenominations.set(items);
+
+    const sum = this.openDenominationSum();
+    this.openSessionForm.patchValue({ initialAmount: sum });
+  }
+
+  clearOpenDenominations() {
+    this.openDenominations.update((items) =>
+      items.map((it) => ({ ...it, count: 0, subtotal: 0 })),
+    );
+    this.openSessionForm.patchValue({ initialAmount: 0 });
+  }
 
   // Computed properties
   readonly currentDateFormatted = computed(() => {
@@ -399,7 +456,14 @@ export class CashRegisterComponent implements OnInit {
 
   initiateCloseSession() {
     this.pendingPosAction = 'CLOSE';
-    if (this.authPosModal) this.authPosModal.open('Cerrar Caja');
+    if (this.authService.isSuperUser()) {
+      // Los superusuarios / administradores pueden ingresar directo al arqueo de caja
+      this.openCloseRegisterModal();
+    } else if (this.authPosModal) {
+      this.authPosModal.open('Cerrar Caja');
+    } else {
+      this.openCloseRegisterModal();
+    }
   }
 
   async openCloseRegisterModal() {
@@ -430,6 +494,12 @@ export class CashRegisterComponent implements OnInit {
     } else {
       this.isSaleCompletedModalOpen = true;
     }
+  }
+
+  onRegisterClosed() {
+    this.activeSession.set(null);
+    this.movements.set([]);
+    this.loadData();
   }
 
   onPosAuthenticated(event: { success: boolean; pin: string }) {

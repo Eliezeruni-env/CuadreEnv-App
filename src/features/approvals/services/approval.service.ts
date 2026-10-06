@@ -80,16 +80,14 @@ export class ApprovalService {
       const raw = localStorage.getItem(this.getTenantStorageKey());
       if (raw) {
         const parsed = JSON.parse(raw);
-        if (Array.isArray(parsed) && parsed.length > 0) {
+        if (Array.isArray(parsed)) {
           return parsed;
         }
       }
     } catch {
       // ignore
     }
-    const defaults = this.getDefaultApprovals();
-    this.saveToStorage(defaults);
-    return defaults;
+    return [];
   }
 
   private saveToStorage(list: DeletionApprovalDto[]): void {
@@ -117,15 +115,28 @@ export class ApprovalService {
         this.saveToStorage(items);
         return items;
       }
+      const stored = this.loadFromStorage();
+      if (stored.length > 0) {
+        this.approvals.set(stored);
+        return stored;
+      }
+      const defaults = this.getDefaultApprovals();
+      this.approvals.set(defaults);
+      this.saveToStorage(defaults);
+      return defaults;
     } catch {
-      // Fallback local storage
+      const stored = this.loadFromStorage();
+      if (stored.length > 0) {
+        this.approvals.set(stored);
+        return stored;
+      }
+      const defaults = this.getDefaultApprovals();
+      this.approvals.set(defaults);
+      this.saveToStorage(defaults);
+      return defaults;
     } finally {
       this.isLoading.set(false);
     }
-
-    const local = this.loadFromStorage();
-    this.approvals.set(local);
-    return local;
   }
 
   async approve(id: number): Promise<DeletionApprovalDto> {

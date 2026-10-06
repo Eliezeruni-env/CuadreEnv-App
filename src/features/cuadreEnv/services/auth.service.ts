@@ -9,6 +9,7 @@ import {
   getRefreshToken,
   setAccessToken,
   setRefreshToken,
+  setCompanyId,
 } from './apiClient';
 import type {
   LoginRequestDto,
@@ -21,16 +22,38 @@ import { API_CONSTANTS } from '../../../app/constants';
 
 interface DecodedToken {
   email?: string;
+  Email?: string;
+  'http://schemas.xmlsoap.org/ws/2005/05/identity/claims/emailaddress'?: string;
   sub?: string; // userId
+  id?: string | number;
+  userId?: string | number;
+  'http://schemas.xmlsoap.org/ws/2005/05/identity/claims/nameidentifier'?: string;
   name?: string;
   fullName?: string;
+  'http://schemas.xmlsoap.org/ws/2005/05/identity/claims/name'?: string;
   role?: string;
   roles?: string[] | string;
   'http://schemas.microsoft.com/ws/2008/06/identity/claims/role'?: string | string[];
   companyId?: string | number;
   CompanyId?: string | number;
+  company_id?: string | number;
+  tenantId?: string | number;
+  TenantId?: string | number;
+  tenant_id?: string | number;
+  'http://schemas.microsoft.com/ws/2008/06/identity/claims/groupsid'?: string | number;
+  'http://schemas.xmlsoap.org/ws/2005/05/identity/claims/sid'?: string | number;
   isSuperUser?: boolean;
+  IsSuperUser?: boolean;
+  is_superuser?: boolean;
   exp?: number;
+  permissions?: string[] | string;
+  Permissions?: string[] | string;
+  permission?: string[] | string;
+  modules?: string[] | string;
+  Modules?: string[] | string;
+  allowed_modules?: string[] | string;
+  allowedModules?: string[] | string;
+  [key: string]: any;
 }
 
 @Injectable({
@@ -47,6 +70,8 @@ export class AuthService {
     return r ? [r] : [];
   });
   companyId = signal<number | null>(null);
+  userPermissions = signal<string[]>([]);
+  allowedModules = signal<string[]>([]);
   isAuthenticated = signal<boolean>(false);
   isInitializing = signal<boolean>(true);
 
@@ -55,44 +80,39 @@ export class AuthService {
   }
 
   private async initializeSession() {
+    const at = getAccessToken();
+    if (at) {
+      const decoded = this.decodeJwt(at);
+      if (decoded && (!decoded.exp || decoded.exp * 1000 > Date.now())) {
+        this.applyDecodedToken(decoded);
+      }
+    }
+
     const rt = getRefreshToken();
-    if (rt) {
+    if (rt && !this.isAuthenticated()) {
       try {
         const tokens = await doRefresh(this.api);
-        this.handleTokenResponse(tokens);
-      } catch (e) {
-        setAccessToken(null);
-        setRefreshToken(null);
-        this.clearSession();
-      }
-    } else {
-      const at = getAccessToken();
-      if (at) {
-        const decoded = this.decodeJwt(at);
-        if (decoded && (!decoded.exp || decoded.exp * 1000 > Date.now())) {
-          this.applyDecodedToken(decoded);
-        } else {
+        if (tokens?.accessToken) {
+          this.handleTokenResponse(tokens);
+        }
+      } catch {
+        if (!this.isAuthenticated()) {
           this.clearSession();
         }
       }
     }
 
-    if (typeof window !== 'undefined' && window.localStorage) {
-      const storedCompId = localStorage.getItem(API_CONSTANTS.COMPANY_ID_KEY);
-      if (storedCompId && !this.companyId()) {
-        const parsed = parseInt(storedCompId, 10);
-        if (!isNaN(parsed)) {
-          this.companyId.set(parsed);
-        }
-      }
-    }
+    // El tenant debe provenir exclusivamente del claim firmado del JWT emitido por el backend.
+    // No se utiliza localStorage como fuente de autoridad si no existe un token válido.
 
     this.isInitializing.set(false);
   }
 
   private decodeJwt(token: string): DecodedToken | null {
     try {
-      const base64Url = token.split('.')[1];
+      const parts = token.split('.');
+      if (parts.length < 2) return null;
+      const base64Url = parts[1];
       const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
       const jsonPayload = decodeURIComponent(
         window
@@ -108,12 +128,27 @@ export class AuthService {
   }
 
   private applyDecodedToken(decoded: DecodedToken) {
-    const email = decoded.email || decoded.sub || '';
-    const id = decoded.sub ? parseInt(decoded.sub, 10) : 0;
-    const fullName = decoded.name || decoded.fullName;
+    const email =
+      decoded.email ||
+      decoded.Email ||
+      decoded['http://schemas.xmlsoap.org/ws/2005/05/identity/claims/emailaddress'] ||
+      decoded.sub ||
+      '';
+    const rawId =
+      decoded.sub ||
+      decoded.id ||
+      decoded.userId ||
+      decoded['http://schemas.xmlsoap.org/ws/2005/05/identity/claims/nameidentifier'] ||
+      '0';
+    const id = parseInt(rawId.toString(), 10) || 0;
+    const fullName =
+      decoded.name ||
+      decoded.fullName ||
+      decoded['http://schemas.xmlsoap.org/ws/2005/05/identity/claims/name'];
     
     let rawRole =
       decoded.role ||
+      decoded.roles ||
       decoded['http://schemas.microsoft.com/ws/2008/06/identity/claims/role'] ||
       null;
 
@@ -121,33 +156,100 @@ export class AuthService {
       rawRole = rawRole[0] || null;
     }
 
-    const rawCompanyId = decoded.companyId || decoded.CompanyId;
-    const compId = rawCompanyId
-      ? parseInt(rawCompanyId.toString(), 10)
-      : null;
+    const rawCompanyId =
+      decoded.companyId ??
+      decoded.CompanyId ??
+      decoded.company_id ??
+      decoded.tenantId ??
+      decoded.TenantId ??
+      decoded.tenant_id ??
+      decoded['http://schemas.microsoft.com/ws/2008/06/identity/claims/groupsid'] ??
+      decoded['http://schemas.xmlsoap.org/ws/2005/05/identity/claims/sid'];
+      
+    let compId: number | null = null;
+    if (rawCompanyId !== undefined && rawCompanyId !== null) {
+      const parsed = parseInt(rawCompanyId.toString(), 10);
+      compId = !isNaN(parsed) && parsed > 0 ? parsed : (rawCompanyId as any);
+    }
 
     this.currentUser.set({ email, id, fullName });
     this.currentRole.set(rawRole);
     this.companyId.set(compId);
+
+    // Extraer permisos asignados desde el JWT emitido por USM/Backend
+    const rawPermissions =
+      decoded.permissions ??
+      decoded.Permissions ??
+      decoded.permission ??
+      decoded['http://schemas.microsoft.com/ws/2008/06/identity/claims/userdata'] ??
+      [];
+    let parsedPermissions: string[] = [];
+    if (Array.isArray(rawPermissions)) {
+      parsedPermissions = rawPermissions.map(String);
+    } else if (typeof rawPermissions === 'string') {
+      try {
+        const json = JSON.parse(rawPermissions);
+        parsedPermissions = Array.isArray(json) ? json.map(String) : [rawPermissions];
+      } catch {
+        parsedPermissions = rawPermissions.split(',').map((s) => s.trim()).filter(Boolean);
+      }
+    }
+
+    // Extraer módulos permitidos definidos para este rol en USM
+    const rawModules =
+      decoded.modules ??
+      decoded.Modules ??
+      decoded.allowed_modules ??
+      decoded.allowedModules ??
+      [];
+    let parsedModules: string[] = [];
+    if (Array.isArray(rawModules)) {
+      parsedModules = rawModules.map(String);
+    } else if (typeof rawModules === 'string') {
+      try {
+        const json = JSON.parse(rawModules);
+        parsedModules = Array.isArray(json) ? json.map(String) : [rawModules];
+      } catch {
+        parsedModules = rawModules.split(',').map((s) => s.trim()).filter(Boolean);
+      }
+    }
+
+    this.userPermissions.set(parsedPermissions);
+    this.allowedModules.set(parsedModules);
     this.isAuthenticated.set(true);
 
     if (typeof window !== 'undefined' && window.localStorage) {
       if (compId) {
         localStorage.setItem(API_CONSTANTS.COMPANY_ID_KEY, String(compId));
+        localStorage.setItem('companyId', String(compId));
+        localStorage.setItem('auth_company_id', String(compId));
       } else {
         localStorage.removeItem(API_CONSTANTS.COMPANY_ID_KEY);
       }
     }
   }
 
-  private handleTokenResponse(tokens: TokenResponseDto) {
-    const decoded = this.decodeJwt(tokens.accessToken);
-    if (decoded) {
-      this.applyDecodedToken(decoded);
+  private handleTokenResponse(tokens: any) {
+    const rawToken =
+      tokens?.accessToken ||
+      tokens?.AccessToken ||
+      tokens?.token ||
+      tokens?.Token ||
+      tokens?.data?.accessToken ||
+      tokens?.data?.AccessToken ||
+      tokens?.data?.token;
+
+    if (rawToken) {
+      const decoded = this.decodeJwt(rawToken);
+      if (decoded) {
+        this.applyDecodedToken(decoded);
+      }
     }
   }
 
   async login(credentials: LoginRequestDto) {
+    // Asegurar que el login no dependa de un token previo ni de un tenant previo
+    this.clearSession();
     const tokens = await doLogin(
       this.api,
       credentials.email,
@@ -158,15 +260,48 @@ export class AuthService {
     return tokens;
   }
 
-  applyTokenResponse(tokens: TokenResponseDto) {
-    setAccessToken(tokens.accessToken);
-    setRefreshToken(tokens.refreshToken);
+  applyTokenResponse(tokens: any) {
+    const rawToken =
+      tokens?.accessToken ||
+      tokens?.AccessToken ||
+      tokens?.token ||
+      tokens?.data?.accessToken ||
+      tokens?.data?.token;
+    const rawRefresh =
+      tokens?.refreshToken ||
+      tokens?.RefreshToken ||
+      tokens?.data?.refreshToken;
+
+    if (rawToken) setAccessToken(rawToken);
+    if (rawRefresh) setRefreshToken(rawRefresh);
     this.handleTokenResponse(tokens);
   }
 
   async refreshSession(): Promise<void> {
-    const tokens = await doRefresh(this.api);
-    this.handleTokenResponse(tokens);
+    try {
+      const tokens = await doRefresh(this.api);
+      if (tokens.accessToken) {
+        this.handleTokenResponse(tokens);
+      } else {
+        this.clearSession();
+      }
+    } catch {
+      this.clearSession();
+    }
+  }
+
+  async getMe(): Promise<ApiResponse<any>> {
+    try {
+      const res = await this.api.get<any, any>('/auth/me');
+      return { success: true, data: res?.data ?? res?.Data ?? res };
+    } catch {
+      try {
+        const res2 = await this.api.get<any, any>('/Auth/me');
+        return { success: true, data: res2?.data ?? res2?.Data ?? res2 };
+      } catch (err: any) {
+        return { success: false, message: err?.message || 'Error al obtener datos del usuario autenticado' };
+      }
+    }
   }
 
   async register(
@@ -215,13 +350,43 @@ export class AuthService {
     this.router.navigate(['/login']);
   }
 
-  private clearSession() {
+  async revokeAllSessions(): Promise<void> {
+    try {
+      await this.api.post('/auth/revoke-all', {});
+    } catch {
+      // ignore
+    }
+    this.logout();
+  }
+
+  clearSession() {
     this.currentUser.set(null);
     this.currentRole.set(null);
     this.companyId.set(null);
+    this.userPermissions.set([]);
+    this.allowedModules.set([]);
     this.isAuthenticated.set(false);
+    setAccessToken(null);
+    setRefreshToken(null);
+    setCompanyId(null);
     if (typeof window !== 'undefined' && window.localStorage) {
       localStorage.removeItem(API_CONSTANTS.COMPANY_ID_KEY);
+      localStorage.removeItem(API_CONSTANTS.AUTH_TOKEN_KEY);
+      localStorage.removeItem(API_CONSTANTS.AUTH_REFRESH_TOKEN_KEY);
+      localStorage.removeItem('companyId');
+      localStorage.removeItem('auth_company_id');
+      localStorage.removeItem('accessToken');
+      localStorage.removeItem('auth_token');
+      localStorage.removeItem('refreshToken');
+      localStorage.removeItem('auth_refresh_token');
+      localStorage.removeItem('cuadre_access_token');
+      localStorage.removeItem('cuadre_refresh_token');
+    }
+    if (typeof window !== 'undefined' && window.sessionStorage) {
+      sessionStorage.removeItem('companyId');
+      sessionStorage.removeItem('auth_company_id');
+      sessionStorage.removeItem('accessToken');
+      sessionStorage.removeItem('auth_token');
     }
   }
 

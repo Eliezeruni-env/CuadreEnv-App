@@ -8,6 +8,17 @@ export const routes: Routes = [
     pathMatch: 'full'
   },
   {
+    path: 'mobile',
+    loadComponent: () => import('../features/sales/components/mobile-pos/mobile-owner-pos.component').then((m) => m.MobileOwnerPosComponent),
+    canActivate: [authGuard],
+    data: { title: 'CuadreEnv Mobile POS & Vista Ejecutiva' }
+  },
+  {
+    path: 'mobile-pos',
+    redirectTo: 'mobile',
+    pathMatch: 'full'
+  },
+  {
     path: '',
     loadComponent: () => import('../layout').then(m => m.DefaultLayoutComponent),
     canActivate: [authGuard],
@@ -106,6 +117,16 @@ export const routes: Routes = [
         data: { title: 'Sales Register' }
       },
       {
+        path: 'sales/quick',
+        loadComponent: () => import('../features/sales/components/quick-sale-page/quick-sale-page.component').then((m) => m.QuickSalePageComponent),
+        data: { title: 'Venta Rápida POS' }
+      },
+      {
+        path: 'sales/service',
+        loadComponent: () => import('../features/sales/components/service-sale-page/service-sale-page.component').then((m) => m.ServiceSalePageComponent),
+        data: { title: 'Venta de Servicios' }
+      },
+      {
         path: 'receivables',
         loadComponent: () => import('../features/sales/components/receivables/receivables.component').then((m) => m.ReceivablesComponent),
         data: { title: 'Ventas por Cobrar' }
@@ -129,6 +150,11 @@ export const routes: Routes = [
         path: 'billing/quotationNo/:quotationNo',
         loadComponent: () => import('../features/billing/components/createbilling/createbilling.component').then((m) => m.CreatebillingComponent),
         data: { title: 'Facturar Cotización' }
+      },
+      {
+        path: 'billing/reports',
+        loadComponent: () => import('../features/billing/components/dgii-reports/dgii-reports.component').then((m) => m.DgiiReportsComponent),
+        data: { title: 'Reportes Fiscales DGII (606, 607, 608)' }
       },
       {
         path: 'credit-notes',
@@ -159,6 +185,11 @@ export const routes: Routes = [
         path: 'cash-register',
         loadComponent: () => import('../features/cash-register/components/cash-register/cash-register.component').then((m) => m.CashRegisterComponent),
         data: { title: 'Cash Register Control' }
+      },
+      {
+        path: 'cash-register/fraud-guardian',
+        loadComponent: () => import('../features/cash-register/components/loss-prevention/fraud-guardian-dashboard.component').then((m) => m.FraudGuardianDashboardComponent),
+        data: { title: 'El Guardián Antirrobo (Auditoría Forense)' }
       },
       {
         path: 'metrics',

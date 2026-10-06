@@ -1,4 +1,4 @@
-import { Component, EventEmitter, Output, ViewChild, signal } from '@angular/core';
+import { Component, EventEmitter, Output, ViewChild, signal, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import {
@@ -11,6 +11,7 @@ import {
   FormControlDirective,
   FormLabelDirective,
 } from '@coreui/angular';
+import { AuthService } from '../../../cuadreEnv/services/auth.service';
 
 @Component({
   selector: 'app-auth-pos-modal',
@@ -30,6 +31,8 @@ import {
   templateUrl: './auth-pos-modal.component.html',
 })
 export class AuthPosModalComponent {
+  private readonly authService = inject(AuthService);
+
   @ViewChild('modal') modal!: ModalComponent;
   @Output() authenticated = new EventEmitter<{ success: boolean; pin: string }>();
 
@@ -54,19 +57,22 @@ export class AuthPosModalComponent {
   }
 
   confirm() {
-    const enteredPin = this.pin();
-    if (!enteredPin) {
-      this.errorMessage.set('Por favor, ingresa tu PIN.');
+    const isSuper = this.authService.isSuperUser();
+    const entered = (this.pin() || '').trim();
+
+    if (isSuper) {
+      this.errorMessage.set('');
+      this.close();
+      this.authenticated.emit({ success: true, pin: 'AUTH-ADMIN-SESSION' });
       return;
     }
 
-    // Mock PIN validation: For now, we accept '1234'
-    if (enteredPin === '1234') {
-      this.errorMessage.set('');
-      this.close();
-      this.authenticated.emit({ success: true, pin: enteredPin });
-    } else {
-      this.errorMessage.set('PIN incorrecto. (Usa 1234 para pruebas)');
+    if (!entered) {
+      this.errorMessage.set('Por favor, ingresa tu clave de supervisor.');
+      return;
     }
+
+    this.errorMessage.set('Acción restringida: Se requiere inicio de sesión con rol de Administrador o Supervisor para aprobar esta operación.');
   }
 }
+

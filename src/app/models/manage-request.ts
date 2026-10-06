@@ -3,6 +3,8 @@ export enum ManageRequestType {
   InventoryAdjustment = 2,
   StockTransfer = 3,
   Cancellation = 4,
+  WarehouseOutlet = 5,
+  WarehouseTransfer = 6,
 }
 
 export interface TimelineItem {

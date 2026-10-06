@@ -2,6 +2,7 @@ import { NgModule } from '@angular/core';
 import { RouterModule, Routes } from '@angular/router';
 import { ListbillingComponent } from './components/listbilling/listbilling.component';
 import { CreatebillingComponent } from './components/createbilling/createbilling.component';
+import { DgiiReportsComponent } from './components/dgii-reports/dgii-reports.component';
 
 export const routes: Routes = [
   {
@@ -18,6 +19,11 @@ export const routes: Routes = [
     path: 'quotationNo/:quotationNo',
     component: CreatebillingComponent,
     data: { title: 'Facturar Cotización' },
+  },
+  {
+    path: 'reports',
+    component: DgiiReportsComponent,
+    data: { title: 'Reportes Fiscales DGII (606, 607, 608)' },
   },
 ];
 

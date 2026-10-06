@@ -3,8 +3,22 @@
 }
 
 .approval-card {
-  border-left: 4px solid #f59e0b !important;
+  position: relative;
+  border: 1px solid #f1f5f9 !important;
+  overflow: hidden;
   transition: all 0.2s ease-in-out;
+
+  &::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    bottom: 0;
+    width: 5px;
+    background: #f59e0b;
+    border-top-left-radius: 1rem;
+    border-bottom-left-radius: 1rem;
+  }
 
   &:hover {
     box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.08), 0 8px 10px -6px rgba(0, 0, 0, 0.04) !important;

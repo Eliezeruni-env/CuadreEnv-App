@@ -33,6 +33,11 @@ import {
   SaleCompletedModalComponent,
   type CompletedSaleDto,
 } from '../sales/sale-completed-modal.component';
+import { WarehouseService } from '../../../inventory/services/warehouse.service';
+import { StockService } from '../../../inventory/services/stock.service';
+import { NcfAlertBannerComponent } from '../../../billing/components/ncf-alert-banner/ncf-alert-banner.component';
+import { RealtimeAlertService } from '../../../cuadreEnv/services/realtime-alert.service';
+import type { Warehouse } from '../../../../app/models/warehouse';
 
 export interface QuickSaleItem {
   productId: number;
@@ -41,6 +46,7 @@ export interface QuickSaleItem {
   unitPrice: number;
   quantity: number;
   total: number;
+  taxRate?: number; // 18, 16, 0
 }
 
 export interface CriticalAlertState {
@@ -63,6 +69,7 @@ const LAST_SALE_STORAGE_KEY = 'cuadre_last_completed_sale';
     SpinnerComponent,
     IconDirective,
     SaleCompletedModalComponent,
+    NcfAlertBannerComponent,
   ],
   templateUrl: './quick-sale-page.component.html',
   styleUrls: ['./quick-sale-page.component.scss'],
@@ -75,11 +82,14 @@ export class QuickSalePageComponent implements OnInit, OnDestroy {
   readonly translationService = inject(TranslationService);
   readonly offlineService = inject(PosOfflineSyncService);
   readonly draftStorageService = inject(PosDraftStorageService);
+  readonly realtimeAlertService = inject(RealtimeAlertService);
 
   private cashRegisterService = inject(CashRegisterService);
   private productService = inject(ProductService);
   private customerService = inject(CustomerService);
   private categoryService = inject(CategoryService);
+  private warehouseService = inject(WarehouseService);
+  private stockService = inject(StockService);
   private notificationService = inject(NotificationService);
   private router = inject(Router);
 
@@ -89,27 +99,107 @@ export class QuickSalePageComponent implements OnInit, OnDestroy {
   products = signal<ProductDto[]>([]);
   customers = signal<CustomerDto[]>([]);
 
+  // Warehouse isolation
+  warehouses = signal<Warehouse[]>([]);
+  selectedWarehouseId = signal<number | null>(null);
+  warehouseStockMap = signal<Map<number, number>>(new Map());
+
   selectedCustomerId: number | null = null;
+  readonly selectedCustomer = computed(() => {
+    const id = this.selectedCustomerId;
+    if (!id) return null;
+    return this.customers().find(c => c.id === id) || null;
+  });
   catalogSearchTerm = signal<string>('');
   selectedCategory = signal<number | null>(null);
 
-  // Cart
+  // Cart & Active Item Selection (Keyboard Shortcuts)
   cartItems = signal<QuickSaleItem[]>([]);
+  selectedCartIndex = signal<number>(0);
 
   // Discounts & Payments
   discountType = signal<'percent' | 'fixed'>('percent');
   discountValue = signal<number>(0);
 
+  // Impuestos diferenciados, Propina Legal (10%) y Retenciones
+  applyLegalTip = signal<boolean>(false);
+  retentionItbisRate = signal<number>(0); // 0, 30, 100
+  retentionIsrRate = signal<number>(0);   // 0, 2, 10
+
   selectedMethod = signal<string>('Efectivo');
   amountReceived = signal<number>(0);
+
+  // Manejo Dual de Monedas (RD$ / USD) con Tasa Banco Central
+  cashCurrency = signal<'DOP' | 'USD'>('DOP');
+  usdExchangeRate = signal<number>(60.50);
+  amountReceivedUsd = signal<number>(0);
 
   // Card details
   cardType = signal<'DEBIT' | 'CREDIT'>('DEBIT');
   cardLastFour = signal<string>('');
   cardAuthVoucher = signal<string>('');
 
-  // Transfer details
-  transferBank = signal<string>('');
+  // Transfer details & Instant Bank Channels (QR Local)
+  readonly bankChannels = [
+    { id: 'POPULAR', name: 'Banco Popular', account: '792019481', type: 'Cta. Corriente', color: 'primary', icon: '🏦' },
+    { id: 'QIK', name: 'Qik Banco Digital', account: '109284192', type: 'Cta. Instantánea QR', color: 'dark', icon: '⚡' },
+    { id: 'BHD', name: 'Banco BHD', account: '284918239', type: 'Cta. Ahorros', color: 'success', icon: '🟢' },
+    { id: 'BANRESERVAS', name: 'Banreservas', account: '960192841', type: 'Cta. Corriente', color: 'danger', icon: '🔴' },
+    { id: 'ACH', name: 'Transferencia ACH', account: 'Interbancaria RNC 132-94812-1', type: 'ACH Inmediato', color: 'info', icon: '🌐' }
+  ];
+  selectedBankChannel = signal<string>('POPULAR');
+
+  readonly currentBankProfile = computed(() => {
+    return this.bankChannels.find(b => b.id === this.selectedBankChannel()) || this.bankChannels[0];
+  });
+
+  readonly transferQrUrl = computed(() => {
+    const bank = this.currentBankProfile();
+    const totalAmount = this.total().toFixed(2);
+    const payload = `PAGO_CUADRE_POS|BANCO:${bank.name}|CTA:${bank.account}|MONTO_RD:${totalAmount}|RNC:132-94812-1|CLIENTE:${encodeURIComponent(this.selectedCustomer()?.name || 'Consumidor Final')}`;
+    return `https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=${encodeURIComponent(payload)}`;
+  });
+
+  selectBankChannel(id: string): void {
+    this.selectedBankChannel.set(id);
+    const bank = this.bankChannels.find(b => b.id === id);
+    if (bank) {
+      this.transferBank.set(`${bank.name} (${bank.account})`);
+    }
+  }
+
+  copyPaymentDetails(textToCopy: string, label: string): void {
+    if (navigator?.clipboard?.writeText) {
+      navigator.clipboard.writeText(textToCopy);
+      this.notificationService.success(`${label} copiado al portapapeles.`);
+    }
+  }
+
+  sendPaymentViaWhatsApp(): void {
+    const bank = this.currentBankProfile();
+    const phone = this.selectedCustomer()?.phone || '';
+    const cleanPhone = phone.replace(/[^0-9]/g, '');
+    const amountStr = this.total().toLocaleString('es-DO', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    
+    const message = `👋 *Hola${this.selectedCustomer()?.name ? ' ' + this.selectedCustomer()?.name : ''}!*
+Para completar tu compra en *CuadreEnv POS*, aquí tienes los datos para tu transferencia inmediata:
+
+💵 *Monto exacto a transferir:* RD$ ${amountStr}
+🏦 *Banco Destino:* ${bank.name}
+💳 *Número de Cuenta:* ${bank.account} (${bank.type})
+🏢 *Beneficiario / RNC:* CuadreEnv Soluciones (RNC 132-94812-1)
+
+📲 _Por favor, envíanos el comprobante o captura de la transferencia por aquí para entregarte tu factura fiscal e-CF._ ¡Muchas gracias!`;
+
+    const encodedMsg = encodeURIComponent(message);
+    const waUrl = cleanPhone
+      ? `https://wa.me/${cleanPhone.startsWith('1') ? cleanPhone : '1' + cleanPhone}?text=${encodedMsg}`
+      : `https://wa.me/?text=${encodedMsg}`;
+
+    window.open(waUrl, '_blank');
+  }
+
+  transferBank = signal<string>('Banco Popular (792019481)');
   transferReference = signal<string>('');
 
   // Pagination for catalog
@@ -155,18 +245,62 @@ export class QuickSalePageComponent implements OnInit, OnDestroy {
   });
 
   readonly itbis = computed(() => {
-    const taxable = Math.max(0, this.subtotal() - this.discountAmount());
-    return Math.round(taxable * 0.18 * 100) / 100;
+    const sub = this.subtotal();
+    const disc = this.discountAmount();
+    const factor = sub > 0 ? Math.max(0, (sub - disc) / sub) : 1;
+    return Math.round(
+      this.cartItems().reduce((acc, item) => {
+        const rate = item.taxRate !== undefined ? item.taxRate : 18;
+        return acc + (item.total * factor * (rate / 100));
+      }, 0) * 100,
+    ) / 100;
+  });
+
+  readonly legalTipAmount = computed(() => {
+    return this.applyLegalTip() ? Math.round(this.subtotal() * 0.10 * 100) / 100 : 0;
+  });
+
+  readonly retentionItbisAmount = computed(() => {
+    const rate = this.retentionItbisRate();
+    return rate > 0 ? Math.round(this.itbis() * (rate / 100) * 100) / 100 : 0;
+  });
+
+  readonly retentionIsrAmount = computed(() => {
+    const rate = this.retentionIsrRate();
+    return rate > 0 ? Math.round(this.subtotal() * (rate / 100) * 100) / 100 : 0;
   });
 
   readonly total = computed(() => {
     return Math.max(0, this.subtotal() - this.discountAmount() + this.itbis());
   });
 
+  readonly netPayable = computed(() => {
+    return Math.max(
+      0,
+      Math.round(
+        (this.total() + this.legalTipAmount() - this.retentionItbisAmount() - this.retentionIsrAmount()) * 100,
+      ) / 100,
+    );
+  });
+
+  readonly totalInUsd = computed(() => {
+    const rate = this.usdExchangeRate() || 1;
+    return Math.round((this.netPayable() / rate) * 100) / 100;
+  });
+
+  readonly effectiveAmountReceivedDop = computed(() => {
+    if (this.selectedMethod() !== 'Efectivo') return this.netPayable();
+    if (this.cashCurrency() === 'USD') {
+      const usd = Number(this.amountReceivedUsd()) || 0;
+      return Math.round(usd * this.usdExchangeRate() * 100) / 100;
+    }
+    return Number(this.amountReceived()) || 0;
+  });
+
   readonly change = computed(() => {
     if (this.selectedMethod() !== 'Efectivo') return 0;
-    const received = Number(this.amountReceived()) || 0;
-    const tot = this.total();
+    const received = this.effectiveAmountReceivedDop();
+    const tot = this.netPayable();
     return Math.max(0, Math.round((received - tot) * 100) / 100);
   });
 
@@ -219,43 +353,108 @@ export class QuickSalePageComponent implements OnInit, OnDestroy {
   }
 
   // =========================================================================
-  // Keyboard Shortcuts (WCAG & Ergonomic Fast POS)
+  // Keyboard Shortcuts (WCAG & Ergonomic Fast POS: F2, F4, F8, Enter, + / -)
   // =========================================================================
   @HostListener('window:keydown', ['$event'])
   handleGlobalShortcuts(event: KeyboardEvent): void {
-    // F2: Focus catalog search
+    const activeEl = typeof document !== 'undefined' ? (document.activeElement as HTMLElement | null) : null;
+    const tagName = (activeEl?.tagName || '').toLowerCase();
+    const inputType = (activeEl as HTMLInputElement)?.type || '';
+    const isTextInput = (tagName === 'input' && (inputType === 'text' || inputType === 'search' || inputType === 'password')) || tagName === 'textarea';
+
+    // F2: Buscar producto / Focus en lector de código de barras
     if (event.key === 'F2') {
       event.preventDefault();
-      this.catalogSearchInputRef?.nativeElement?.focus();
+      this.focusCatalogSearch();
       return;
     }
 
-    // F4: Trigger / Focus Payment
+    // F4: Abrir pantalla / sección de cobro
     if (event.key === 'F4') {
       event.preventDefault();
       if (this.cartItems().length > 0) {
-        if (this.selectedMethod() === 'Efectivo') {
-          this.amountReceivedInputRef?.nativeElement?.focus();
-        }
-        void this.processQuickSale();
+        this.openPaymentSection();
       } else {
         this.notificationService.warning('Agrega productos al carrito antes de cobrar (F4).');
       }
       return;
     }
 
-    // F8: Hold Current Sale (Poner en espera)
+    // F8: Poner venta en espera
     if (event.key === 'F8') {
       event.preventDefault();
       this.holdCurrentSale();
       return;
     }
 
-    // F9: Open Held Sales (Recuperar venta en espera)
+    // F9: Abrir ventas en espera
     if (event.key === 'F9') {
       event.preventDefault();
       this.openHeldSalesModal();
       return;
+    }
+
+    // Enter: Confirmar cobro en efectivo exacto
+    if (event.key === 'Enter') {
+      // Si el cajero está en el buscador de productos o escáner, dejamos que onSearchKeydown maneje la búsqueda
+      if (activeEl === this.catalogSearchInputRef?.nativeElement) {
+        return;
+      }
+
+      // Si está en otro campo de texto que no sea el monto recibido, respetamos el Enter estándar
+      if (isTextInput && activeEl !== this.amountReceivedInputRef?.nativeElement) {
+        return;
+      }
+
+      if (this.cartItems().length > 0) {
+        event.preventDefault();
+        // Si el método es efectivo y no se ha digitado monto o es menor al total, aplicar efectivo exacto automáticamente
+        if (this.selectedMethod() === 'Efectivo') {
+          if (!this.amountReceived() || this.amountReceived() < this.total()) {
+            this.amountReceived.set(this.total());
+          }
+        }
+        void this.processQuickSale();
+      }
+      return;
+    }
+
+    // + / -: Incrementar o disminuir cantidad del ítem seleccionado
+    const isPlus = event.key === '+' || event.key === 'Add' || (event.key === '=' && event.shiftKey) || event.code === 'NumpadAdd';
+    const isMinus = event.key === '-' || event.key === 'Subtract' || event.code === 'NumpadSubtract';
+
+    if (isPlus && (!isTextInput || event.code === 'NumpadAdd')) {
+      if (this.cartItems().length > 0) {
+        event.preventDefault();
+        this.incrementSelectedCartItem();
+      }
+      return;
+    }
+
+    if (isMinus && (!isTextInput || event.code === 'NumpadSubtract')) {
+      if (this.cartItems().length > 0) {
+        event.preventDefault();
+        this.decrementSelectedCartItem();
+      }
+      return;
+    }
+
+    // Flechas arriba/abajo para navegar ítems del carrito
+    if (!isTextInput && tagName !== 'select') {
+      if (event.key === 'ArrowUp') {
+        event.preventDefault();
+        if (this.cartItems().length > 0) {
+          this.selectedCartIndex.update((i) => Math.max(0, i - 1));
+        }
+        return;
+      }
+      if (event.key === 'ArrowDown') {
+        event.preventDefault();
+        if (this.cartItems().length > 0) {
+          this.selectedCartIndex.update((i) => Math.min(this.cartItems().length - 1, i + 1));
+        }
+        return;
+      }
     }
 
     // Escape: Dismiss alert or close modals
@@ -364,18 +563,22 @@ export class QuickSalePageComponent implements OnInit, OnDestroy {
   async loadInitialLookups() {
     this.isLoadingProducts.set(true);
     try {
-      const [prodRes, custRes, catRes, sessionRes] = await Promise.all([
-        this.productService.getPagedProducts(1, 200),
-        this.customerService.getCustomers({ pageNumber: 1, pageSize: 200 } as any),
+      const [prodRes, custRes, catRes, sessionRes, whRes] = await Promise.all([
+        this.productService.getPagedProducts(1, 100),
+        this.customerService.getCustomers({ pageNumber: 1, pageSize: 100 } as any),
         this.categoryService.getCategories(),
         this.cashRegisterService.getActiveSession(),
+        this.warehouseService.getWarehouses(),
       ]);
 
-      if (prodRes?.success && prodRes.data?.items) {
-        this.products.set(prodRes.data.items);
+      const prodList = prodRes?.data?.items || (Array.isArray(prodRes?.data) ? prodRes.data : []);
+      if (prodList && prodList.length > 0) {
+        this.products.set(prodList);
       }
-      if (custRes?.success && custRes.data) {
-        this.customers.set(custRes.data);
+      const rawCustData = custRes?.data as any;
+      const custList = Array.isArray(rawCustData) ? rawCustData : (rawCustData?.items || []);
+      if (custList && custList.length > 0) {
+        this.customers.set(custList);
       }
       if (catRes?.success && Array.isArray(catRes.data) && catRes.data.length > 0) {
         const dynamicCats = catRes.data.map((c: any) => ({
@@ -384,6 +587,15 @@ export class QuickSalePageComponent implements OnInit, OnDestroy {
         }));
         this.categories.set([{ id: null, label: 'Todos' }, ...dynamicCats]);
       }
+
+      // Warehouse isolation
+      if (whRes?.success && whRes.data && whRes.data.length > 0) {
+        this.warehouses.set(whRes.data);
+        const mainWh = whRes.data.find((w) => w.isMain) || whRes.data[0];
+        this.selectedWarehouseId.set(mainWh.id);
+        await this.loadWarehouseStock(mainWh.id);
+      }
+
       if (sessionRes?.success && sessionRes.data) {
         this.activeSessionName.set(`Caja #${sessionRes.data.id || 1} (${sessionRes.data.cashierName || 'Turno Abierto'})`);
         this.hasOpenSession.set(true);
@@ -397,6 +609,58 @@ export class QuickSalePageComponent implements OnInit, OnDestroy {
       console.error('Error loading quick sale lookups:', e);
     } finally {
       this.isLoadingProducts.set(false);
+    }
+  }
+
+  async loadWarehouseStock(warehouseId: number) {
+    try {
+      const stockRes = await this.stockService.getStock({ warehouseId });
+      const map = new Map<number, number>();
+      (stockRes.data || []).forEach((s) => {
+        map.set(s.productId, s.quantity);
+      });
+      this.warehouseStockMap.set(map);
+    } catch {
+      // fallback
+    }
+  }
+
+  async onWarehouseChange(whId: number) {
+    this.selectedWarehouseId.set(whId);
+    await this.loadWarehouseStock(whId);
+  }
+
+  getProductAvailableStock(productId: number): number {
+    const whId = this.selectedWarehouseId();
+    if (!whId) return 0;
+    const map = this.warehouseStockMap();
+    if (map.has(productId)) {
+      return map.get(productId) || 0;
+    }
+    const p = this.products().find((prod) => prod.id === productId);
+    return p?.stock || 0;
+  }
+
+  async quickOpenCashRegister() {
+    this.isLoading.set(true);
+    try {
+      const res = await this.cashRegisterService.openSession({
+        name: 'Caja Principal POS',
+        initialAmount: 0,
+        cashierName: 'Cajero POS',
+      });
+      if (res.success && res.data) {
+        this.activeSessionName.set(`Caja #${res.data.id || 1} (Turno Abierto)`);
+        this.hasOpenSession.set(true);
+        this.isOpenSessionModalVisible.set(false);
+        this.notificationService.success('Turno de caja aperturado correctamente.');
+      } else {
+        this.notificationService.error(res.message || 'No se pudo abrir la caja.');
+      }
+    } catch (e: any) {
+      this.notificationService.showApiError(e);
+    } finally {
+      this.isLoading.set(false);
     }
   }
 
@@ -428,21 +692,57 @@ export class QuickSalePageComponent implements OnInit, OnDestroy {
   }
 
   // =========================================================================
-  // Cart Actions
+  // Cart Actions & Active Item Selection (Keyboard & Touch)
   // =========================================================================
+  selectCartItem(index: number): void {
+    if (index >= 0 && index < this.cartItems().length) {
+      this.selectedCartIndex.set(index);
+    }
+  }
+
+  incrementSelectedCartItem(): void {
+    const idx = this.selectedCartIndex();
+    if (this.cartItems().length > 0 && idx >= 0 && idx < this.cartItems().length) {
+      this.incrementQuantity(idx);
+    }
+  }
+
+  decrementSelectedCartItem(): void {
+    const idx = this.selectedCartIndex();
+    if (this.cartItems().length > 0 && idx >= 0 && idx < this.cartItems().length) {
+      this.decrementQuantity(idx);
+    }
+  }
+
   addProductToCart(product: ProductDto) {
+    if (!this.selectedWarehouseId()) {
+      this.notificationService.warning('Seleccione un almacén de despacho.');
+      return;
+    }
+
+    const available = this.getProductAvailableStock(product.id!);
     const existingIdx = this.cartItems().findIndex(
       (item) => item.productId === product.id,
     );
+    const currentQtyInCart = existingIdx >= 0 ? this.cartItems()[existingIdx].quantity : 0;
+
+    if (!product.invoiceWithoutStock && currentQtyInCart + 1 > available) {
+      const whName = this.warehouses().find((w) => w.id === this.selectedWarehouseId())?.name || 'el almacén';
+      this.notificationService.warning(`Stock insuficiente en ${whName}. Disponible: ${available} uds.`);
+      return;
+    }
+
     const price = product.cost ? Number(product.cost) : 100;
     const code = product.barcode || product.reference || `PROD-${String(product.id || 1).padStart(4, '0')}`;
     const name = product.description || product.shortDescription || 'Producto';
+    const taxRate = (product as any).taxRate !== undefined ? Number((product as any).taxRate) : 18;
 
     if (existingIdx >= 0) {
       const items = [...this.cartItems()];
       items[existingIdx].quantity += 1;
       items[existingIdx].total = items[existingIdx].quantity * items[existingIdx].unitPrice;
       this.cartItems.set(items);
+      this.selectedCartIndex.set(existingIdx);
     } else {
       this.cartItems.update((items) => [
         ...items,
@@ -453,20 +753,42 @@ export class QuickSalePageComponent implements OnInit, OnDestroy {
           unitPrice: price,
           quantity: 1,
           total: price,
+          taxRate: taxRate,
         },
       ]);
+      this.selectedCartIndex.set(this.cartItems().length - 1);
     }
 
     if (this.selectedMethod() !== 'Efectivo') {
-      this.amountReceived.set(this.total());
+      this.amountReceived.set(this.netPayable());
     }
+  }
+
+  openDrawerManual() {
+    this.realtimeAlertService.triggerDrawerOpenedNoSale(
+      this.activeSessionName(),
+      'Cajero POS',
+    );
+    this.notificationService.info('Apertura de gaveta ejecutada (Alerta de auditoría emitida al administrador).');
   }
 
   incrementQuantity(index: number) {
     const items = [...this.cartItems()];
-    items[index].quantity += 1;
-    items[index].total = items[index].quantity * items[index].unitPrice;
+    const it = items[index];
+    if (!it) return;
+    const product = this.products().find((p) => p.id === it.productId);
+    const available = this.getProductAvailableStock(it.productId);
+
+    if (product && !product.invoiceWithoutStock && it.quantity + 1 > available) {
+      const whName = this.warehouses().find((w) => w.id === this.selectedWarehouseId())?.name || 'el almacén';
+      this.notificationService.warning(`No puedes agregar más unidades. Disponible en ${whName}: ${available} uds.`);
+      return;
+    }
+
+    it.quantity += 1;
+    it.total = it.quantity * it.unitPrice;
     this.cartItems.set(items);
+    this.selectedCartIndex.set(index);
     if (this.selectedMethod() !== 'Efectivo') {
       this.amountReceived.set(this.total());
     }
@@ -474,10 +796,12 @@ export class QuickSalePageComponent implements OnInit, OnDestroy {
 
   decrementQuantity(index: number) {
     const items = [...this.cartItems()];
+    if (!items[index]) return;
     if (items[index].quantity > 1) {
       items[index].quantity -= 1;
       items[index].total = items[index].quantity * items[index].unitPrice;
       this.cartItems.set(items);
+      this.selectedCartIndex.set(index);
     } else {
       this.removeCartItem(index);
     }
@@ -489,9 +813,11 @@ export class QuickSalePageComponent implements OnInit, OnDestroy {
   updateItemQuantity(index: number, qty: number) {
     const val = Math.max(1, Number(qty) || 1);
     const items = [...this.cartItems()];
+    if (!items[index]) return;
     items[index].quantity = val;
     items[index].total = items[index].unitPrice * val;
     this.cartItems.set(items);
+    this.selectedCartIndex.set(index);
     if (this.selectedMethod() !== 'Efectivo') {
       this.amountReceived.set(this.total());
     }
@@ -501,6 +827,9 @@ export class QuickSalePageComponent implements OnInit, OnDestroy {
     const items = [...this.cartItems()];
     items.splice(index, 1);
     this.cartItems.set(items);
+    if (this.selectedCartIndex() >= items.length) {
+      this.selectedCartIndex.set(Math.max(0, items.length - 1));
+    }
     if (this.selectedMethod() !== 'Efectivo') {
       this.amountReceived.set(this.total());
     }
@@ -508,8 +837,186 @@ export class QuickSalePageComponent implements OnInit, OnDestroy {
 
   clearCart() {
     this.cartItems.set([]);
+    this.selectedCartIndex.set(0);
     this.amountReceived.set(0);
     this.draftStorageService.clearActiveDraft();
+  }
+
+  // =========================================================================
+  // Modo "Cajero Relámpago": Fast Keyboard & Touch POS Actions
+  // =========================================================================
+  focusCatalogSearch(): void {
+    if (this.catalogSearchInputRef?.nativeElement) {
+      this.catalogSearchInputRef.nativeElement.focus();
+      this.catalogSearchInputRef.nativeElement.select();
+    }
+  }
+
+  openPaymentSection(): void {
+    if (this.cartItems().length === 0) {
+      this.notificationService.warning('Agrega productos al carrito antes de cobrar (F4).');
+      return;
+    }
+    if (this.selectedMethod() === 'Efectivo') {
+      if (!this.amountReceived() || this.amountReceived() === 0) {
+        this.amountReceived.set(this.total());
+      }
+      setTimeout(() => {
+        this.amountReceivedInputRef?.nativeElement?.focus();
+        this.amountReceivedInputRef?.nativeElement?.select();
+      }, 50);
+    } else {
+      this.notificationService.info(`Cobro con ${this.selectedMethod()}. Presione Enter para confirmar.`);
+    }
+  }
+
+  confirmExactCashFromShortcut(): void {
+    if (this.cartItems().length === 0) {
+      this.notificationService.warning('Agrega productos al carrito antes de cobrar.');
+      return;
+    }
+    if (this.selectedMethod() === 'Efectivo') {
+      this.amountReceived.set(this.total());
+    }
+    void this.processQuickSale();
+  }
+
+  applyQuickCash(amount: number | 'exact'): void {
+    if (amount === 'exact') {
+      this.amountReceived.set(this.total());
+    } else {
+      this.amountReceived.set(amount);
+    }
+  }
+
+  setCashCurrency(curr: 'DOP' | 'USD'): void {
+    this.cashCurrency.set(curr);
+    if (curr === 'USD') {
+      const minUsd = Math.ceil(this.total() / (this.usdExchangeRate() || 1));
+      this.amountReceivedUsd.set(minUsd);
+    } else {
+      this.amountReceived.set(this.total());
+    }
+  }
+
+  setUsdExchangeRate(rate: number): void {
+    const r = Math.max(1, Number(rate) || 60.50);
+    this.usdExchangeRate.set(r);
+  }
+
+  applyQuickUsd(amount: number): void {
+    this.amountReceivedUsd.set(amount);
+  }
+
+  onSearchKeydown(event: KeyboardEvent): void {
+    if (event.key === 'Enter') {
+      event.preventDefault();
+      const rawTerm = (this.catalogSearchTerm() || '').trim();
+      if (!rawTerm) return;
+      const term = rawTerm.toLowerCase();
+
+      // 1. Check exact barcode match first
+      const exactBarcode = this.products().find((p) => {
+        const barcode = (p.barcode || '').trim().toLowerCase();
+        const ref = (p.reference || '').trim().toLowerCase();
+        return barcode === term || ref === term;
+      });
+
+      if (exactBarcode) {
+        this.addProductToCart(exactBarcode);
+        this.catalogSearchTerm.set('');
+        return;
+      }
+
+      // 2. Check filtered catalog items
+      const filtered = this.filteredCatalogProducts();
+      if (filtered.length > 0) {
+        this.addProductToCart(filtered[0]);
+        this.catalogSearchTerm.set('');
+        return;
+      }
+
+      this.notificationService.warning(`No se encontró ningún producto con el código o término "${rawTerm}".`);
+    }
+  }
+
+  getProductCategoryIcon(categoryId?: number | null, description?: string | null): string {
+    const desc = (description || '').toLowerCase();
+    if (
+      desc.includes('coca') ||
+      desc.includes('agua') ||
+      desc.includes('jugo') ||
+      desc.includes('cerveza') ||
+      desc.includes('soda') ||
+      desc.includes('bebida') ||
+      desc.includes('refresco')
+    ) {
+      return '🥤';
+    }
+    if (
+      desc.includes('pan') ||
+      desc.includes('queso') ||
+      desc.includes('arroz') ||
+      desc.includes('snack') ||
+      desc.includes('galleta') ||
+      desc.includes('comida') ||
+      desc.includes('sandwich') ||
+      desc.includes('cafe')
+    ) {
+      return '🍔';
+    }
+    if (
+      desc.includes('cable') ||
+      desc.includes('usb') ||
+      desc.includes('cargador') ||
+      desc.includes('bateria') ||
+      desc.includes('teclado') ||
+      desc.includes('mouse') ||
+      desc.includes('celular')
+    ) {
+      return '🔌';
+    }
+    if (
+      desc.includes('jabon') ||
+      desc.includes('cloro') ||
+      desc.includes('limpia') ||
+      desc.includes('papel') ||
+      desc.includes('detergente') ||
+      desc.includes('shampoo')
+    ) {
+      return '🧼';
+    }
+    if (
+      desc.includes('martillo') ||
+      desc.includes('clavo') ||
+      desc.includes('tornillo') ||
+      desc.includes('pintura') ||
+      desc.includes('herramienta') ||
+      desc.includes('tubo')
+    ) {
+      return '🔧';
+    }
+    if (
+      desc.includes('pastilla') ||
+      desc.includes('jarabe') ||
+      desc.includes('alcohol') ||
+      desc.includes('aspirina') ||
+      desc.includes('medicina')
+    ) {
+      return '💊';
+    }
+    switch (categoryId) {
+      case 2:
+        return '🍔';
+      case 3:
+        return '🥤';
+      case 4:
+        return '📄';
+      case 5:
+        return '🛠️';
+      default:
+        return '📦';
+    }
   }
 
   onDiscountChange() {
@@ -637,10 +1144,16 @@ export class QuickSalePageComponent implements OnInit, OnDestroy {
     let paymentDetailsNote = '';
 
     if (this.selectedMethod() === 'Efectivo') {
-      if (this.amountReceived() < this.total()) {
-        this.notificationService.warning('El monto recibido no puede ser menor al total de la venta.');
-        this.amountReceivedInputRef?.nativeElement?.focus();
+      const received = this.effectiveAmountReceivedDop();
+      if (received < this.netPayable()) {
+        this.notificationService.warning('El monto recibido no puede ser menor al total neto a pagar.');
+        if (this.cashCurrency() !== 'USD') {
+          this.amountReceivedInputRef?.nativeElement?.focus();
+        }
         return;
+      }
+      if (this.cashCurrency() === 'USD') {
+        paymentDetailsNote = `Efectivo USD $${this.amountReceivedUsd()} (Tasa 1 USD = RD$ ${this.usdExchangeRate()}) Equiv: RD$ ${received.toFixed(2)}`;
       }
     } else if (this.selectedMethod() === 'Tarjeta') {
       const four = this.cardLastFour().trim();
@@ -685,9 +1198,12 @@ export class QuickSalePageComponent implements OnInit, OnDestroy {
       subtotal: this.subtotal(),
       discount: this.discountAmount(),
       itbis: this.itbis(),
-      total: this.total(),
+      legalTip: this.legalTipAmount(),
+      retentionItbis: this.retentionItbisAmount(),
+      retentionIsr: this.retentionIsrAmount(),
+      total: this.netPayable(),
       paymentMethod: paymentDetailsNote || this.selectedMethod(),
-      amountReceived: this.selectedMethod() === 'Efectivo' ? this.amountReceived() : this.total(),
+      amountReceived: this.selectedMethod() === 'Efectivo' ? this.effectiveAmountReceivedDop() : this.netPayable(),
       change: this.change(),
       idempotencyKey,
     };
@@ -716,7 +1232,7 @@ export class QuickSalePageComponent implements OnInit, OnDestroy {
           subtotal: this.subtotal(),
           discount: this.discountAmount(),
           itbis: this.itbis(),
-          total: this.total(),
+          total: this.netPayable(),
           amountReceived: payload.amountReceived,
           change: this.change(),
           items: this.cartItems().map((it) => ({
@@ -732,6 +1248,19 @@ export class QuickSalePageComponent implements OnInit, OnDestroy {
         this.notificationService.success(
           `Venta rápida ${invNum} cobrada exitosamente por RD$ ${this.total().toLocaleString('es-DO', { minimumFractionDigits: 2 })}.`,
         );
+
+        // Stock isolation deduction from chosen warehouse
+        const whId = this.selectedWarehouseId();
+        if (whId) {
+          for (const it of this.cartItems()) {
+            try {
+              await this.stockService.updateStock(whId, it.productId, -it.quantity);
+            } catch (stockErr) {
+              console.warn('Error deducting stock from warehouse:', stockErr);
+            }
+          }
+          await this.loadWarehouseStock(whId);
+        }
 
         this.persistLastCompletedSale(completedData);
         this.isSaleCompletedModalOpen = true;

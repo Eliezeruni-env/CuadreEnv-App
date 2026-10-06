@@ -14,6 +14,12 @@ export const navItems: INavData[] = [
     linkProps: { routerLinkActiveOptions: { exact: true } },
   },
   {
+    name: 'Vista Móvil (PWA)',
+    url: '/mobile',
+    iconComponent: { name: 'cil-devices' },
+    linkProps: { routerLinkActiveOptions: { exact: true } },
+  },
+  {
     title: true,
     name: 'Operaciones Comerciales',
   },
@@ -30,6 +36,12 @@ export const navItems: INavData[] = [
     linkProps: { routerLinkActiveOptions: { exact: true } },
   },
   {
+    name: 'Reportes DGII (606/607)',
+    url: '/billing/reports',
+    iconComponent: { name: 'cil-file' },
+    linkProps: { routerLinkActiveOptions: { exact: true } },
+  },
+  {
     name: 'Servicios',
     url: '/services',
     iconComponent: { name: 'cil-briefcase' },
@@ -39,6 +51,12 @@ export const navItems: INavData[] = [
     name: 'Caja',
     url: '/cash-register',
     iconComponent: { name: 'cil-calculator' },
+    linkProps: { routerLinkActiveOptions: { exact: true } },
+  },
+  {
+    name: 'Auditoría Antirrobo 🛡️',
+    url: '/cash-register/fraud-guardian',
+    iconComponent: { name: 'cil-shield-alt' },
     linkProps: { routerLinkActiveOptions: { exact: true } },
   },
   {
