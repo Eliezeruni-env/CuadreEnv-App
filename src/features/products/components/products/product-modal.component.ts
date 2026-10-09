@@ -1,10 +1,18 @@
-import { Component, Input, Output, EventEmitter, OnInit, signal, inject } from '@angular/core';
+import { Component, Input, Output, EventEmitter, signal, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormBuilder, FormGroup, Validators, ReactiveFormsModule } from '@angular/forms';
+import { Router } from '@angular/router';
 import { ProductService } from '../../services/product.service';
+import { ProductTypeService } from '../../services/product-type.service';
+import { CategoryService } from '../../services/category.service';
 import { TranslationService } from '../../../cuadreEnv/services/translation.service';
 import { NotificationService } from '../../../cuadreEnv/services/notification.service';
-import type { ProductDto } from '../../../cuadreEnv/types/api';
+import { ConfirmDialogService } from '../../../cuadreEnv/services/confirm-dialog.service';
+import { AuthService } from '../../../cuadreEnv/services/auth.service';
+import { applyFieldErrorsToForm } from '../../../cuadreEnv/utils/api-error-mapper';
+import {
+  type ProductDto,
+} from '../../../cuadreEnv/types/api';
 import {
   ButtonDirective,
   ColComponent,
@@ -13,6 +21,7 @@ import {
   RowComponent,
   SpinnerComponent
 } from '@coreui/angular';
+import { IconDirective } from '@coreui/icons-angular';
 
 @Component({
   selector: 'app-product-modal',
@@ -25,101 +34,21 @@ import {
     FormDirective,
     RowComponent,
     ColComponent,
-    SpinnerComponent
+    SpinnerComponent,
+    IconDirective
   ],
-  template: `
-    @if (visible) {
-      <div class="custom-modal-backdrop" (click)="close()">
-        <div class="custom-modal-content modal-lg" (click)="$event.stopPropagation()">
-          <div class="custom-modal-header">
-            <h5 class="fw-bold">{{ isEditMode ? translationService.t('products.modal.editTitle') : translationService.t('products.modal.createTitle') }}</h5>
-            <button type="button" class="btn-close" (click)="close()" aria-label="Close"></button>
-          </div>
-          <div class="custom-modal-body">
-            <form cForm [formGroup]="productForm">
-              <!-- Description -->
-              <div class="mb-3">
-                <label class="small fw-semibold text-secondary mb-1">{{ translationService.t('products.modal.nameLabel') }} *</label>
-                <input formControlName="description" cFormControl [placeholder]="translationService.t('products.modal.nameLabel')" />
-                @if (productForm.get('description')?.touched && productForm.get('description')?.invalid) {
-                  <div class="text-danger small mt-1">{{ translationService.t('common.error') }}</div>
-                }
-              </div>
-
-              <c-row>
-                <!-- Barcode -->
-                <c-col md="6" class="mb-3">
-                  <label class="small fw-semibold text-secondary mb-1">{{ translationService.t('products.modal.barcodeLabel') }}</label>
-                  <input formControlName="barcode" cFormControl [placeholder]="translationService.t('products.modal.barcodeLabel')" />
-                </c-col>
-
-                <!-- Reference -->
-                <c-col md="6" class="mb-3">
-                  <label class="small fw-semibold text-secondary mb-1">{{ translationService.t('products.modal.refLabel') }}</label>
-                  <input formControlName="reference" cFormControl [placeholder]="translationService.t('products.modal.refLabel')" />
-                </c-col>
-              </c-row>
-
-              <c-row>
-                <!-- Cost -->
-                <c-col md="6" class="mb-3">
-                  <label class="small fw-semibold text-secondary mb-1">{{ translationService.t('products.modal.costLabel') }} *</label>
-                  <input formControlName="cost" type="number" cFormControl />
-                </c-col>
-
-                <!-- Stock -->
-                <c-col md="6" class="mb-3">
-                  <label class="small fw-semibold text-secondary mb-1">{{ translationService.t('products.modal.stockLabel') }} *</label>
-                  <input formControlName="stock" type="number" cFormControl [readonly]="isEditMode" />
-                </c-col>
-              </c-row>
-
-              <div class="mb-3">
-                <label class="small fw-semibold text-secondary mb-1">{{ translationService.t('common.description') }}</label>
-                <input formControlName="shortDescription" cFormControl [placeholder]="translationService.t('common.description')" />
-              </div>
-
-              <c-row>
-                <!-- Min Qty -->
-                <c-col md="6" class="mb-3">
-                  <label class="small fw-semibold text-secondary mb-1">{{ translationService.t('products.modal.minStockLabel') }}</label>
-                  <input formControlName="minimumQuantity" type="number" cFormControl />
-                </c-col>
-
-                <!-- Max Qty -->
-                <c-col md="6" class="mb-3">
-                  <label class="small fw-semibold text-secondary mb-1">Max Qty</label>
-                  <input formControlName="maximumQuantity" type="number" cFormControl />
-                </c-col>
-              </c-row>
-
-              <!-- Invoice Without Stock Checkbox -->
-              <div class="form-check mb-2">
-                <input class="form-check-input" type="checkbox" id="invoiceWithoutStock" formControlName="invoiceWithoutStock">
-                <label class="form-check-label small fw-semibold text-secondary" for="invoiceWithoutStock">
-                  Allow invoicing without stock
-                </label>
-              </div>
-            </form>
-          </div>
-          <div class="custom-modal-footer">
-            <button cButton color="light" class="border" (click)="close()">{{ translationService.t('products.modal.cancelBtn') }}</button>
-            <button cButton color="primary" [disabled]="isLoading() || productForm.invalid" (click)="saveProduct()">
-              @if (isLoading()) {
-                <c-spinner size="sm" class="me-2"></c-spinner>
-                {{ translationService.t('common.loading') }}
-              } @else {
-                {{ translationService.t('products.modal.saveBtn') }}
-              }
-            </button>
-          </div>
-        </div>
-      </div>
-    }
-  `
+  templateUrl: './product-modal.component.html',
 })
 export class ProductModalComponent {
   readonly translationService = inject(TranslationService);
+  private productService = inject(ProductService);
+  private productTypeService = inject(ProductTypeService);
+  private categoryService = inject(CategoryService);
+  private notificationService = inject(NotificationService);
+  private confirmService = inject(ConfirmDialogService);
+  private fb = inject(FormBuilder);
+  private authService = inject(AuthService);
+  private router = inject(Router);
 
   @Input() visible = false;
   @Output() visibleChange = new EventEmitter<boolean>();
@@ -129,57 +58,118 @@ export class ProductModalComponent {
   selectedProductId: number | null = null;
   isLoading = signal<boolean>(false);
 
+  productTypes = signal<any[]>([]);
+  categories = signal<any[]>([]);
+
+  missingLookups = signal<boolean>(false);
+  missingLookupMessage = signal<string>('');
+
   productForm: FormGroup;
 
-  constructor(
-    private productService: ProductService,
-    private notificationService: NotificationService,
-    private fb: FormBuilder
-  ) {
+  constructor() {
     this.productForm = this.fb.group({
-      description: ['', [Validators.required, Validators.maxLength(250)]],
-      barcode: [''],
-      reference: [''],
-      cost: [0, [Validators.required, Validators.min(0)]],
+      description: ['', [Validators.required, Validators.maxLength(200)]],
+      barcode: ['', [Validators.maxLength(100)]],
+      reference: ['', [Validators.maxLength(50)]],
+      productTypeId: [null, [Validators.required]],
+      categoryId: [null, [Validators.required]],
+      cost: [0, [Validators.required, Validators.min(0.01)]],
       stock: [0, [Validators.required, Validators.min(0)]],
-      shortDescription: [''],
-      minimumQuantity: [0],
-      maximumQuantity: [0],
-      invoiceWithoutStock: [false]
+      shortDescription: ['', [Validators.maxLength(200)]],
+      minimumQuantity: [0, [Validators.min(0)]],
+      maximumQuantity: [0, [Validators.min(0)]],
+      invoiceWithoutStock: [false],
+      expirationDate: [''],
+      isOrganic: [false],
     });
   }
 
-  openCreate() {
+  async loadLookups(): Promise<boolean> {
+    this.missingLookups.set(false);
+    this.missingLookupMessage.set('');
+
+    let typeItems: any[] = [];
+    let catItems: any[] = [];
+
+    // 1. Product Types
+    try {
+      const typesRes = await this.productTypeService.getProductTypes();
+      typeItems = Array.isArray(typesRes?.data) ? typesRes.data : [];
+      this.productTypes.set(typeItems);
+    } catch {
+      this.productTypes.set([]);
+    }
+
+    // 2. Categories
+    try {
+      const catsRes = await this.categoryService.getCategories();
+      catItems = Array.isArray(catsRes?.data) ? catsRes.data : [];
+      this.categories.set(catItems);
+    } catch {
+      this.categories.set([]);
+    }
+
+    if (typeItems.length === 0 || catItems.length === 0) {
+      const missingParts: string[] = [];
+      if (typeItems.length === 0) missingParts.push('Tipos de Producto');
+      if (catItems.length === 0) missingParts.push('Categorías');
+
+      this.missingLookups.set(true);
+      this.missingLookupMessage.set(
+        `Para crear un producto es indispensable tener al menos una opción en: ${missingParts.join(' y ')}. Por favor, créalos en la sección de configuración primero.`
+      );
+      return false;
+    }
+
+    return true;
+  }
+
+  goToSettings() {
+    this.close();
+    this.router.navigate(['/products/settings']);
+  }
+
+  async openCreate() {
     this.isEditMode = false;
     this.selectedProductId = null;
+    await this.loadLookups();
     this.productForm.reset({
       description: '',
       barcode: '',
       reference: '',
+      productTypeId: this.productTypes().length > 0 ? this.productTypes()[0].id : null,
+      categoryId: this.categories().length > 0 ? this.categories()[0].id : null,
       cost: 0,
       stock: 0,
       shortDescription: '',
       minimumQuantity: 0,
       maximumQuantity: 0,
-      invoiceWithoutStock: false
+      invoiceWithoutStock: false,
+      expirationDate: '',
+      isOrganic: false,
     });
     this.visible = true;
     this.visibleChange.emit(true);
   }
 
-  openEdit(product: ProductDto) {
+  async openEdit(product: ProductDto) {
     this.isEditMode = true;
     this.selectedProductId = product.id || null;
+    await this.loadLookups();
     this.productForm.patchValue({
       description: product.description || '',
       barcode: product.barcode || '',
       reference: product.reference || '',
+      productTypeId: product.productTypeId || (this.productTypes().length > 0 ? this.productTypes()[0].id : null),
+      categoryId: product.categoryId || (this.categories().length > 0 ? this.categories()[0].id : null),
       cost: product.cost || 0,
       stock: product.stock || 0,
       shortDescription: product.shortDescription || '',
       minimumQuantity: product.minimumQuantity || 0,
       maximumQuantity: product.maximumQuantity || 0,
-      invoiceWithoutStock: product.invoiceWithoutStock || false
+      invoiceWithoutStock: product.invoiceWithoutStock || false,
+      expirationDate: product.expirationDate ? product.expirationDate.split('T')[0] : '',
+      isOrganic: Boolean(product.isOrganic),
     });
     this.visible = true;
     this.visibleChange.emit(true);
@@ -198,32 +188,101 @@ export class ProductModalComponent {
 
     this.isLoading.set(true);
     const formVal = this.productForm.value;
+    const name = String(formVal.description || '').trim();
+
+    // pre-flight duplicate check
+    if (!this.isEditMode) {
+      try {
+        const searchRes = await this.productService.searchProducts(name);
+        const existing = searchRes?.data || [];
+        if (existing && existing.some(p => (p.description || '').toLowerCase() === name.toLowerCase())) {
+          this.notificationService.error('El nombre del producto ya existe.');
+          this.productForm.get('description')?.setErrors({ duplicate: true });
+
+          const inputEl = document.querySelector('input[formControlName="description"]') as HTMLInputElement;
+          if (inputEl) {
+            inputEl.focus();
+          }
+          this.isLoading.set(false);
+          return;
+        }
+
+        const barcode = String(formVal.barcode || '').trim();
+        if (barcode && existing.some(p => (p.barcode || '').trim() === barcode)) {
+          this.notificationService.error('El código de barras ya está registrado en otro producto.');
+          this.productForm.get('barcode')?.setErrors({ duplicate: true });
+          this.isLoading.set(false);
+          return;
+        }
+      } catch (err) {
+        console.warn('Error doing pre-flight check:', err);
+      }
+    }
 
     const payload: ProductDto = {
-      description: formVal.description,
-      barcode: formVal.barcode || null,
-      reference: formVal.reference || null,
-      cost: formVal.cost,
-      stock: formVal.stock,
-      shortDescription: formVal.shortDescription || null,
-      minimumQuantity: formVal.minimumQuantity || 0,
-      maximumQuantity: formVal.maximumQuantity || 0,
-      invoiceWithoutStock: formVal.invoiceWithoutStock || false
+      description: name,
+      cost: Number(formVal.cost) || 0,
+      stock: Number(formVal.stock) || 0,
+      invoiceWithoutStock: Boolean(formVal.invoiceWithoutStock),
+      barcode: String(formVal.barcode || '').trim(),
+      reference: String(formVal.reference || '').trim(),
+      shortDescription: String(formVal.shortDescription || '').trim(),
+      minimumQuantity: Number(formVal.minimumQuantity) || 0,
+      maximumQuantity: Number(formVal.maximumQuantity) || 0,
+      unitOfMeasurementId: Number(formVal.unitOfMeasurementId) || 1,
+      productTypeId: formVal.productTypeId ? Number(formVal.productTypeId) : undefined,
+      categoryId: formVal.categoryId ? Number(formVal.categoryId) : undefined,
+      expirationDate: formVal.expirationDate || null,
+      isOrganic: Boolean(formVal.isOrganic),
     };
 
     try {
       if (this.isEditMode) {
         payload.id = this.selectedProductId!;
         await this.productService.updateProduct(payload);
-        this.notificationService.success('Product updated successfully!');
+        this.notificationService.success('Producto actualizado exitosamente.');
       } else {
         await this.productService.createProduct(payload);
-        this.notificationService.success('Product created successfully!');
+        this.notificationService.success('Producto creado exitosamente.');
       }
       this.saved.emit();
       this.close();
     } catch (e: any) {
-      this.notificationService.error(e?.response?.data?.message || e?.message || 'Error saving product.');
+      const mapped = this.notificationService.showApiError(e);
+      if (mapped.fieldErrors) {
+        applyFieldErrorsToForm(this.productForm, mapped.fieldErrors);
+      }
+      if (mapped.errorCode === 'DUPLICATE_NAME') {
+        this.productForm.get('description')?.setErrors({ duplicate: true });
+        const inputEl = document.querySelector('input[formControlName="description"]') as HTMLInputElement;
+        if (inputEl) {
+          inputEl.focus();
+        }
+      }
+    } finally {
+      this.isLoading.set(false);
+    }
+  }
+
+  async deleteProduct() {
+    if (!this.selectedProductId) return;
+    const productName = this.productForm.get('description')?.value || `Producto #${this.selectedProductId}`;
+    const confirmed = await this.confirmService.confirm({
+      title: '¿Eliminar producto?',
+      message: '¿Estás seguro de que deseas eliminar este producto? Esta acción no se puede deshacer.',
+      confirmText: 'Eliminar',
+      variant: 'danger',
+    });
+    if (!confirmed) return;
+
+    this.isLoading.set(true);
+    try {
+      await this.productService.deleteProduct(this.selectedProductId);
+      this.notificationService.success('Producto eliminado exitosamente.');
+      this.saved.emit();
+      this.close();
+    } catch (e: any) {
+      this.notificationService.showApiError(e);
     } finally {
       this.isLoading.set(false);
     }

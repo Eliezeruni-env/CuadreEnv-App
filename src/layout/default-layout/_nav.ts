@@ -1,61 +1,234 @@
 import { INavData } from '@coreui/angular';
 
-export const navItems: INavData[] = [
+export interface ModuleNavItem extends INavData {
+  moduleCode?: string;
+}
+
+export const navItems: ModuleNavItem[] = [
   {
     name: 'Dashboard',
     url: '/dashboard',
-    iconComponent: { name: 'cil-speedometer' }
+    moduleCode: 'dashboard',
+    iconComponent: { name: 'cil-speedometer' },
+    linkProps: { routerLinkActiveOptions: { exact: true } },
+  },
+  {
+    name: 'Métricas Globales',
+    url: '/metrics',
+    moduleCode: 'metrics',
+    iconComponent: { name: 'cil-chart-pie' },
+    linkProps: { routerLinkActiveOptions: { exact: true } },
+  },
+  {
+    name: 'Vista Móvil (PWA)',
+    url: '/mobile',
+    moduleCode: 'sales',
+    iconComponent: { name: 'cil-devices' },
+    linkProps: { routerLinkActiveOptions: { exact: true } },
   },
   {
     title: true,
-    name: 'SaaS Core'
+    name: 'Operaciones Comerciales',
   },
   {
-    name: 'Products',
-    url: '/products',
-    iconComponent: { name: 'cil-storage' }
-  },
-  {
-    name: 'Inventory & Warehouses',
-    url: '/inventory',
-    iconComponent: { name: 'cil-swap-horizontal' }
-  },
-  {
-    name: 'Sales Ledger',
+    name: 'Ventas',
     url: '/sales',
-    iconComponent: { name: 'cil-cart' }
+    moduleCode: 'sales',
+    iconComponent: { name: 'cil-cart' },
+    linkProps: { routerLinkActiveOptions: { exact: true } },
   },
   {
-    name: 'Customers Directory',
-    url: '/customers',
-    iconComponent: { name: 'cil-user' }
+    name: 'Facturación & NCF',
+    url: '/billing',
+    moduleCode: 'billing',
+    iconComponent: { name: 'cil-notes' },
+    linkProps: { routerLinkActiveOptions: { exact: true } },
   },
   {
-    title: true,
-    name: 'Accounting & Supply'
+    name: 'Reportes DGII (606/607)',
+    url: '/billing/reports',
+    moduleCode: 'reports',
+    iconComponent: { name: 'cil-file' },
+    linkProps: { routerLinkActiveOptions: { exact: true } },
   },
   {
-    name: 'Purchases Log',
-    url: '/purchases',
-    iconComponent: { name: 'cil-truck' }
+    name: 'Servicios',
+    url: '/services',
+    moduleCode: 'services',
+    iconComponent: { name: 'cil-briefcase' },
+    linkProps: { routerLinkActiveOptions: { exact: true } },
   },
   {
-    name: 'Payments Ledger',
-    url: '/payments',
-    iconComponent: { name: 'cil-credit-card' }
-  },
-  {
-    name: 'Cash Register',
+    name: 'Caja',
     url: '/cash-register',
-    iconComponent: { name: 'cil-calculator' }
+    moduleCode: 'cash-register',
+    iconComponent: { name: 'cil-calculator' },
+    linkProps: { routerLinkActiveOptions: { exact: true } },
+  },
+  {
+    name: 'Auditoría Antirrobo 🛡️',
+    url: '/cash-register/fraud-guardian',
+    moduleCode: 'fraud-guardian',
+    iconComponent: { name: 'cil-shield-alt' },
+    linkProps: { routerLinkActiveOptions: { exact: true } },
+  },
+  {
+    name: 'Cobros',
+    url: '/receivables',
+    moduleCode: 'receivables',
+    iconComponent: { name: 'cil-dollar' },
+    linkProps: { routerLinkActiveOptions: { exact: true } },
+  },
+  {
+    name: 'Notas de Crédito',
+    url: '/credit-notes',
+    moduleCode: 'credit-notes',
+    iconComponent: { name: 'cil-description' },
+    linkProps: { routerLinkActiveOptions: { exact: true } },
+  },
+  {
+    name: 'Clientes',
+    url: '/customers',
+    moduleCode: 'customers',
+    iconComponent: { name: 'cil-user' },
+    linkProps: { routerLinkActiveOptions: { exact: true } },
   },
   {
     title: true,
-    name: 'Administration'
+    name: 'Inventario & Almacenes',
   },
   {
-    name: 'Team & Users',
+    name: 'Control de Stock',
+    url: '/inventory/stock',
+    moduleCode: 'inventory-stock',
+    iconComponent: { name: 'cil-storage' },
+    linkProps: { routerLinkActiveOptions: { exact: true } },
+  },
+  {
+    name: 'Entradas de Almacén',
+    url: '/inventory/entries',
+    moduleCode: 'inventory-entries',
+    iconComponent: { name: 'cil-arrow-right' },
+    linkProps: { routerLinkActiveOptions: { exact: true } },
+  },
+  {
+    name: 'Salidas de Almacén',
+    url: '/inventory/outlets',
+    moduleCode: 'inventory-outlets',
+    iconComponent: { name: 'cil-arrow-left' },
+    linkProps: { routerLinkActiveOptions: { exact: true } },
+  },
+  {
+    name: 'Transferencias',
+    url: '/inventory/transfers',
+    moduleCode: 'inventory-transfers',
+    iconComponent: { name: 'cil-swap-horizontal' },
+    linkProps: { routerLinkActiveOptions: { exact: true } },
+  },
+  {
+    name: 'Almacenes & Depósitos',
+    url: '/inventory/warehouses',
+    moduleCode: 'inventory-warehouses',
+    iconComponent: { name: 'cil-home' },
+    linkProps: { routerLinkActiveOptions: { exact: true } },
+  },
+  {
+    name: 'Autorizaciones / Auditoría',
+    url: '/inventory/manage-requests',
+    moduleCode: 'inventory-manage-requests',
+    iconComponent: { name: 'cil-check-circle' },
+    linkProps: { routerLinkActiveOptions: { exact: true } },
+  },
+  {
+    name: 'Catálogo de Productos',
+    url: '/products',
+    moduleCode: 'products',
+    iconComponent: { name: 'cil-layers' },
+    linkProps: { routerLinkActiveOptions: { exact: true } },
+  },
+  {
+    name: 'Categorías y Tipos',
+    url: '/products/settings',
+    moduleCode: 'products-settings',
+    iconComponent: { name: 'cil-settings' },
+    linkProps: { routerLinkActiveOptions: { exact: true } },
+  },
+  {
+    title: true,
+    name: 'Compras & Proveedores',
+  },
+  {
+    name: 'Proveedores',
+    url: '/purchases/suppliers',
+    moduleCode: 'purchases-suppliers',
+    iconComponent: { name: 'cil-contact' },
+    linkProps: { routerLinkActiveOptions: { exact: true } },
+  },
+  {
+    name: 'Órdenes de Compra',
+    url: '/purchases',
+    moduleCode: 'purchases-orders',
+    iconComponent: { name: 'cil-truck' },
+    linkProps: { routerLinkActiveOptions: { exact: true } },
+  },
+  {
+    name: 'Recepciones de Mercancía',
+    url: '/purchases/receipts',
+    moduleCode: 'purchases-receipts',
+    iconComponent: { name: 'cil-task' },
+    linkProps: { routerLinkActiveOptions: { exact: true } },
+  },
+  {
+    name: 'Pagos a Proveedores',
+    url: '/payments',
+    moduleCode: 'payments',
+    iconComponent: { name: 'cil-credit-card' },
+    linkProps: { routerLinkActiveOptions: { exact: true } },
+  },
+  {
+    title: true,
+    name: 'Administración',
+  },
+  {
+    name: 'Mi Perfil',
+    url: '/profile',
+    moduleCode: 'profile',
+    iconComponent: { name: 'cil-user' },
+    linkProps: { routerLinkActiveOptions: { exact: true } },
+  },
+  {
+    name: 'Usuarios y Equipo',
     url: '/users',
-    iconComponent: { name: 'cil-people' }
-  }
+    moduleCode: 'users',
+    iconComponent: { name: 'cil-people' },
+    linkProps: { routerLinkActiveOptions: { exact: true } },
+  },
+  {
+    name: 'Roles y Permisos',
+    url: '/admin/roles',
+    moduleCode: 'admin-roles',
+    iconComponent: { name: 'cil-shield-alt' },
+    linkProps: { routerLinkActiveOptions: { exact: true } },
+  },
+  {
+    name: 'Matriz de Permisos',
+    url: '/admin/roles/matrix',
+    moduleCode: 'admin-roles-matrix',
+    iconComponent: { name: 'cil-grid' },
+    linkProps: { routerLinkActiveOptions: { exact: true } },
+  },
+  {
+    name: 'Bandeja de Aprobaciones',
+    url: '/admin/approvals',
+    moduleCode: 'admin-approvals',
+    iconComponent: { name: 'cil-check' },
+    linkProps: { routerLinkActiveOptions: { exact: true } },
+  },
+  {
+    name: 'Configuración de Empresa',
+    url: '/company/settings',
+    moduleCode: 'company-settings',
+    iconComponent: { name: 'cil-building' },
+    linkProps: { routerLinkActiveOptions: { exact: true } },
+  },
 ];

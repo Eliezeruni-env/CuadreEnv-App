@@ -41,7 +41,7 @@
                 <label class="form-label small fw-semibold text-body-secondary">{{ field.label }}</label>
                 <select cSelect class="form-select" [ngModel]="getValue(field.key)"
                     (ngModelChange)="updateValue(field.key, $event)">
-                    @for (option of field.options; track option.value) {
+                    @for (option of field.options; track option.value + '_' + $index) {
                     <option [value]="option.value">{{ option.label }}</option>
                     }
                 </select>

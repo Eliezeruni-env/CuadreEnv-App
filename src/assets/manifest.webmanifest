@@ -1,0 +1,24 @@
+{
+  "name": "CuadreEnv POS & Control de Efectivo",
+  "short_name": "CuadreEnv",
+  "description": "Sistema de Punto de Venta, Arqueo Ciego y Facturación Fiscal DGII Móvil",
+  "start_url": "/mobile",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#0f172a",
+  "theme_color": "#1e293b",
+  "icons": [
+    {
+      "src": "/assets/brand/favicon-32x32.png",
+      "sizes": "32x32",
+      "type": "image/png"
+    },
+    {
+      "src": "/assets/brand/apple-touch-icon.png",
+      "sizes": "180x180",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}

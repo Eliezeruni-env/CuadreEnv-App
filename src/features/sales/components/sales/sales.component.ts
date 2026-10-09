@@ -1,5 +1,6 @@
-import { Component, inject, OnInit, signal, ViewChild } from '@angular/core';
+import { Component, computed, inject, OnInit, signal, ViewChild } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { Router } from '@angular/router';
 import { SaleService } from '../../services/sale.service';
 import { CustomerService } from '../../../customers/services/customer.service';
 import { AuthService } from '../../../cuadreEnv/services/auth.service';
@@ -8,6 +9,15 @@ import type { SaleResponseDto, CustomerDto } from '../../../cuadreEnv/types/api'
 import { IconDirective } from '@coreui/icons-angular';
 import { CreateSaleModalComponent } from './create-sale-modal.component';
 import { SaleDetailModalComponent } from './sale-detail-modal.component';
+import { NewSaleChoiceModalComponent } from './new-sale-choice-modal.component';
+import { QuickSaleModalComponent } from '../../../cash-register/components/cash-register/quick-sale-modal.component';
+import { CreateReceivableModalComponent } from '../receivables/create-receivable-modal.component';
+import { CreateServiceSaleModalComponent } from './create-service-sale-modal.component';
+import {
+  SaleCompletedModalComponent,
+  type CompletedSaleDto,
+} from './sale-completed-modal.component';
+import { CreditNoteFormComponent } from '../credit-notes/credit-note-form.component';
 import {
   FilterPanelComponent,
   type FilterConfig,
@@ -23,6 +33,7 @@ import {
 } from '@coreui/angular';
 import { TableComponent } from '../../../cuadreEnv/components/table/table.component';
 import { ListPaginationComponent } from '../../../cuadreEnv/components/list-pagination/list-pagination.component';
+import { KtPaginatorComponent } from '../../../billing/components/kt-paginator/kt-paginator.component';
 
 @Component({
   selector: 'app-sales',
@@ -30,22 +41,28 @@ import { ListPaginationComponent } from '../../../cuadreEnv/components/list-pagi
   standalone: true,
   imports: [
     CommonModule,
-    ContainerComponent,
-    CardComponent,
-    CardBodyComponent,
-    TableComponent,
-    ButtonDirective,
-    IconDirective,
     AlertComponent,
     SpinnerComponent,
     CreateSaleModalComponent,
     SaleDetailModalComponent,
+    NewSaleChoiceModalComponent,
+    QuickSaleModalComponent,
+    CreateReceivableModalComponent,
+    CreateServiceSaleModalComponent,
+    SaleCompletedModalComponent,
+    CreditNoteFormComponent,
     FilterPanelComponent,
-    ListPaginationComponent,
+    KtPaginatorComponent,
   ],
 })
 export class SalesComponent implements OnInit {
+  @ViewChild('newSaleChoiceModal') newSaleChoiceModal!: NewSaleChoiceModalComponent;
+  @ViewChild('quickSaleModal') quickSaleModal!: QuickSaleModalComponent;
+  @ViewChild('createReceivableModal') createReceivableModal!: CreateReceivableModalComponent;
+  @ViewChild('createServiceSaleModal') createServiceSaleModal!: CreateServiceSaleModalComponent;
   @ViewChild('createSaleModal') createSaleModal!: CreateSaleModalComponent;
+  @ViewChild('saleCompletedModal') saleCompletedModal!: SaleCompletedModalComponent;
+  @ViewChild('creditNoteFormModal') creditNoteFormModal!: CreditNoteFormComponent;
 
   readonly translationService = inject(TranslationService);
 
@@ -58,48 +75,64 @@ export class SalesComponent implements OnInit {
   currentPage = signal<number>(1);
   pageSize = 10;
   totalItems = signal<number>(0);
+  expandedSaleId = signal<number | null>(null);
 
-  get filterConfig(): FilterConfig[] {
-    return [
-      {
-        key: 'search',
-        label: this.translationService.t('sales.filterSearch'),
-        type: 'text',
-        placeholder: this.translationService.t('sales.filterSearch'),
-      },
-      {
-        key: 'status',
-        label: this.translationService.t('sales.filterStatus'),
-        type: 'select',
-        options: [
-          { label: this.translationService.t('sales.filterAll'), value: '' },
-          {
-            label: this.translationService.t('sales.filterProcessed'),
-            value: 'processed',
-          },
-          {
-            label: this.translationService.t('sales.filterCancelled'),
-            value: 'cancelled',
-          },
-        ],
-      },
-      {
-        key: 'amount',
-        label: this.translationService.t('sales.filterAmount'),
-        type: 'numberRange',
-        placeholder: this.translationService.t('filterPanel.from'),
-      },
-    ];
-  }
+  readonly filterConfig = computed<FilterConfig[]>(() => [
+    {
+      key: 'search',
+      label: this.translationService.t('sales.filterSearch'),
+      type: 'text',
+      placeholder: this.translationService.t('sales.filterSearch'),
+    },
+    {
+      key: 'status',
+      label: this.translationService.t('sales.filterStatus'),
+      type: 'select',
+      options: [
+        { label: this.translationService.t('sales.filterAll'), value: '' },
+        {
+          label: this.translationService.t('sales.filterProcessed'),
+          value: 'processed',
+        },
+        {
+          label: this.translationService.t('sales.filterCancelled'),
+          value: 'cancelled',
+        },
+      ],
+    },
+    {
+      key: 'channel',
+      label: 'Canal / Origen',
+      type: 'select',
+      options: [
+        { label: 'Todos los canales', value: '' },
+        { label: 'Ventas en Caja (POS)', value: 'caja' },
+        { label: 'Ventas Directas', value: 'direct' },
+      ],
+    },
+    {
+      key: 'amount',
+      label: this.translationService.t('sales.filterAmount'),
+      type: 'numberRange',
+      placeholder: this.translationService.t('filterPanel.from'),
+    },
+  ]);
 
+  isChoiceModalOpen = false;
+  isQuickSaleModalOpen = false;
+  isCreateReceivableModalOpen = false;
+  isCreateServiceModalOpen = false;
   isCreateModalOpen = false;
   isDetailModalOpen = false;
+  isSaleCompletedModalOpen = false;
+  lastCompletedSale: CompletedSaleDto | null = null;
   selectedSale: SaleResponseDto | null = null;
 
   constructor(
     private saleService: SaleService,
     private customerService: CustomerService,
     public authService: AuthService,
+    private router: Router,
   ) {}
 
   ngOnInit() {
@@ -115,7 +148,10 @@ export class SalesComponent implements OnInit {
         this.totalItems.set(this.getFilteredSalesCount());
       }
 
-      const cRes = await this.customerService.getCustomers();
+      const cRes = await this.customerService.getCustomers({
+        pageNumber: 1,
+        pageSize: 100,
+      });
       if (cRes.success && cRes.data) {
         this.customers.set(cRes.data);
       }
@@ -138,72 +174,231 @@ export class SalesComponent implements OnInit {
     this.currentPage.set(page);
   }
 
-  private getFilteredSalesBase(): SaleResponseDto[] {
+  readonly filteredSalesBase = computed(() => {
     const activeFilters = this.filters();
     const search = String((activeFilters['search'] as string | undefined) || '')
       .trim()
       .toLowerCase();
     const status = String(
       (activeFilters['status'] as string | undefined) || '',
-    ).trim();
-    const amountFrom = Number(
-      (activeFilters['amount'] as { from?: number | string | null } | undefined)
-        ?.from ?? NaN,
     );
-    const amountTo = Number(
-      (activeFilters['amount'] as { to?: number | string | null } | undefined)
-        ?.to ?? NaN,
+    const channel = String(
+      (activeFilters['channel'] as string | undefined) || '',
     );
+    const amountMin =
+      activeFilters['amount_min'] !== undefined &&
+      activeFilters['amount_min'] !== ''
+        ? Number(activeFilters['amount_min'])
+        : null;
+    const amountMax =
+      activeFilters['amount_max'] !== undefined &&
+      activeFilters['amount_max'] !== ''
+        ? Number(activeFilters['amount_max'])
+        : null;
 
     return this.sales().filter((sale) => {
-      const haystack = [
-        sale.id.toString(),
-        this.getCustomerName(sale.customerId),
-      ]
-        .join(' ')
-        .toLowerCase();
-      const matchesSearch = !search || haystack.includes(search);
-      const matchesStatus =
-        !status ||
-        (status === 'processed' && !sale.isCancelled) ||
-        (status === 'cancelled' && sale.isCancelled);
-      const matchesAmountFrom =
-        Number.isNaN(amountFrom) || sale.total >= amountFrom;
-      const matchesAmountTo = Number.isNaN(amountTo) || sale.total <= amountTo;
+      if (search) {
+        const idMatch = String(sale.id).includes(search);
+        const cust = this.customers().find((c) => c.id === sale.customerId);
+        const nameMatch = cust?.name?.toLowerCase().includes(search);
+        if (!idMatch && !nameMatch) return false;
+      }
 
-      return (
-        matchesSearch && matchesStatus && matchesAmountFrom && matchesAmountTo
-      );
+      if (status) {
+        const isCancelled = (sale as any).isCancelled;
+        if (status === 'cancelled' && !isCancelled) return false;
+        if (status === 'processed' && isCancelled) return false;
+      }
+
+      if (channel) {
+        if (channel === 'caja' && !sale.cashRegisterId) return false;
+        if (channel === 'direct' && sale.cashRegisterId) return false;
+      }
+
+      if (amountMin !== null && sale.total < amountMin) {
+        return false;
+      }
+      if (amountMax !== null && sale.total > amountMax) {
+        return false;
+      }
+
+      return true;
+    });
+  });
+
+  readonly pagedSales = computed(() => {
+    const start = (this.currentPage() - 1) * this.pageSize;
+    return this.filteredSalesBase().slice(start, start + this.pageSize);
+  });
+
+  getFilteredSalesCount(): number {
+    return this.filteredSalesBase().length;
+  }
+
+  toggleDetail(sale: SaleResponseDto) {
+    if (this.expandedSaleId() === sale.id) {
+      this.expandedSaleId.set(null);
+    } else {
+      this.expandedSaleId.set(sale.id);
+    }
+  }
+
+  isSaleExpanded(saleId: number): boolean {
+    return this.expandedSaleId() === saleId;
+  }
+
+  getSaleItems(sale: SaleResponseDto): any[] {
+    const rawItems =
+      sale.details && sale.details.length > 0
+        ? sale.details
+        : (sale as any).items && (sale as any).items.length > 0
+        ? (sale as any).items
+        : (sale as any).saleDetails && (sale as any).saleDetails.length > 0
+        ? (sale as any).saleDetails
+        : (sale as any).productDetails && (sale as any).productDetails.length > 0
+        ? (sale as any).productDetails
+        : [
+            {
+              productId: (sale as any).productId || 1,
+              productName: (sale as any).notes || (sale as any).description || `Producto de Venta #${sale.id}`,
+              productCode: `PROD-${sale.id}`,
+              unitPrice: sale.total,
+              quantity: 1,
+              total: sale.total,
+            },
+          ];
+
+    return rawItems.map((d: any) => {
+      const pName = d.productName || d.description || `Producto #${d.productId || d.id || 1}`;
+      const pCode = d.productCode || d.barcode || `PROD-${d.productId || d.id || 1}`;
+      const qty = Number(d.quantity ?? 1) || 1;
+      const price = Number(d.unitPrice ?? d.price ?? 0) || 0;
+      const discount = Number(d.discountPercentage ?? d.discount ?? 0) || 0;
+      const subtotal = Math.round((qty * price) * 100) / 100;
+      const itbis = Math.round((subtotal * 0.18) * 100) / 100;
+      const total = subtotal + itbis;
+      return {
+        productId: d.productId || d.id || 1,
+        productName: pName,
+        productCode: pCode,
+        quantity: qty,
+        unitPrice: price,
+        discount,
+        subtotal,
+        itbis,
+        total: d.total || total,
+      };
     });
   }
 
-  getFilteredSalesCount(): number {
-    return this.getFilteredSalesBase().length;
+  getCustomerName(customerId?: number | null): string {
+    if (!customerId) return this.translationService.t('sales.table.unknownCustomer');
+    const customer = this.customers().find((c) => c.id === customerId);
+    return customer ? customer.name : this.translationService.t('sales.table.unknownCustomer');
   }
 
-  getFilteredSales(): SaleResponseDto[] {
-    return this.getFilteredSalesBase().slice(
-      (this.currentPage() - 1) * this.pageSize,
-      this.currentPage() * this.pageSize,
-    );
+  openQuickSaleDirect() {
+    this.router.navigate(['/sales/quick']);
   }
 
   openCreateModal() {
-    this.isCreateModalOpen = true;
-    // reset form in child component
-    setTimeout(() => {
-      if (this.createSaleModal) this.createSaleModal.reset();
-    });
+    if (this.newSaleChoiceModal) {
+      this.newSaleChoiceModal.open();
+    } else {
+      this.isCreateModalOpen = true;
+    }
   }
 
-  viewSaleDetail(sale: SaleResponseDto) {
+  onSaleOptionChosen(option: 'quick' | 'credit' | 'service') {
+    if (option === 'quick') {
+      this.router.navigate(['/sales/quick']);
+    } else if (option === 'credit') {
+      if (this.createReceivableModal) {
+        this.createReceivableModal.open();
+      }
+    } else if (option === 'service') {
+      this.router.navigate(['/sales/service']);
+    }
+  }
+
+  openDetailModal(sale: SaleResponseDto) {
     this.selectedSale = sale;
     this.isDetailModalOpen = true;
   }
 
-  getCustomerName(customerId?: number | null): string {
-    if (!customerId) return 'General Public';
-    const c = this.customers().find((item) => item.id === customerId);
-    return c ? c.name : `Customer #${customerId}`;
+  openInvoiceForSale(sale: SaleResponseDto) {
+    const cust = this.customers().find((c) => c.id === sale.customerId);
+    const rawItems =
+      sale.details && sale.details.length > 0
+        ? sale.details
+        : (sale as any).items && (sale as any).items.length > 0
+        ? (sale as any).items
+        : (sale as any).saleDetails && (sale as any).saleDetails.length > 0
+        ? (sale as any).saleDetails
+        : (sale as any).productDetails && (sale as any).productDetails.length > 0
+        ? (sale as any).productDetails
+        : [
+            {
+              productId: (sale as any).productId || 1,
+              productName: (sale as any).notes || (sale as any).description || `Venta #${sale.id}`,
+              productCode: `VTA-${sale.id}`,
+              unitPrice: sale.total,
+              quantity: 1,
+              total: sale.total,
+            },
+          ];
+
+    const invoiceDto: CompletedSaleDto = {
+      id: sale.id,
+      invoiceNumber: `VTA-${String(sale.id).padStart(6, '0')}`,
+      date: sale.creationDate,
+      customerName: cust?.name || 'Consumidor final',
+      customerRnc: cust?.identification || '000-0000000-0',
+      cashRegisterName: sale.cashRegisterId ? `Caja #${sale.cashRegisterId}` : 'Venta Directa',
+      cashierName: 'Admin',
+      paymentMethod: sale.paidAmount >= sale.total ? 'Efectivo / Contado' : 'Crédito',
+      subtotal: Math.round((sale.total / 1.18) * 100) / 100,
+      discount: 0,
+      itbis: Math.round((sale.total - (sale.total / 1.18)) * 100) / 100,
+      total: sale.total,
+      amountReceived: sale.paidAmount,
+      change: Math.max(0, sale.paidAmount - sale.total),
+      items: rawItems.map((d: any) => ({
+        productId: d.productId || d.id || 1,
+        productName: d.productName || d.description || `Producto #${d.productId || d.id || 1}`,
+        productCode: d.productCode || d.barcode || `PROD-${d.productId || d.id || 1}`,
+        unitPrice: Number(d.unitPrice ?? d.price ?? 0) || 0,
+        quantity: Number(d.quantity ?? 1) || 1,
+        total: (Number(d.quantity ?? 1) || 1) * (Number(d.unitPrice ?? d.price ?? 0) || 0),
+      })),
+    };
+
+    this.lastCompletedSale = invoiceDto;
+    if (this.saleCompletedModal) {
+      this.saleCompletedModal.open(invoiceDto);
+    } else {
+      this.isSaleCompletedModalOpen = true;
+    }
+  }
+
+  onQuickSaleCompleted(data: CompletedSaleDto) {
+    this.lastCompletedSale = data;
+    this.loadData();
+    if (this.saleCompletedModal) {
+      this.saleCompletedModal.open(data);
+    } else {
+      this.isSaleCompletedModalOpen = true;
+    }
+  }
+
+  openCreditNoteForSale(sale: SaleResponseDto) {
+    const formattedId = `VTA-${String(sale.id).padStart(6, '0')}`;
+    if (this.creditNoteFormModal) {
+      this.creditNoteFormModal.open(formattedId);
+    }
+  }
+
+  onSaleCreated() {
+    this.loadData();
   }
 }
