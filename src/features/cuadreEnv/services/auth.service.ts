@@ -414,6 +414,25 @@ export class AuthService {
   hasModule(moduleCode: string): boolean {
     if (!moduleCode?.trim()) return false;
     if (this.isSuperUser() || this.isPlatformSuperUser()) return true;
+
+    const licensed = this.licensedModules();
+    if (licensed !== null && licensed.length === 0) return false;
+
+    const normalizedTarget = this.normalizeModuleCode(moduleCode);
+    const userMods = this.allowedModules().map(m => this.normalizeModuleCode(m));
+
+    if (userMods.length === 0) return false;
+
+    if (licensed !== null) {
+      const licensedNorm = licensed.map(m => this.normalizeModuleCode(m));
+      if (!licensedNorm.includes('*') && !licensedNorm.includes(normalizedTarget)) {
+        return false;
+      }
+    } else if (userMods.includes('*')) {
+      return false;
+    }
+
+    if (userMods.includes('*') || userMods.includes(normalizedTarget)) return true;
     return this.moduleAccessService.hasModule(moduleCode);
   }
 

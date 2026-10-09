@@ -55,15 +55,14 @@ describe('ModuleAccessService', () => {
 
   it('should persist modules to sessionStorage when available', () => {
     const mockStorage: Record<string, string> = {};
-    const fakeStorage = {
-      setItem: (k: string, v: string) => { mockStorage[k] = v; },
-      getItem: (k: string) => mockStorage[k] || null,
-    };
-    (globalThis as any).window = (globalThis as any).window || {};
-    (globalThis as any).window.sessionStorage = fakeStorage;
-    (globalThis as any).sessionStorage = fakeStorage;
+    if (typeof window !== 'undefined' && window.sessionStorage) {
+      vi.spyOn(Storage.prototype, 'setItem').mockImplementation((k: string, v: string) => {
+        mockStorage[k] = v;
+      });
+      vi.spyOn(Storage.prototype, 'getItem').mockImplementation((k: string) => mockStorage[k] || null);
+    }
 
     service.init(['sales', 'customers']);
-    expect(fakeStorage.getItem('allowedModules')).toBe(JSON.stringify(['sales', 'customers']));
+    expect(mockStorage['allowedModules']).toBe(JSON.stringify(['sales', 'customers']));
   });
 });

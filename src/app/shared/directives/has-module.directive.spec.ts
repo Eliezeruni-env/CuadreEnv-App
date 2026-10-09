@@ -1,5 +1,5 @@
 import '@angular/compiler';
-import { DestroyRef, runInInjectionContext, TemplateRef, ViewContainerRef } from '@angular/core';
+import { DestroyRef, Injector, runInInjectionContext, TemplateRef, ViewContainerRef } from '@angular/core';
 import { describe, expect, it, vi } from 'vitest';
 import { ModuleAccessService } from '../../../features/cuadreEnv/services/module-access.service';
 import { HasModuleDirective } from './has-module.directive';
@@ -33,6 +33,7 @@ describe('HasModuleDirective', () => {
     providers.set(ModuleAccessService, mockModuleAccess);
     providers.set(DestroyRef, mockDestroyRef);
     const injector = createMockInjector(providers);
+    providers.set(Injector, injector);
 
     let directive!: HasModuleDirective;
     runInInjectionContext(injector, () => {

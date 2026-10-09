@@ -15,7 +15,6 @@
     "start": "ng serve -o",
     "build": "ng build",
     "watch": "ng build --watch --configuration development",
-    "prebuild": "ng test --watch=false",
     "test": "ng test"
   },
   "private": true,

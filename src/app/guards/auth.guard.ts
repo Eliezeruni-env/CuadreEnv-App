@@ -77,11 +77,11 @@ export function moduleGuard(moduleCodeOrRoute: any, state?: any): any {
   if (typeof moduleCodeOrRoute === 'string') {
     const moduleCode = moduleCodeOrRoute;
     return () => {
-      const authService = inject(AuthService);
+      const authService = inject(AuthService, { optional: true });
       const moduleService = inject(ModuleAccessService);
       const router = inject(Router);
 
-      const hasAccess = authService.hasModuleAccess(moduleCode) || moduleService.hasModule(moduleCode);
+      const hasAccess = authService?.hasModuleAccess(moduleCode) ?? moduleService.hasModule(moduleCode);
       if (hasAccess) return true;
 
       router.navigate(['/dashboard'], { queryParams: { error: 'no-access', module: moduleCode } });
@@ -90,12 +90,12 @@ export function moduleGuard(moduleCodeOrRoute: any, state?: any): any {
   }
 
   const route = moduleCodeOrRoute;
-  const authService = inject(AuthService);
+  const authService = inject(AuthService, { optional: true });
   const moduleService = inject(ModuleAccessService);
   const router = inject(Router);
   const targetModule = (route?.data?.['module'] as string) || 'dashboard';
 
-  const hasAccess = authService.hasModuleAccess(targetModule) || moduleService.hasModule(targetModule);
+  const hasAccess = authService?.hasModuleAccess(targetModule) ?? moduleService.hasModule(targetModule);
   if (hasAccess) return true;
 
   router.navigate(['/dashboard'], { queryParams: { error: 'no-access', module: targetModule } });
@@ -105,12 +105,12 @@ export function moduleGuard(moduleCodeOrRoute: any, state?: any): any {
 export const moduleAccessGuard = moduleGuard;
 
 export const moduleChildAccessGuard: CanActivateChildFn = (route, state) => {
-  const authService = inject(AuthService);
+  const authService = inject(AuthService, { optional: true });
   const moduleService = inject(ModuleAccessService);
   const router = inject(Router);
   const targetModule = (route?.data?.['module'] as string) || 'dashboard';
 
-  const hasAccess = authService.hasModuleAccess(targetModule) || moduleService.hasModule(targetModule);
+  const hasAccess = authService?.hasModuleAccess(targetModule) ?? moduleService.hasModule(targetModule);
   if (hasAccess) return true;
 
   router.navigate(['/dashboard'], { queryParams: { error: 'no-access', module: targetModule } });
