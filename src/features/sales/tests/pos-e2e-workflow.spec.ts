@@ -167,7 +167,12 @@ describe('E2E POS Workflow: Login → Open Register → Mixed Sale → Hold Sale
     // -------------------------------------------------------------
     // PASO 1: Login y Autenticación de Operador
     // -------------------------------------------------------------
-    authService.currentUser.set({ id: 1, email: 'admin@cuadreenv.local', fullName: 'Administrador POS' });
+    authService.currentUser.set({
+      id: 1,
+      email: 'admin@cuadreenv.local',
+      fullName: 'Administrador POS',
+      allowedModules: ['*'],
+    });
     authService.currentRole.set('Admin');
     authService.companyId.set(1);
     authService.isAuthenticated.set(true);

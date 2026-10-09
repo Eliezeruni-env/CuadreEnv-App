@@ -22,6 +22,10 @@ describe('RoleService', () => {
     mockAuth = {
       companyId: vi.fn().mockReturnValue(99),
       isSuperUser: vi.fn().mockReturnValue(false),
+      isPlatformSuperUser: vi.fn().mockReturnValue(false),
+      hasExplicitModuleClaims: vi.fn().mockReturnValue(false),
+      allowedModules: vi.fn().mockReturnValue([]),
+      userPermissions: vi.fn().mockReturnValue([]),
       currentRole: vi.fn().mockReturnValue('Admin'),
       currentRoles: vi.fn().mockReturnValue(['Admin']),
     };
@@ -50,6 +54,17 @@ describe('RoleService', () => {
     expect(roles.some((r) => r.name === 'Cajero')).toBeTruthy();
     expect(roles.some((r) => r.name === 'Vendedor')).toBeTruthy();
     expect(roles.some((r) => r.name === 'Auditor')).toBeTruthy();
+  });
+
+  it('uses only the backend roles collection route', async () => {
+    mockApi.get.mockResolvedValueOnce([
+      { id: 10, name: 'Operador', permissionIds: [] },
+    ]);
+
+    await service.loadRoles();
+
+    expect(mockApi.get).toHaveBeenCalledWith('/roles');
+    expect(mockApi.get).not.toHaveBeenCalledWith('/Role');
   });
 
   it('should create a custom role and update signals', async () => {

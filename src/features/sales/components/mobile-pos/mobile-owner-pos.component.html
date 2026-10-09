@@ -26,13 +26,18 @@
     <!-- REGISTER CONTEXT SUB-ROW -->
     <div class="header-context-row">
       <div class="context-left">
-        <span class="register-name">{{ activeSession()?.name || 'Caja #02' }}</span>
+        <span class="register-name">{{ activeSession()?.name || 'Caja Principal' }}</span>
         <span class="separator">·</span>
         <span class="cashier-name">{{ authService.currentUser()?.fullName || userName() }}</span>
       </div>
       <div class="context-right">
-        <span class="status-indicator-dot"></span>
-        <span class="status-text">Caja abierta</span>
+        @if (activeSession()) {
+          <span class="status-indicator-dot"></span>
+          <span class="status-text">Caja abierta</span>
+        } @else {
+          <span class="status-indicator-dot dot-closed"></span>
+          <span class="status-text text-secondary">Caja cerrada</span>
+        }
       </div>
     </div>
   </header>
@@ -58,15 +63,21 @@
         <div class="caja-actual-card mb-3" (click)="setTab('caja')">
           <div class="card-header-line">
             <span class="caja-label">CAJA ACTUAL</span>
-            <span class="caja-badge-green">
-              <span class="mini-green-dot"></span> Abierta
-            </span>
+            @if (activeSession()) {
+              <span class="caja-badge-green">
+                <span class="mini-green-dot"></span> Abierta
+              </span>
+            } @else {
+              <span class="caja-badge-gray">
+                <span class="mini-gray-dot"></span> Cerrada
+              </span>
+            }
           </div>
           <div class="caja-main-balance">
             RD$ {{ totalCashInDrawers() | number:'1.2-2' }}
           </div>
           <div class="caja-footer-line">
-            <span>{{ activeSession()?.name || 'Caja #02' }} · Abierta desde 08:03 AM</span>
+            <span>{{ activeSession()?.name || 'Caja Móvil' }} · {{ activeSession() ? 'Turno en curso' : 'Sin turno activo' }}</span>
             <span class="caja-arrow">Ver caja →</span>
           </div>
         </div>
@@ -314,13 +325,19 @@
           <span></span>
         </div>
 
-        <!-- BIG NAVY CARD: CAJA #02 -->
+        <!-- BIG NAVY CARD: CAJA ACTUAL -->
         <div class="caja-hero-navy mb-3">
           <div class="caja-hero-header">
-            <span class="caja-hero-title">{{ activeSession()?.name || 'CAJA #02' }}</span>
-            <span class="caja-hero-status-pill">
-              <span class="green-indicator"></span> ABIERTA
-            </span>
+            <span class="caja-hero-title">{{ activeSession()?.name || 'CAJA MÓVIL' }}</span>
+            @if (activeSession()) {
+              <span class="caja-hero-status-pill">
+                <span class="green-indicator"></span> ABIERTA
+              </span>
+            } @else {
+              <span class="caja-hero-status-pill status-pill-closed">
+                <span class="gray-indicator"></span> CERRADA
+              </span>
+            }
           </div>
 
           <div class="caja-hero-amount">
@@ -328,9 +345,31 @@
           </div>
 
           <div class="caja-hero-details">
-            Apertura: 08:03 AM · Cajero: {{ authService.currentUser()?.fullName || userName() }}
+            @if (activeSession()) {
+              Apertura: {{ activeSession()?.openedAt ? (activeSession()?.openedAt | date:'shortTime') : 'Hoy' }} · Cajero: {{ authService.currentUser()?.fullName || userName() }}
+            } @else {
+              No hay un turno de caja activo en esta sesión.
+            }
           </div>
         </div>
+
+        <!-- BANNER DE APERTURA SI LA CAJA ESTÁ CERRADA -->
+        @if (!activeSession()) {
+          <div class="alert-box-banner mb-3" (click)="openQuickMobileSession()">
+            <div class="alert-banner-left">
+              <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#2563EB" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                <rect width="20" height="12" x="2" y="6" rx="2"/>
+                <circle cx="12" cy="12" r="2"/>
+                <path d="M6 12h.01M18 12h.01"/>
+              </svg>
+              <div>
+                <strong class="d-block text-primary">Aperturar Turno de Caja</strong>
+                <small class="text-secondary">Abrir caja para registrar ventas en efectivo y PC</small>
+              </div>
+            </div>
+            <span class="badge bg-primary text-white px-2 py-1">Abrir →</span>
+          </div>
+        }
 
         <!-- MOVIMIENTOS RECIENTES -->
         <div class="section-heading mb-2">Movimientos recientes</div>
@@ -352,23 +391,31 @@
               </strong>
             </div>
           }
+
+          @if (recentMovements().length === 0) {
+            <div class="text-center py-4 text-muted small">
+              <p class="mb-0">No hay movimientos registrados en este turno.</p>
+            </div>
+          }
         </div>
 
-        <!-- BOTÓN DE CERRAR CAJA -->
-        <div class="mb-4">
-          <button
-            type="button"
-            class="btn-close-caja-danger"
-            (click)="openCloseRegisterModal()"
-          >
-            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" class="me-2">
-              <circle cx="12" cy="16" r="1"/>
-              <rect x="3" y="10" width="18" height="12" rx="2"/>
-              <path d="M7 10V7a5 5 0 0 1 10 0v3"/>
-            </svg>
-            <span>CERRAR CAJA / ARQUEO</span>
-          </button>
-        </div>
+        <!-- BOTÓN DE CERRAR CAJA (SOLO SI HAY SESIÓN ACTIVA) -->
+        @if (activeSession()) {
+          <div class="mb-4">
+            <button
+              type="button"
+              class="btn-close-caja-danger"
+              (click)="openCloseRegisterModal()"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" class="me-2">
+                <circle cx="12" cy="16" r="1"/>
+                <rect x="3" y="10" width="18" height="12" rx="2"/>
+                <path d="M7 10V7a5 5 0 0 1 10 0v3"/>
+              </svg>
+              <span>CERRAR CAJA / ARQUEO</span>
+            </button>
+          </div>
+        }
 
       </div>
     }
@@ -620,7 +667,15 @@
         </div>
         <div class="col-6">
           <label class="form-label small text-secondary mb-1">Cliente</label>
-          <input type="text" class="form-control form-control-sm" [(ngModel)]="customerName" placeholder="Consumidor Final" />
+          <div class="input-group input-group-sm">
+            <input type="text" class="form-control form-control-sm" [(ngModel)]="customerName" placeholder="Consumidor Final" />
+            <button type="button" class="btn btn-outline-secondary" (click)="isClientsModalOpen.set(true)" title="Seleccionar cliente">
+              <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/>
+                <circle cx="9" cy="7" r="4"/>
+              </svg>
+            </button>
+          </div>
         </div>
       </div>
 
@@ -832,16 +887,19 @@
       </div>
 
       <div class="d-flex flex-column gap-2 mb-3">
-        @for (client of clientsList(); track client.rnc) {
+        @for (client of clientsList(); track client.id) {
           <div
             class="card p-3 border rounded-3 bg-white cursor-pointer d-flex justify-content-between align-items-center flex-row"
+            [class.border-primary]="selectedCustomerId() === client.id"
             (click)="selectCustomer(client)"
           >
             <div>
               <strong class="d-block text-dark">{{ client.name }}</strong>
               <small class="text-muted font-monospace">{{ client.rnc }} · {{ client.type }}</small>
             </div>
-            <button type="button" class="btn btn-sm btn-outline-primary rounded-pill">Elegir</button>
+            <button type="button" class="btn btn-sm" [ngClass]="selectedCustomerId() === client.id ? 'btn-primary' : 'btn-outline-primary rounded-pill'">
+              {{ selectedCustomerId() === client.id ? 'Elegido' : 'Elegir' }}
+            </button>
           </div>
         }
       </div>

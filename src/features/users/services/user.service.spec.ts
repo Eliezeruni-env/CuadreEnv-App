@@ -44,6 +44,26 @@ describe('UserService Direct Pagination Contract & SaaS Management', () => {
     expect(result.totalPages).toBe(3);
   });
 
+  it('should expose persisted AllowedModulesJson as an editable module list', async () => {
+    mockApiClient.get.mockResolvedValue({
+      items: [{
+        id: 1,
+        firstName: 'Juan',
+        lastName: 'Perez',
+        email: 'juan@test.com',
+        allowedModulesJson: '["sales","cashregister"]',
+      }],
+      total: 1,
+      page: 1,
+      pageSize: 10,
+      totalPages: 1,
+    });
+
+    const result = await service.getUsers();
+
+    expect(result.items[0].allowedModules).toEqual(['sales', 'cashregister']);
+  });
+
   it('should call PATCH /users/{id}/status for activation/deactivation', async () => {
     mockApiClient.patch.mockResolvedValue({});
 
@@ -80,7 +100,39 @@ describe('UserService Direct Pagination Contract & SaaS Management', () => {
       role: 'Vendedor',
       temporaryPassword: null,
       sendByEmail: true,
+      allowedModules: [],
     });
+  });
+
+  it('should send explicit module assignments when creating a user', async () => {
+    mockApiClient.post.mockResolvedValue({ id: 10 });
+
+    await service.createUser({
+      email: 'colab@empresa.com',
+      firstName: 'Carlos',
+      lastName: 'Santana',
+      allowedModules: ['sales', 'cashregister', 'customers'],
+    });
+
+    expect(mockApiClient.post).toHaveBeenCalledWith('/users', expect.objectContaining({
+      allowedModules: ['sales', 'cashregister', 'customers'],
+    }));
+  });
+
+  it('should include module assignments when updating a user', async () => {
+    mockApiClient.put.mockResolvedValue({});
+
+    await service.updateUser(5, {
+      firstName: 'Carlos',
+      lastName: 'Santana',
+      userName: 'carlos@example.com',
+      role: 'Employee',
+      allowedModules: ['sales', 'cashregister'],
+    });
+
+    expect(mockApiClient.put).toHaveBeenCalledWith('/users/5', expect.objectContaining({
+      allowedModules: ['sales', 'cashregister'],
+    }));
   });
 
   it('should return empty list gracefully when getUsers receives a 404', async () => {

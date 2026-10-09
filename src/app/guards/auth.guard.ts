@@ -1,5 +1,5 @@
 import { inject } from '@angular/core';
-import { Router, CanActivateFn } from '@angular/router';
+import { Router, CanActivateChildFn, CanActivateFn } from '@angular/router';
 import { AuthService } from '../../features/cuadreEnv/services/auth.service';
 import { PermissionService } from '../../features/roles/services/permission.service';
 import { toObservable } from '@angular/core/rxjs-interop';
@@ -65,19 +65,55 @@ export const adminGuard: CanActivateFn = () => {
   return false;
 };
 
-/**
- * Guardia que valida que el usuario tenga acceso al módulo especificado por ruta,
- * según los módulos configurados en el USM.
- */
-export const moduleAccessGuard: CanActivateFn = (_route, state) => {
-  const permissionService = inject(PermissionService);
-  const router = inject(Router);
+import { ModuleAccessService } from '../../features/cuadreEnv/services/module-access.service';
 
-  const targetUrl = state.url || '';
-  if (permissionService.hasModuleAccess(targetUrl)) {
-    return true;
+/**
+ * Guard que valida que el usuario tenga acceso al módulo especificado por código o ruta.
+ * Soporta la sintaxis moduleGuard('moduleCode') o directo en canActivate.
+ */
+export function moduleGuard(moduleCode: string): CanActivateFn;
+export function moduleGuard(route: any, state: any): boolean;
+export function moduleGuard(moduleCodeOrRoute: any, state?: any): any {
+  if (typeof moduleCodeOrRoute === 'string') {
+    const moduleCode = moduleCodeOrRoute;
+    return () => {
+      const authService = inject(AuthService);
+      const moduleService = inject(ModuleAccessService);
+      const router = inject(Router);
+
+      const hasAccess = authService.hasModuleAccess(moduleCode) || moduleService.hasModule(moduleCode);
+      if (hasAccess) return true;
+
+      router.navigate(['/dashboard'], { queryParams: { error: 'no-access', module: moduleCode } });
+      return false;
+    };
   }
-  router.navigate(['/dashboard']);
+
+  const route = moduleCodeOrRoute;
+  const authService = inject(AuthService);
+  const moduleService = inject(ModuleAccessService);
+  const router = inject(Router);
+  const targetModule = (route?.data?.['module'] as string) || 'dashboard';
+
+  const hasAccess = authService.hasModuleAccess(targetModule) || moduleService.hasModule(targetModule);
+  if (hasAccess) return true;
+
+  router.navigate(['/dashboard'], { queryParams: { error: 'no-access', module: targetModule } });
+  return false;
+}
+
+export const moduleAccessGuard = moduleGuard;
+
+export const moduleChildAccessGuard: CanActivateChildFn = (route, state) => {
+  const authService = inject(AuthService);
+  const moduleService = inject(ModuleAccessService);
+  const router = inject(Router);
+  const targetModule = (route?.data?.['module'] as string) || 'dashboard';
+
+  const hasAccess = authService.hasModuleAccess(targetModule) || moduleService.hasModule(targetModule);
+  if (hasAccess) return true;
+
+  router.navigate(['/dashboard'], { queryParams: { error: 'no-access', module: targetModule } });
   return false;
 };
 

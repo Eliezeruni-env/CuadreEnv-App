@@ -143,6 +143,38 @@
               </small>
             </div>
 
+            <div class="col-12">
+              <div class="d-flex justify-content-between align-items-center mb-1">
+                <label class="form-label fw-semibold text-secondary small mb-0">
+                  Módulos permitidos
+                </label>
+                <span class="badge bg-primary-subtle text-primary border border-primary-subtle rounded-pill" style="font-size: 0.68rem;">
+                  {{ selectedModules().length }} {{ selectedModules().length === 1 ? 'módulo asignado' : 'módulos asignados' }}
+                </span>
+              </div>
+              <div class="p-2 border rounded-3 bg-light bg-opacity-50 row g-2">
+                @for (module of availableModules; track module.code) {
+                  <div class="col-md-6">
+                    <label class="d-flex align-items-start gap-2 p-2 border rounded-3 bg-white h-100">
+                      <input
+                        type="checkbox"
+                        class="form-check-input mt-1"
+                        [checked]="isModuleSelected(module.code)"
+                        (change)="toggleModule(module.code)"
+                      />
+                      <span>
+                        <span class="d-block fw-semibold small">{{ module.label }}</span>
+                        <span class="d-block text-secondary" style="font-size: 0.7rem;">{{ module.description }}</span>
+                      </span>
+                    </label>
+                  </div>
+                }
+              </div>
+              <small class="text-secondary d-block mt-1" style="font-size: 0.7rem;">
+                El rol no amplía el acceso a módulos. Si no seleccionas módulos, el usuario no podrá abrir módulos de la aplicación.
+              </small>
+            </div>
+
             <!-- Contacto de Emergencia -->
             <div class="col-md-6">
               <label class="form-label fw-semibold text-secondary small mb-0.5">

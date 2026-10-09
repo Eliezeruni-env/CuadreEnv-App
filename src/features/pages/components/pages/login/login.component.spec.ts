@@ -57,6 +57,7 @@ describe('LoginComponent', () => {
     vi.spyOn(authService, 'login').mockResolvedValue({ accessToken: 'fake-jwt', refreshToken: 'fake-rt' });
     vi.spyOn(authService, 'companyId').mockReturnValue(1);
     vi.spyOn(authService, 'isSuperUser').mockReturnValue(false);
+    authService.allowedModules.set(['sales']);
 
     component.loginForm.patchValue({
       email: 'admin@cuadreenv.com',
@@ -68,6 +69,30 @@ describe('LoginComponent', () => {
     expect(component.errorMessage()).toBeNull();
     expect(navigateByUrlSpy).toHaveBeenCalledWith('/dashboard');
     expect(component.isLoading()).toBe(false);
+  });
+
+  it('shows the no-modules dialog and skips protected navigation after login', async () => {
+    const authService = TestBed.inject(AuthService) as AuthService;
+    const router = TestBed.inject(Router);
+    const navigateByUrlSpy = vi.spyOn(router, 'navigateByUrl').mockResolvedValue(true as any);
+
+    vi.spyOn(authService, 'login').mockResolvedValue({ accessToken: 'fake-jwt', refreshToken: 'fake-rt' });
+    authService.allowedModules.set([]);
+
+    component.loginForm.patchValue({
+      email: 'nomodules@cuadreenv.com',
+      password: 'validPassword123',
+    });
+
+    await component.onSubmit();
+
+    expect(component.showNoModulesDialog()).toBe(true);
+    expect(navigateByUrlSpy).not.toHaveBeenCalled();
+    expect(component.isLoading()).toBe(false);
+
+    component.continueWithoutModules();
+
+    expect(navigateByUrlSpy).toHaveBeenCalledWith('/403');
   });
 
   it('should display "Correo o contraseña incorrectos" when API returns 400 or 401', async () => {
@@ -147,4 +172,3 @@ describe('LoginComponent', () => {
     expect(component.isLoading()).toBe(false);
   });
 });
-

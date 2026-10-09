@@ -8,6 +8,40 @@
           <div class="auth-logo-wrapper">
             <img src="assets/brand/cuadreEnv-logo.png" alt="CuadreEnv" class="auth-brand-logo" />
           </div>
+
+          @if (showNoModulesDialog()) {
+            <div
+              class="position-fixed top-0 start-0 w-100 h-100 d-flex align-items-center justify-content-center bg-dark bg-opacity-50 p-3"
+              style="z-index: 1080;"
+              role="presentation"
+            >
+              <section
+                class="bg-white rounded-4 shadow-lg p-4 p-md-5 text-center"
+                style="max-width: 32rem; width: 100%;"
+                role="dialog"
+                aria-modal="true"
+                aria-labelledby="no-modules-title"
+                aria-describedby="no-modules-description"
+              >
+                <div class="text-primary mb-3" aria-hidden="true">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="42" height="42" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M12 3 4 7v5c0 5 3.4 8 8 9 4.6-1 8-4 8-9V7l-8-4Z"></path>
+                    <path d="M12 8v4"></path>
+                    <path d="M12 16h.01"></path>
+                  </svg>
+                </div>
+                <h2 id="no-modules-title" class="h4 fw-bold mb-2">Tu cuenta está activa</h2>
+                <p id="no-modules-description" class="text-body-secondary mb-4">
+                  Iniciaste sesión correctamente, pero todavía no hay módulos asignados a tu usuario.
+                  No es un error técnico y no mostraremos secciones que no tengas habilitadas.
+                  Los módulos aparecerán cuando se asignen desde la administración de tu empresa.
+                </p>
+                <button type="button" class="btn btn-primary px-4" (click)="continueWithoutModules()">
+                  Entendido
+                </button>
+              </section>
+            </div>
+          }
         </div>
 
         <!-- Form Title -->

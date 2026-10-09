@@ -66,7 +66,7 @@
     <div class="row g-3 mb-4">
       
       <!-- 1. Total de Productos -->
-      <div class="col-sm-6 col-lg-4 col-xl-2">
+      <div *hasModule="'Inventory'" class="col-sm-6 col-lg-4 col-xl-2">
         <div class="card p-3 kpi-grid-card h-100 shadow-sm border-0 rounded-4 bg-white">
           <div class="d-flex align-items-center gap-2 mb-3">
             <div class="kpi-icon-sm bg-success-subtle text-success">
@@ -83,7 +83,7 @@
       </div>
 
       <!-- 2. Almacenes Activos -->
-      <div class="col-sm-6 col-lg-4 col-xl-2">
+      <div *hasModule="'Inventory'" class="col-sm-6 col-lg-4 col-xl-2">
         <div class="card p-3 kpi-grid-card h-100 shadow-sm border-0 rounded-4 bg-white">
           <div class="d-flex align-items-center gap-2 mb-3">
             <div class="kpi-icon-sm bg-primary-subtle text-primary">
@@ -100,7 +100,7 @@
       </div>
 
       <!-- 3. Órdenes de Venta -->
-      <div class="col-sm-6 col-lg-4 col-xl-2">
+      <div *hasModule="'Sales'" class="col-sm-6 col-lg-4 col-xl-2">
         <div class="card p-3 kpi-grid-card h-100 shadow-sm border-0 rounded-4 bg-white">
           <div class="d-flex align-items-center gap-2 mb-3">
             <div class="kpi-icon-sm bg-secondary-subtle text-secondary">
@@ -117,7 +117,7 @@
       </div>
 
       <!-- 4. Total de Ventas -->
-      <div class="col-sm-6 col-lg-4 col-xl-2">
+      <div *hasModule="'Sales'" class="col-sm-6 col-lg-4 col-xl-2">
         <div class="card p-3 kpi-grid-card h-100 shadow-sm border-0 rounded-4 bg-white">
           <div class="d-flex align-items-center gap-2 mb-3">
             <div class="kpi-icon-sm bg-info-subtle text-info">
@@ -134,7 +134,7 @@
       </div>
 
       <!-- 5. Usuarios del Sistema -->
-      <div class="col-sm-6 col-lg-4 col-xl-2">
+      <div *hasModule="'Company'" class="col-sm-6 col-lg-4 col-xl-2">
         <div class="card p-3 kpi-grid-card h-100 shadow-sm border-0 rounded-4 bg-white">
           <div class="d-flex align-items-center gap-2 mb-3">
             <div class="kpi-icon-sm bg-indigo-subtle text-indigo">
@@ -151,7 +151,7 @@
       </div>
 
       <!-- 6. Cajas Activas -->
-      <div class="col-sm-6 col-lg-4 col-xl-2">
+      <div *hasModule="'CashRegister'" class="col-sm-6 col-lg-4 col-xl-2">
         <div class="card p-3 kpi-grid-card h-100 shadow-sm border-0 rounded-4 bg-white">
           <div class="d-flex align-items-center gap-2 mb-3">
             <div class="kpi-icon-sm bg-purple-subtle text-purple">
@@ -179,12 +179,12 @@
               <svg cIcon name="cilBolt" class="text-primary" style="width: 18px; height: 18px;"></svg>
               <h5 class="fw-bold text-dark mb-0">Acciones Rápidas</h5>
             </div>
-            <a routerLink="/sales" class="text-decoration-none text-primary small fw-semibold">Ver todas →</a>
+            <a *hasModule="'Sales'" routerLink="/sales" class="text-decoration-none text-primary small fw-semibold">Ver todas →</a>
           </div>
 
           <div class="d-flex flex-column gap-3">
             @if (authService.hasRole(['Admin', 'Manager', 'Seller'])) {
-              <a routerLink="/sales" class="d-flex align-items-center justify-content-between text-decoration-none text-dark hover-text-primary action-row pb-3 border-bottom">
+              <a *hasModule="'Sales'" routerLink="/sales" class="d-flex align-items-center justify-content-between text-decoration-none text-dark hover-text-primary action-row pb-3 border-bottom">
                 <div class="d-flex align-items-center gap-3">
                   <div class="action-icon bg-primary-subtle text-primary rounded-circle d-flex align-items-center justify-content-center" style="width: 36px; height: 36px;">
                     <svg cIcon name="cilDollar" style="width: 16px; height: 16px;"></svg>
@@ -199,7 +199,7 @@
             }
 
             @if (authService.hasRole(['Admin', 'Manager'])) {
-              <a routerLink="/inventory" class="d-flex align-items-center justify-content-between text-decoration-none text-dark hover-text-primary action-row pb-3 border-bottom">
+              <a *hasModule="'Inventory'" routerLink="/inventory" class="d-flex align-items-center justify-content-between text-decoration-none text-dark hover-text-primary action-row pb-3 border-bottom">
                 <div class="d-flex align-items-center gap-3">
                   <div class="action-icon bg-primary-subtle text-primary rounded-circle d-flex align-items-center justify-content-center" style="width: 36px; height: 36px;">
                     <svg cIcon name="cilStorage" style="width: 16px; height: 16px;"></svg>
@@ -212,7 +212,7 @@
                 <svg cIcon name="cilChevronRight" class="text-secondary" style="width: 14px; height: 14px;"></svg>
               </a>
 
-              <a routerLink="/dashboard/metrics" class="d-flex align-items-center justify-content-between text-decoration-none text-dark hover-text-primary action-row pb-3 border-bottom">
+              <a *hasModule="'Reports'" routerLink="/metrics" class="d-flex align-items-center justify-content-between text-decoration-none text-dark hover-text-primary action-row pb-3 border-bottom">
                 <div class="d-flex align-items-center gap-3">
                   <div class="action-icon bg-primary-subtle text-primary rounded-circle d-flex align-items-center justify-content-center" style="width: 36px; height: 36px;">
                     <svg cIcon name="cilChartPie" style="width: 16px; height: 16px;"></svg>
@@ -227,7 +227,7 @@
             }
 
             @if (authService.hasRole(['Admin'])) {
-              <a routerLink="/settings" class="d-flex align-items-center justify-content-between text-decoration-none text-dark hover-text-primary action-row">
+              <a *hasModule="'Company'" routerLink="/company/settings" class="d-flex align-items-center justify-content-between text-decoration-none text-dark hover-text-primary action-row">
                 <div class="d-flex align-items-center gap-3">
                   <div class="action-icon bg-primary-subtle text-primary rounded-circle d-flex align-items-center justify-content-center" style="width: 36px; height: 36px;">
                     <svg cIcon name="cilSettings" style="width: 16px; height: 16px;"></svg>
@@ -244,7 +244,7 @@
         </div>
 
         <!-- Warehouse Alerts Panel -->
-        <div class="card border-0 shadow-sm rounded-4 p-4 bg-white">
+        <div *hasModule="'Inventory'" class="card border-0 shadow-sm rounded-4 p-4 bg-white">
           <div class="d-flex justify-content-between align-items-center mb-4">
             <div class="d-flex align-items-center gap-2">
               <svg cIcon name="cilWarning" class="text-danger" style="width: 18px; height: 18px;"></svg>
@@ -278,22 +278,27 @@
               }
             </div>
             <div class="text-end mt-3">
-              <a routerLink="/inventory" class="text-decoration-none text-primary small fw-semibold">Ver todas →</a>
+              <a *hasModule="'Inventory'" routerLink="/inventory" class="text-decoration-none text-primary small fw-semibold">Ver todas →</a>
             </div>
           }
         </div>
       </div>
 
       <!-- Right Column: Audited History Feed -->
+      @if (permissionService.hasModuleAccess('Audit') || permissionService.hasModuleAccess('Inventory')) {
       <div class="col-lg-8 col-xl-8">
         <div class="card border-0 shadow-sm rounded-4 p-4 bg-white h-100">
           <div class="d-flex justify-content-between align-items-center mb-4 pb-3 border-bottom">
             <div class="d-flex align-items-center gap-2">
               <svg cIcon name="cilNotes" class="text-primary" style="width: 18px; height: 18px;"></svg>
-              <h5 class="fw-bold text-dark mb-0">Historial de Auditoría de Acciones</h5>
-              <span class="text-secondary small ms-2 d-none d-md-inline">Últimas acciones registradas en el sistema.</span>
+              <h5 class="fw-bold text-dark mb-0">
+                {{ permissionService.hasModuleAccess('Audit') ? 'Historial de Auditoría de Acciones' : 'Movimientos de Inventario' }}
+              </h5>
+              @if (permissionService.hasModuleAccess('Audit')) {
+                <span class="text-secondary small ms-2 d-none d-md-inline">Últimas acciones registradas en el sistema.</span>
+              }
             </div>
-            <a routerLink="/inventory" class="text-decoration-none text-primary small fw-semibold text-nowrap">
+            <a *hasModule="'Inventory'" routerLink="/inventory" class="text-decoration-none text-primary small fw-semibold text-nowrap">
               Ver historial completo →
             </a>
           </div>
@@ -354,6 +359,7 @@
           }
         </div>
       </div>
+      }
     </div>
   }
 </c-container>

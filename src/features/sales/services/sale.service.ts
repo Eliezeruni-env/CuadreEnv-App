@@ -22,7 +22,7 @@ export class SaleService {
     this.api = api ?? inject(ApiClientService, { optional: true })!;
   }
 
-  private getLocalSales(): SaleResponseDto[] {
+  getLocalSales(): SaleResponseDto[] {
     try {
       const raw = localStorage.getItem(SALES_STORAGE_KEY);
       return raw ? JSON.parse(raw) : [];
@@ -31,7 +31,7 @@ export class SaleService {
     }
   }
 
-  private saveLocalSale(sale: SaleResponseDto): void {
+  saveLocalSale(sale: SaleResponseDto): void {
     try {
       const list = this.getLocalSales();
       const existingIdx = list.findIndex((s) => s.id === sale.id);
@@ -57,16 +57,37 @@ export class SaleService {
     try {
       const res = await this.api.get<any, any>('/Sale', { params: validParams });
       const apiSales = extractArray<SaleResponseDto>(res);
+      const localList = this.getLocalSales();
+      if (localList.length > 0) {
+        const merged = [...apiSales];
+        for (const loc of localList) {
+          if (!merged.some((m) => m.id === loc.id)) {
+            merged.unshift(loc);
+          }
+        }
+        return { success: true, data: merged };
+      }
       return { success: true, data: apiSales };
     } catch (err: any) {
       if (err?.status === 404) {
         try {
           const res2 = await this.api.get<any, any>('/sales', { params: validParams });
           const apiSales2 = extractArray<SaleResponseDto>(res2);
-          return { success: true, data: apiSales2 || [] };
+          const localList = this.getLocalSales();
+          const merged2 = [...(apiSales2 || [])];
+          for (const loc of localList) {
+            if (!merged2.some((m) => m.id === loc.id)) {
+              merged2.unshift(loc);
+            }
+          }
+          return { success: true, data: merged2 };
         } catch {
           // Fallback failed
         }
+      }
+      const localFallback = this.getLocalSales();
+      if (localFallback.length > 0) {
+        return { success: true, data: localFallback };
       }
       return { success: false, data: [], message: 'No se pudo conectar con el servidor.' };
     }

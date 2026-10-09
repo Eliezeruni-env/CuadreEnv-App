@@ -118,6 +118,10 @@
         height: 7px;
         border-radius: 50%;
         background-color: #10B981;
+
+        &.dot-closed {
+          background-color: #94A3B8;
+        }
       }
     }
   }
@@ -201,6 +205,25 @@
         height: 6px;
         border-radius: 50%;
         background-color: #10B981;
+      }
+    }
+
+    .caja-badge-gray {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      background: rgba(148, 163, 184, 0.2);
+      color: #94A3B8;
+      font-size: 0.72rem;
+      font-weight: 700;
+      padding: 3px 10px;
+      border-radius: 20px;
+
+      .mini-gray-dot {
+        width: 6px;
+        height: 6px;
+        border-radius: 50%;
+        background-color: #94A3B8;
       }
     }
   }
@@ -667,6 +690,18 @@
         height: 6px;
         border-radius: 50%;
         background-color: #10B981;
+      }
+
+      &.status-pill-closed {
+        background: rgba(148, 163, 184, 0.2);
+        color: #94A3B8;
+
+        .gray-indicator {
+          width: 6px;
+          height: 6px;
+          border-radius: 50%;
+          background-color: #94A3B8;
+        }
       }
     }
   }

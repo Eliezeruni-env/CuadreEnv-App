@@ -1,5 +1,5 @@
 import { Routes } from '@angular/router';
-import { authGuard, adminGuard } from './guards/auth.guard';
+import { authGuard, adminGuard, moduleGuard, moduleChildAccessGuard } from './guards/auth.guard';
 
 export const routes: Routes = [
   {
@@ -10,8 +10,8 @@ export const routes: Routes = [
   {
     path: 'mobile',
     loadComponent: () => import('../features/sales/components/mobile-pos/mobile-owner-pos.component').then((m) => m.MobileOwnerPosComponent),
-    canActivate: [authGuard],
-    data: { title: 'CuadreEnv Mobile POS & Vista Ejecutiva' }
+    canActivate: [authGuard, moduleGuard('mobile-pos')],
+    data: { module: 'sales', title: 'CuadreEnv Mobile POS & Vista Ejecutiva' }
   },
   {
     path: 'mobile-pos',
@@ -22,114 +22,135 @@ export const routes: Routes = [
     path: '',
     loadComponent: () => import('../layout').then(m => m.DefaultLayoutComponent),
     canActivate: [authGuard],
+    canActivateChild: [moduleChildAccessGuard],
     data: {
       title: 'Home'
     },
     children: [
       {
         path: 'dashboard',
-        loadChildren: () => import('../features/dashboard/components/dashboard/routes').then((m) => m.routes)
+        loadChildren: () => import('../features/dashboard/components/dashboard/routes').then((m) => m.routes),
+        canActivate: [moduleGuard('dashboard')]
       },
       {
         path: 'products',
         loadComponent: () => import('../features/products/components/products/products.component').then((m) => m.ProductsComponent),
-        data: { title: 'Products Catalogue' }
+        canActivate: [moduleGuard('products')],
+        data: { module: 'products', title: 'Products Catalogue' }
       },
       {
         path: 'products/settings',
         loadComponent: () => import('../features/products/components/settings/product-settings.component').then((m) => m.ProductSettingsComponent),
-        data: { title: 'Configuración de Productos' }
+        canActivate: [moduleGuard('products-settings')],
+        data: { module: 'products-settings', title: 'Configuración de Productos' }
       },
       {
         path: 'inventory',
         loadComponent: () => import('../features/inventory/components/inventory/inventory.component').then((m) => m.InventoryComponent),
-        data: { title: 'Inventory & Warehouses' }
+        canActivate: [moduleGuard('inventory-stock')],
+        data: { module: 'inventory-stock', title: 'Inventory & Warehouses' }
       },
       {
         path: 'inventory/warehouses',
         loadComponent: () => import('../features/inventory/components/warehouse/warehouse-list.component').then((m) => m.WarehouseListComponent),
-        data: { title: 'Gestión de Almacenes' }
+        canActivate: [moduleGuard('inventory-warehouses')],
+        data: { module: 'inventory-warehouses', title: 'Gestión de Almacenes' }
       },
       {
         path: 'inventory/entries',
         loadComponent: () => import('../features/inventory/components/warehouse-entry/listwarehouse-entry.component').then((m) => m.ListwarehouseEntryComponent),
-        data: { title: 'Entradas de Almacén' }
+        canActivate: [moduleGuard('inventory-entries')],
+        data: { module: 'inventory-entries', title: 'Entradas de Almacén' }
       },
       {
         path: 'inventory/entries/create',
         loadComponent: () => import('../features/inventory/components/warehouse-entry/createwarehouse-entry.component').then((m) => m.CreatewarehouseEntryComponent),
-        data: { title: 'Nueva Entrada' }
+        canActivate: [moduleGuard('inventory-entries')],
+        data: { module: 'inventory-entries', title: 'Nueva Entrada' }
       },
       {
         path: 'inventory/outlets',
         loadComponent: () => import('../features/inventory/components/warehouse-outlet/listwarehouse-outlet.component').then((m) => m.ListwarehouseOutletComponent),
-        data: { title: 'Salidas de Almacén' }
+        canActivate: [moduleGuard('inventory-outlets')],
+        data: { module: 'inventory-outlets', title: 'Salidas de Almacén' }
       },
       {
         path: 'inventory/outlets/create',
         loadComponent: () => import('../features/inventory/components/warehouse-outlet/createwarehouse-outlet.component').then((m) => m.CreatewarehouseOutletComponent),
-        data: { title: 'Nueva Salida' }
+        canActivate: [moduleGuard('inventory-outlets')],
+        data: { module: 'inventory-outlets', title: 'Nueva Salida' }
       },
       {
         path: 'inventory/transfers',
         loadComponent: () => import('../features/inventory/components/warehouse-transfer/listwarehouse-transfer.component').then((m) => m.ListwarehouseTransferComponent),
-        data: { title: 'Transferencias entre Almacenes' }
+        canActivate: [moduleGuard('inventory-transfers')],
+        data: { module: 'inventory-transfers', title: 'Transferencias entre Almacenes' }
       },
       {
         path: 'inventory/transfers/create',
         loadComponent: () => import('../features/inventory/components/warehouse-transfer/createwarehouse-transfer.component').then((m) => m.CreatewarehouseTransferComponent),
-        data: { title: 'Nueva Transferencia' }
+        canActivate: [moduleGuard('inventory-transfers')],
+        data: { module: 'inventory-transfers', title: 'Nueva Transferencia' }
       },
       {
         path: 'inventory/stock',
         loadComponent: () => import('../features/inventory/components/stock/stock.component').then((m) => m.StockComponent),
-        data: { title: 'Consulta de Existencias / Stock' }
+        canActivate: [moduleGuard('inventory-stock')],
+        data: { module: 'inventory-stock', title: 'Consulta de Existencias / Stock' }
       },
       {
         path: 'inventory/manage-requests',
         loadComponent: () => import('../features/inventory/components/manage-request/manage-request-list.component').then((m) => m.ManageRequestListComponent),
-        data: { title: 'Bandeja de Aprobaciones' }
+        canActivate: [moduleGuard('inventory-manage-requests')],
+        data: { module: 'inventory-manage-requests', title: 'Bandeja de Aprobaciones' }
       },
       {
         path: 'purchases/receipts',
         loadComponent: () => import('../features/purchases/components/purchase-order-receipt/purchase-order-receipt-list.component').then((m) => m.PurchaseOrderReceiptListComponent),
-        data: { title: 'Recepciones de Compra' }
+        canActivate: [moduleGuard('purchases-receipts')],
+        data: { module: 'purchases-receipts', title: 'Recepciones de Compra' }
       },
       {
         path: 'purchases/receipts/create',
         loadComponent: () => import('../features/purchases/components/purchase-order-receipt/purchase-order-receipt-form.component').then((m) => m.PurchaseOrderReceiptFormComponent),
-        data: { title: 'Nueva Recepción' }
+        canActivate: [moduleGuard('purchases-receipts')],
+        data: { module: 'purchases-receipts', title: 'Nueva Recepción' }
       },
       {
         path: 'purchases/receipts/create/:id',
         loadComponent: () => import('../features/purchases/components/purchase-order-receipt/purchase-order-receipt-form.component').then((m) => m.PurchaseOrderReceiptFormComponent),
-        canActivate: [() => import('./guards/reception-exists.guard').then(m => m.ReceptionExistsGuard)],
-        data: { title: 'Recepción de Orden' }
+        canActivate: [moduleGuard('purchases-receipts'), () => import('./guards/reception-exists.guard').then(m => m.ReceptionExistsGuard)],
+        data: { module: 'purchases-receipts', title: 'Recepción de Orden' }
       },
       {
         path: 'users',
         loadComponent: () => import('../features/users/components/users/users.component').then((m) => m.UsersComponent),
-        data: { title: 'Team Management' }
+        canActivate: [moduleGuard('users')],
+        data: { module: 'users', title: 'Team Management' }
       },
       {
         path: 'sales',
         loadComponent: () => import('../features/sales/components/sales/sales.component').then((m) => m.SalesComponent),
-        data: { title: 'Sales Register' }
+        canActivate: [moduleGuard('sales')],
+        data: { module: 'sales', title: 'Sales Register' }
       },
       {
         path: 'sales/quick',
         loadComponent: () => import('../features/sales/components/quick-sale-page/quick-sale-page.component').then((m) => m.QuickSalePageComponent),
-        data: { title: 'Venta Rápida POS' }
+        canActivate: [moduleGuard('sales')],
+        data: { module: 'sales', title: 'Venta Rápida POS' }
       },
       {
         path: 'sales/service',
         loadComponent: () => import('../features/sales/components/service-sale-page/service-sale-page.component').then((m) => m.ServiceSalePageComponent),
-        data: { title: 'Venta de Servicios' }
+        canActivate: [moduleGuard('sales')],
+        data: { module: 'sales', title: 'Venta de Servicios' }
       },
       {
         path: 'receivables',
         loadComponent: () => import('../features/sales/components/receivables/receivables.component').then((m) => m.ReceivablesComponent),
-        data: { title: 'Ventas por Cobrar' }
+        canActivate: [moduleGuard('receivables')],
+        data: { module: 'receivables', title: 'Ventas por Cobrar' }
       },
       {
         path: 'sales/receivables',
@@ -139,27 +160,32 @@ export const routes: Routes = [
       {
         path: 'billing',
         loadComponent: () => import('../features/billing/components/listbilling/listbilling.component').then((m) => m.ListbillingComponent),
-        data: { title: 'Facturación y Comprobantes Fiscales' }
+        canActivate: [moduleGuard('billing')],
+        data: { module: 'billing', title: 'Facturación y Comprobantes Fiscales' }
       },
       {
         path: 'billing/create',
         loadComponent: () => import('../features/billing/components/createbilling/createbilling.component').then((m) => m.CreatebillingComponent),
-        data: { title: 'Nueva Factura' }
+        canActivate: [moduleGuard('billing')],
+        data: { module: 'billing', title: 'Nueva Factura' }
       },
       {
         path: 'billing/quotationNo/:quotationNo',
         loadComponent: () => import('../features/billing/components/createbilling/createbilling.component').then((m) => m.CreatebillingComponent),
-        data: { title: 'Facturar Cotización' }
+        canActivate: [moduleGuard('billing')],
+        data: { module: 'billing', title: 'Facturar Cotización' }
       },
       {
         path: 'billing/reports',
         loadComponent: () => import('../features/billing/components/dgii-reports/dgii-reports.component').then((m) => m.DgiiReportsComponent),
-        data: { title: 'Reportes Fiscales DGII (606, 607, 608)' }
+        canActivate: [moduleGuard('billing-reports-dgii')],
+        data: { module: 'billing-reports-dgii', title: 'Reportes Fiscales DGII (606, 607, 608)' }
       },
       {
         path: 'credit-notes',
         loadComponent: () => import('../features/sales/components/credit-notes/credit-notes.component').then((m) => m.CreditNotesComponent),
-        data: { title: 'Notas de Crédito y Devoluciones' }
+        canActivate: [moduleGuard('credit-notes')],
+        data: { module: 'credit-notes', title: 'Notas de Crédito y Devoluciones' }
       },
       {
         path: 'sales/credit-notes',
@@ -169,42 +195,56 @@ export const routes: Routes = [
       {
         path: 'customers',
         loadComponent: () => import('../features/customers/components/customers/customers.component').then((m) => m.CustomersComponent),
-        data: { title: 'Customers Directory' }
+        canActivate: [moduleGuard('customers')],
+        data: { module: 'customers', title: 'Customers Directory' }
       },
       {
         path: 'purchases',
         loadComponent: () => import('../features/purchases/components/purchases/purchases.component').then((m) => m.PurchasesComponent),
-        data: { title: 'Purchases Log' }
+        canActivate: [moduleGuard('purchases-orders')],
+        data: { module: 'purchases-orders', title: 'Purchases Log' }
       },
       {
         path: 'payments',
         loadComponent: () => import('../features/payments/components/payments/payments.component').then((m) => m.PaymentsComponent),
-        data: { title: 'Payments Ledger' }
+        canActivate: [moduleGuard('payments')],
+        data: { module: 'payments', title: 'Payments Ledger' }
       },
       {
         path: 'cash-register',
         loadComponent: () => import('../features/cash-register/components/cash-register/cash-register.component').then((m) => m.CashRegisterComponent),
-        data: { title: 'Cash Register Control' }
+        canActivate: [moduleGuard('cash-register')],
+        data: { module: 'cash-register', title: 'Cash Register Control' }
       },
       {
         path: 'cash-register/fraud-guardian',
         loadComponent: () => import('../features/cash-register/components/loss-prevention/fraud-guardian-dashboard.component').then((m) => m.FraudGuardianDashboardComponent),
-        data: { title: 'El Guardián Antirrobo (Auditoría Forense)' }
+        canActivate: [moduleGuard('fraud-guardian')],
+        data: { module: 'fraud-guardian', title: 'El Guardián Antirrobo (Auditoría Forense)' }
       },
       {
         path: 'metrics',
         loadComponent: () => import('../features/dashboard/components/metrics/metrics.component').then((m) => m.MetricsComponent),
-        data: { title: 'Métricas Globales' }
+        canActivate: [moduleGuard('metrics')],
+        data: { module: 'metrics', title: 'Métricas Globales' }
+      },
+      {
+        path: 'reports',
+        loadComponent: () => import('../features/dashboard/components/metrics/metrics.component').then((m) => m.MetricsComponent),
+        canActivate: [moduleGuard('billing-reports-dgii')],
+        data: { module: 'billing-reports-dgii', title: 'Reportes' }
       },
       {
         path: 'services',
         loadComponent: () => import('../features/services/components/services-list/services-list.component').then((m) => m.ServicesListComponent),
-        data: { title: 'Catálogo de Servicios' }
+        canActivate: [moduleGuard('services')],
+        data: { module: 'services', title: 'Catálogo de Servicios' }
       },
       {
         path: 'purchases/suppliers',
         loadComponent: () => import('../features/purchases/components/suppliers/suppliers.component').then((m) => m.SuppliersComponent),
-        data: { title: 'Directorio de Proveedores' }
+        canActivate: [moduleGuard('purchases-suppliers')],
+        data: { module: 'purchases-suppliers', title: 'Directorio de Proveedores' }
       },
       {
         path: 'suppliers',
@@ -214,13 +254,14 @@ export const routes: Routes = [
       {
         path: 'profile',
         loadComponent: () => import('../features/users/components/user-profile/user-profile.component').then((m) => m.UserProfileComponent),
-        data: { title: 'Mi Perfil' }
+        canActivate: [moduleGuard('profile')],
+        data: { module: 'profile', title: 'Mi Perfil' }
       },
       {
         path: 'admin/roles',
         loadComponent: () => import('../features/roles/components/roles-list/roles-list.component').then((m) => m.RolesListComponent),
-        canActivate: [adminGuard],
-        data: { title: 'Gestión de Roles y Permisos' }
+        canActivate: [adminGuard, moduleGuard('admin-roles')],
+        data: { module: 'admin-roles', title: 'Gestión de Roles y Permisos' }
       },
       {
         path: 'roles',
@@ -230,13 +271,14 @@ export const routes: Routes = [
       {
         path: 'admin/roles/matrix',
         loadComponent: () => import('../features/roles/components/permission-matrix/permission-matrix.component').then((m) => m.PermissionMatrixComponent),
-        canActivate: [adminGuard],
-        data: { title: 'Matriz de Permisos' }
+        canActivate: [adminGuard, moduleGuard('admin-roles-matrix')],
+        data: { module: 'admin-roles-matrix', title: 'Matriz de Permisos' }
       },
       {
         path: 'admin/approvals',
         loadComponent: () => import('../features/approvals/components/approval-inbox/approval-inbox.component').then((m) => m.ApprovalInboxComponent),
-        data: { title: 'Bandeja de Aprobaciones' }
+        canActivate: [moduleGuard('admin-approvals')],
+        data: { module: 'admin-approvals', title: 'Bandeja de Aprobaciones' }
       },
       {
         path: 'approvals',
@@ -246,8 +288,8 @@ export const routes: Routes = [
       {
         path: 'company/settings',
         loadComponent: () => import('../features/companies/components/company-settings/company-settings.component').then((m) => m.CompanySettingsComponent),
-        canActivate: [adminGuard],
-        data: { title: 'Configuración de Empresa' }
+        canActivate: [adminGuard, moduleGuard('company-settings')],
+        data: { module: 'company-settings', title: 'Configuración de Empresa' }
       },
       {
         path: 'companies/settings',
@@ -270,6 +312,16 @@ export const routes: Routes = [
     path: 'accept-invitation',
     loadComponent: () => import('../features/pages/components/pages/accept-invitation/accept-invitation.component').then(m => m.AcceptInvitationComponent),
     data: { title: 'Join Team' }
+  },
+  {
+    path: '403',
+    loadComponent: () => import('../features/pages/components/pages/page403/page403.component').then((m) => m.Page403Component),
+    data: { title: 'Sin acceso' }
+  },
+  {
+    path: 'forbidden',
+    redirectTo: '403',
+    pathMatch: 'full'
   },
   {
     path: '404',

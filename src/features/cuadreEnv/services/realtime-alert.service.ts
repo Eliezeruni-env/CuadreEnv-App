@@ -1,6 +1,6 @@
-import { Injectable, signal, computed, inject } from '@angular/core';
+import { Injectable, signal, computed, effect, inject } from '@angular/core';
 import { Subject } from 'rxjs';
-import { HubConnection, HubConnectionBuilder, LogLevel, HttpTransportType } from '@microsoft/signalr';
+import { HubConnection, HubConnectionBuilder, LogLevel } from '@microsoft/signalr';
 import { NotificationService } from './notification.service';
 import { AuthService } from './auth.service';
 import { getAccessToken } from './apiClient';
@@ -52,7 +52,12 @@ export class RealtimeAlertService {
 
   constructor() {
     this.initRealtimeBroadcast();
-    this.initSignalRIfAuthorized();
+    effect(() => {
+      this.authService.isAuthenticated();
+      this.authService.currentRole();
+      this.authService.isPlatformSuperUser();
+      this.initSignalRIfAuthorized();
+    });
   }
 
   /**
@@ -85,8 +90,6 @@ export class RealtimeAlertService {
       this.hubConnection = new HubConnectionBuilder()
         .withUrl(hubUrl, {
           accessTokenFactory: () => getAccessToken() || '',
-          skipNegotiation: true,
-          transport: HttpTransportType.WebSockets,
         })
         .withAutomaticReconnect([0, 2000, 5000, 10000, 30000])
         .configureLogging(LogLevel.Warning)

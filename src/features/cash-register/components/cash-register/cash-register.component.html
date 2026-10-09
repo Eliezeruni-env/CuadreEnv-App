@@ -35,7 +35,7 @@
 
       <!-- Formulario de Apertura -->
       <form cForm [formGroup]="openSessionForm" class="text-start mb-3">
-        <div class="mb-3">
+        <div class="mb-3 opening-amount-section">
           <div class="d-flex justify-content-between align-items-center mb-1">
             <label class="form-label fw-bold text-body mb-0"
               >Monto inicial de apertura (Fondo de caja) *</label
@@ -45,8 +45,8 @@
               class="btn btn-sm btn-outline-primary fw-semibold d-flex align-items-center gap-1"
               (click)="toggleOpenDenominations()"
             >
-              <span>💼 Billetera Visual (Desglose)</span>
-              <span>{{ showOpenDenominations() ? '▲' : '▼' }}</span>
+              <span>💼 Billetera visual</span>
+              <span class="small">{{ showOpenDenominations() ? '▲' : '▼' }}</span>
             </button>
           </div>
 
@@ -73,9 +73,9 @@
 
           <!-- Billetera Visual Desplegable (Conteo Rápido Táctil) -->
           @if (showOpenDenominations()) {
-            <div class="card border rounded-3 p-3 mt-2 bg-light-subtle shadow-xs">
+            <div class="card opening-wallet-panel border rounded-3 p-3 mt-2 bg-light-subtle shadow-xs">
               <div class="d-flex justify-content-between align-items-center mb-2">
-                <span class="small fw-bold text-dark text-uppercase">Billetera Dominicana (Toque Rápido):</span>
+                <span class="small fw-bold text-dark text-uppercase">Efectivo dominicano <span class="text-secondary fw-normal text-lowercase">· conteo rápido</span></span>
                 <div class="d-flex align-items-center gap-2">
                   <span class="badge bg-success-subtle text-success border font-monospace">
                     Total: RD$ {{ openDenominationSum() | number:'1.2-2' }}
@@ -92,10 +92,10 @@
               </div>
 
               <!-- Billetes -->
-              <div class="row g-2 mb-2">
+              <div class="row g-2 mb-2 denomination-grid denomination-bills">
                 @for (d of openBills(); track d.value; let idx = $index) {
                   <div class="col-6 col-sm-4 col-md-2">
-                    <div class="card h-100 border p-2 text-center bg-white shadow-2xs rounded-3">
+                    <div class="card denomination-card h-100 border p-2 text-center bg-white shadow-2xs rounded-3">
                       <div class="fw-bold text-dark small font-monospace">RD$ {{ d.value | number:'1.0-0' }}</div>
                       <div class="my-1 d-flex align-items-center justify-content-center gap-1">
                         <button
@@ -119,10 +119,10 @@
               </div>
 
               <!-- Monedas -->
-              <div class="row g-2">
+              <div class="row g-2 denomination-grid denomination-coins">
                 @for (d of openCoins(); track d.value; let idx = $index) {
                   <div class="col-6 col-sm-3 col-md-3">
-                    <div class="card h-100 border p-2 text-center bg-white shadow-2xs rounded-3">
+                    <div class="card denomination-card h-100 border p-2 text-center bg-white shadow-2xs rounded-3">
                       <div class="fw-bold text-secondary small font-monospace">RD$ {{ d.value }} (Moneda)</div>
                       <div class="my-1 d-flex align-items-center justify-content-center gap-1">
                         <button

@@ -1,4 +1,4 @@
-import { Injectable, inject, signal } from '@angular/core';
+import { effect, Injectable, inject, signal } from '@angular/core';
 import { BehaviorSubject, Observable } from 'rxjs';
 import { ApiClientService } from '../../cuadreEnv/services/apiClient';
 import { AuthService } from '../../cuadreEnv/services/auth.service';
@@ -50,7 +50,15 @@ export class PermissionService {
   readonly userPermissionTokens = signal<Set<string>>(new Set());
 
   constructor() {
-    this.refreshUserPermissions();
+    effect(() => {
+      this.authService.currentRole();
+      this.authService.currentRoles();
+      this.authService.isPlatformSuperUser();
+      this.authService.hasExplicitModuleClaims();
+      this.authService.allowedModules();
+      this.authService.userPermissions();
+      this.refreshUserPermissions();
+    });
   }
 
   generateDefaultCatalog(): PermissionDto[] {
@@ -92,7 +100,7 @@ export class PermissionService {
   }
 
   refreshUserPermissions(customRoles?: RoleDto[]): void {
-    const isSuper = this.authService.isSuperUser();
+    const isSuper = this.authService.isPlatformSuperUser();
     const primaryRole = (this.authService.currentRole() || '').toLowerCase();
     const allRoles = (this.authService.currentRoles() || []).map((r) => r.toLowerCase());
     if (primaryRole && !allRoles.includes(primaryRole)) {
@@ -103,8 +111,7 @@ export class PermissionService {
 
     const tokens = new Set<string>();
 
-    if (isSuper || allRoles.some((r) => ['admin', 'superuser', 'sysadmin', 'superadmin'].includes(r))) {
-      // Admin / SuperAdmin has complete permission over all modules
+    if (isSuper) {
       for (const mod of SYSTEM_MODULES) {
         for (const act of ACTIONS_LIST) {
           tokens.add(`${mod.key.toLowerCase()}:${act.key.toLowerCase()}`);
@@ -124,25 +131,76 @@ export class PermissionService {
         ? this.authService.userPermissions() || []
         : [];
 
-    if (jwtModules.length > 0 || jwtPermissions.length > 0) {
+    if (this.authService.hasExplicitModuleClaims()) {
+      const allowedModuleCodes = new Set(jwtModules.map((module) => this.normalizeModuleCode(module)));
+      const isAdmin = allRoles.some((role) =>
+        ['admin', 'superuser', 'sysadmin', 'superadmin'].includes(role),
+      );
+      if (allowedModuleCodes.has('*')) {
+        for (const mod of SYSTEM_MODULES) {
+          allowedModuleCodes.add(this.normalizeModuleCode(mod.key));
+          for (const action of ACTIONS_LIST) {
+            tokens.add(`${this.normalizeModuleCode(mod.key)}:${action.key.toLowerCase()}`);
+          }
+        }
+      }
+
       for (const mod of jwtModules) {
-        const m = mod.toLowerCase().trim();
-        tokens.add(`${m}:view`);
-        tokens.add(`${m}:create`);
-        tokens.add(`${m}:edit`);
-        tokens.add(`${m}:export`);
+        const moduleCode = this.normalizeModuleCode(mod);
+        const actions = isAdmin
+          ? ACTIONS_LIST.map((action) => action.key.toLowerCase())
+          : ['view', 'create', 'edit', 'export'];
+        for (const action of actions) {
+          tokens.add(`${moduleCode}:${action}`);
+        }
       }
 
       for (const perm of jwtPermissions) {
         const p = perm.toLowerCase().trim();
         if (p.includes(':')) {
-          tokens.add(p);
-        } else {
-          tokens.add(`${p}:view`);
-          tokens.add(`${p}:create`);
+          const [module, action] = p.split(':', 2);
+          const moduleCode = this.normalizeModuleCode(module);
+          if (allowedModuleCodes.has(moduleCode)) {
+            tokens.add(`${moduleCode}:${action}`);
+          }
+        } else if (allowedModuleCodes.has(this.normalizeModuleCode(p))) {
+          const moduleCode = this.normalizeModuleCode(p);
+          tokens.add(`${moduleCode}:view`);
+          tokens.add(`${moduleCode}:create`);
         }
       }
 
+      this.userPermissionTokens.set(tokens);
+      return;
+    }
+
+    if (allRoles.some((r) => ['admin', 'superuser', 'sysadmin', 'superadmin'].includes(r))) {
+      for (const mod of SYSTEM_MODULES) {
+        for (const act of ACTIONS_LIST) {
+          tokens.add(`${mod.key.toLowerCase()}:${act.key.toLowerCase()}`);
+        }
+      }
+      this.userPermissionTokens.set(tokens);
+      return;
+    }
+
+    if (jwtModules.length > 0 || jwtPermissions.length > 0) {
+      for (const mod of jwtModules) {
+        const moduleCode = this.normalizeModuleCode(mod);
+        for (const action of ['view', 'create', 'edit', 'export']) {
+          tokens.add(`${moduleCode}:${action}`);
+        }
+      }
+
+      for (const perm of jwtPermissions) {
+        const [rawModule, rawAction] = perm.toLowerCase().trim().split(':', 2);
+        if (rawModule && rawAction) {
+          tokens.add(`${this.normalizeModuleCode(rawModule)}:${rawAction}`);
+        } else if (rawModule) {
+          tokens.add(`${this.normalizeModuleCode(rawModule)}:view`);
+          tokens.add(`${this.normalizeModuleCode(rawModule)}:create`);
+        }
+      }
       this.userPermissionTokens.set(tokens);
       return;
     }
@@ -199,15 +257,37 @@ export class PermissionService {
   }
 
   hasPermission(module: string, action: string): boolean {
-    const isSuper = this.authService.isSuperUser();
+    const isSuper = this.authService.isPlatformSuperUser();
     const primaryRole = (this.authService.currentRole() || '').toLowerCase();
     const allRoles = (this.authService.currentRoles() || []).map((r) => r.toLowerCase());
 
-    if (isSuper || primaryRole === 'admin' || allRoles.some((r) => ['admin', 'superuser', 'sysadmin', 'superadmin'].includes(r))) {
+    const moduleCode = this.normalizeModuleCode(module);
+    if (
+      typeof this.authService.hasLicensedModule === 'function' &&
+      !this.authService.hasLicensedModule(moduleCode)
+    ) {
+      return false;
+    }
+    const allowed = this.authService.allowedModules().map((item) => this.normalizeModuleCode(item));
+    if (
+      this.authService.hasExplicitModuleClaims() &&
+      !allowed.includes('*') &&
+      !allowed.includes(moduleCode)
+    ) {
+      return false;
+    }
+    if (isSuper) {
       return true;
     }
 
-    const token = `${module.trim().toLowerCase()}:${action.trim().toLowerCase()}`;
+    if (
+      primaryRole === 'admin' ||
+      allRoles.some((r) => ['admin', 'superuser', 'sysadmin', 'superadmin'].includes(r))
+    ) {
+      return true;
+    }
+
+    const token = `${moduleCode}:${action.trim().toLowerCase()}`;
     return this.userPermissionTokens().has(token);
   }
 
@@ -215,62 +295,209 @@ export class PermissionService {
    * Resuelve el módulo funcional correspondiente a una ruta de navegación.
    */
   resolveModuleFromRoute(path: string): string | null {
-    const p = path.toLowerCase().trim();
-    if (!p || p === '/dashboard' || p === 'dashboard' || p === '/profile') {
-      return 'dashboard';
+    const original = (path || '').trim();
+    if (original && !original.startsWith('/')) {
+      return this.normalizeModuleCode(original);
     }
-    if (p.startsWith('/metrics') || p === '/billing/reports') return 'reports';
-    if (p.startsWith('/sales') || p.startsWith('/mobile')) return 'sales';
-    if (p.startsWith('/billing') || p.startsWith('/credit-notes')) return 'billing';
-    if (p.startsWith('/services')) return 'sales';
-    if (p === '/cash-register/fraud-guardian') return 'audit';
+
+    const p = this.cleanPath(path);
+    if (!p || p === '/profile') return null;
+    if (p === '/dashboard' || p.startsWith('/dashboard/')) return 'dashboard';
+    if (p.startsWith('/metrics')) return 'metrics';
+    if (p.startsWith('/mobile') || p.startsWith('/sales')) return 'sales';
+    if (p.startsWith('/services')) return 'services';
+    if (p.startsWith('/billing/reports')) return 'reports';
+    if (p.startsWith('/billing')) return 'billing';
+    if (p.startsWith('/credit-notes')) return 'creditnotes';
+    if (p.startsWith('/cash-register/fraud-guardian')) return 'audit';
     if (p.startsWith('/cash-register')) return 'cashregister';
     if (p.startsWith('/receivables')) return 'receivables';
     if (p.startsWith('/customers')) return 'customers';
-    if (p.startsWith('/inventory/manage-requests')) return 'audit';
-    if (p.startsWith('/inventory') || p.startsWith('/products')) return 'inventory';
-    if (p.startsWith('/purchases') || p.startsWith('/payments')) return 'purchases';
-    if (p.startsWith('/admin/approvals')) return 'audit';
-    if (p.startsWith('/admin/roles') || p.startsWith('/users') || p.startsWith('/company')) return 'company';
-    return null;
+    if (p.startsWith('/inventory/stock') || p.startsWith('/inventory/entries')) return 'inventory';
+    if (p.startsWith('/inventory/outlets')) return 'inventoryoutlets';
+    if (p.startsWith('/inventory/transfers')) return 'inventory';
+    if (p.startsWith('/inventory/warehouses')) return 'inventorywarehouses';
+    if (p.startsWith('/inventory/manage-requests')) return 'inventorymanagerequests';
+    if (p.startsWith('/inventory')) return 'inventory';
+    if (p.startsWith('/products/settings')) return 'productssettings';
+    if (p.startsWith('/products')) return 'products';
+    if (p.startsWith('/purchases/suppliers') || p.startsWith('/suppliers')) return 'purchasessuppliers';
+    if (p.startsWith('/purchases/receipts')) return 'purchasesreceipts';
+    if (p.startsWith('/purchases')) return 'purchasesorders';
+    if (p.startsWith('/payments')) return 'payments';
+    if (p.startsWith('/admin/approvals') || p.startsWith('/approvals')) return 'company';
+    if (p.startsWith('/admin/roles') || p.startsWith('/roles')) return 'company';
+    if (p.startsWith('/users')) return 'users';
+    if (p.startsWith('/company')) return 'company';
+    if (p.startsWith('/reports')) return 'reports';
+    if (p.startsWith('/profile')) return null;
+    if (p.startsWith('/')) return null;
+    return this.normalizeModuleCode(p);
+  }
+
+  filterNavigationItems<T extends {
+    title?: boolean;
+    url?: string | string[] | null;
+    moduleCode?: string;
+  }>(
+    items: readonly T[],
+  ): T[] {
+    const visible = items.filter((item) => {
+      if (item.title) return true;
+      const url = Array.isArray(item.url) ? item.url.join('/') : item.url;
+      const requiredModule = item.moduleCode || url;
+      return !!requiredModule && this.hasModuleAccess(requiredModule);
+    });
+
+    return visible.filter((item, index) => {
+      if (!item.title) return true;
+      const following = visible.slice(index + 1);
+      const nextTitle = following.findIndex((next) => next.title);
+      return following.slice(0, nextTitle < 0 ? following.length : nextTitle).length > 0;
+    });
+  }
+
+  getDefaultModuleRoute(): string | null {
+    const moduleRoutes: Record<string, string> = {
+      sales: '/sales',
+      billing: '/billing',
+      inventory: '/inventory',
+      inventorystock: '/inventory/stock',
+      inventoryentries: '/inventory/entries',
+      inventorytransfers: '/inventory/transfers',
+      inventoryoutlets: '/inventory/outlets',
+      inventorywarehouses: '/inventory/warehouses',
+      inventorymanagerequests: '/inventory/manage-requests',
+      cashregister: '/cash-register',
+      receivables: '/receivables',
+      customers: '/customers',
+      fraudguardian: '/cash-register/fraud-guardian',
+      mobilepos: '/mobile',
+      products: '/products',
+      productssettings: '/products/settings',
+      metrics: '/metrics',
+      purchasesorders: '/purchases',
+      purchasessuppliers: '/purchases/suppliers',
+      purchasesreceipts: '/purchases/receipts',
+      payments: '/payments',
+      creditnotes: '/credit-notes',
+      services: '/services',
+      audit: '/cash-register/fraud-guardian',
+      reports: '/dashboard',
+      company: '/users',
+      users: '/users',
+      dashboard: '/dashboard',
+    };
+    const allowed = this.authService.allowedModules().map((module) => this.normalizeModuleCode(module));
+    if (allowed.includes('*')) {
+      return this.authService.hasAnyModuleAccess?.() === false ? null : '/dashboard';
+    }
+    return allowed
+      .filter((module) =>
+        typeof this.authService.hasLicensedModule !== 'function' ||
+        this.authService.hasLicensedModule(module),
+      )
+      .map((module) => moduleRoutes[module])
+      .find(Boolean) ?? null;
+  }
+
+  private cleanPath(path: string): string {
+    const withoutQuery = (path || '').split(/[?#]/, 1)[0];
+    const normalized = withoutQuery.startsWith('/') ? withoutQuery : `/${withoutQuery}`;
+    return normalized.replace(/\/+$/, '').toLowerCase() || '/';
+  }
+
+  private normalizeModuleCode(value: string): string {
+    const rawValue = value.trim().toLowerCase();
+    if (rawValue === '*') return '*';
+
+    const normalized = value
+      .trim()
+      .toLowerCase()
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .replace(/[^a-z0-9]/g, '');
+    const aliases: Record<string, string> = {
+      cashregister: 'cashregister',
+      inventorystock: 'inventory',
+      inventorytransfers: 'inventory',
+      billingreportsdgii: 'reports',
+      fraudguardian: 'audit',
+      mobilepos: 'sales',
+      adminroles: 'company',
+      adminrolesmatrix: 'company',
+      adminapprovals: 'company',
+      companysettings: 'company',
+      users: 'users',
+      stock: 'inventory',
+      venta: 'sales',
+      ventas: 'sales',
+      facturacion: 'billing',
+      ncf: 'billing',
+      inventario: 'inventory',
+      almacen: 'inventory',
+      almacenes: 'inventory',
+      caja: 'cashregister',
+      cash: 'cashregister',
+      cobros: 'receivables',
+      cuentasporcobrar: 'receivables',
+      cliente: 'customers',
+      clientes: 'customers',
+      compra: 'purchases',
+      compras: 'purchases',
+      proveedor: 'purchases',
+      proveedores: 'purchases',
+      pagos: 'payments',
+      auditoria: 'audit',
+      aprobaciones: 'audit',
+      reporte: 'reports',
+      reportes: 'reports',
+      metricas: 'metrics',
+      empresa: 'company',
+      usuarios: 'company',
+      roles: 'company',
+      servicios: 'services',
+      productos: 'products',
+    };
+    return aliases[normalized] ?? normalized;
   }
 
   /**
-   * Determina si el usuario actual tiene acceso a visualizar y operar un módulo o ruta,
-   * respetando los módulos configurados en el USM.
+   * Determina si el usuario actual tiene acceso al módulo resuelto desde una ruta
+   * o desde un código de módulo.
    */
   hasModuleAccess(urlOrModule: string): boolean {
-    const isSuper = this.authService.isSuperUser();
-    const primaryRole = (this.authService.currentRole() || '').toLowerCase();
-    const allRoles = (this.authService.currentRoles() || []).map((r) => r.toLowerCase());
+    const original = (urlOrModule || '').trim();
+    if (!original) return false;
 
-    if (isSuper || primaryRole === 'admin' || allRoles.some((r) => ['admin', 'superuser', 'sysadmin', 'superadmin'].includes(r))) {
-      return true;
+    const isRoute = original.startsWith('/');
+    const cleanPath = this.cleanPath(original);
+    const requestedModule = isRoute ? null : this.normalizeModuleCode(original);
+    if (cleanPath === '/profile' || requestedModule === 'profile') return true;
+    if ((isRoute && cleanPath === '/dashboard') || requestedModule === 'dashboard') {
+      if (typeof this.authService.hasAnyModuleAccess === 'function') {
+        return this.authService.hasAnyModuleAccess();
+      }
+      const allowed = this.authService.allowedModules().map((module) => this.normalizeModuleCode(module));
+      return allowed.includes('*') || allowed.some(Boolean);
     }
 
-    const cleanPath = (urlOrModule || '').toLowerCase().trim();
-    if (!cleanPath || cleanPath === '/dashboard' || cleanPath === 'dashboard' || cleanPath === '/profile') {
-      return true;
+    const targetModule = isRoute ? this.resolveModuleFromRoute(cleanPath) : requestedModule;
+    if (!targetModule) return false;
+
+    if (
+      typeof this.authService.hasLicensedModule === 'function' &&
+      !this.authService.hasLicensedModule(targetModule)
+    ) {
+      return false;
     }
 
-    const targetModule = this.resolveModuleFromRoute(cleanPath) || cleanPath.replace(/^\//, '');
-
-    // 1. Validar contra allowedModules emitidos por USM
-    const rawAllowed =
-      typeof this.authService.allowedModules === 'function'
-        ? this.authService.allowedModules() || []
-        : [];
-    const allowed = rawAllowed.map((m) => m.toLowerCase().trim());
-    if (allowed.length > 0) {
-      if (allowed.includes('*') || allowed.includes('all')) return true;
-      return allowed.includes(targetModule);
+    if (typeof this.authService.hasModule === 'function') {
+      return this.authService.hasModule(targetModule);
     }
 
-    // 2. Validar contra tokens de permisos agregados (ej. sales:view)
-    return (
-      this.hasPermission(targetModule, 'view') ||
-      this.hasPermission(targetModule, 'create') ||
-      this.hasPermission(targetModule, 'edit')
-    );
+    const allowed = this.authService.allowedModules().map((module) => this.normalizeModuleCode(module));
+    return this.authService.hasExplicitModuleClaims() &&
+      (allowed.includes('*') || allowed.includes(this.normalizeModuleCode(targetModule)));
   }
 }

@@ -1,9 +1,9 @@
 <div class="container-fluid py-3 forensic-dashboard">
 
   <!-- Top Bar -->
-  <div class="d-flex align-items-center justify-content-between flex-wrap gap-2 mb-3 bg-white p-3 rounded-4 shadow-sm border">
+  <div class="forensic-header d-flex align-items-center justify-content-between flex-wrap gap-2 mb-3 bg-white p-3 rounded-4 shadow-sm border">
     <div class="d-flex align-items-center gap-3">
-      <div class="p-3 rounded-3 text-white fs-3 shadow-sm" [ngClass]="{
+      <div class="forensic-brand-icon p-3 rounded-3 text-white fs-3 shadow-sm" [ngClass]="{
         'bg-success': fraudService.branchRiskLevel() === 'BAJO',
         'bg-warning': fraudService.branchRiskLevel() === 'MODERADO',
         'bg-danger': fraudService.branchRiskLevel() === 'CRÍTICO'
@@ -49,10 +49,10 @@
   </div>
 
   <!-- KPI SUMMARY ROW -->
-  <div class="row g-3 mb-3">
+  <div class="row g-3 mb-3 forensic-kpi-grid">
     <!-- Banderas Activas -->
     <div class="col-sm-6 col-lg-3">
-      <div class="card border-0 rounded-4 p-3 bg-white shadow-sm h-100 border-start border-4 border-danger">
+      <div class="card forensic-kpi-card border-0 rounded-4 p-3 bg-white shadow-sm h-100 border-start border-4 border-danger">
         <div class="d-flex justify-content-between align-items-center">
           <div>
             <div class="text-secondary small fw-semibold">Banderas Forenses Activas</div>
@@ -68,7 +68,7 @@
 
     <!-- Tasa Anulaciones -->
     <div class="col-sm-6 col-lg-3">
-      <div class="card border-0 rounded-4 p-3 bg-white shadow-sm h-100 border-start border-4 border-warning">
+      <div class="card forensic-kpi-card border-0 rounded-4 p-3 bg-white shadow-sm h-100 border-start border-4 border-warning">
         <div class="d-flex justify-content-between align-items-center">
           <div>
             <div class="text-secondary small fw-semibold">Alerta Anulaciones (>5%)</div>
@@ -84,7 +84,7 @@
 
     <!-- Gavetas sin venta -->
     <div class="col-sm-6 col-lg-3">
-      <div class="card border-0 rounded-4 p-3 bg-white shadow-sm h-100 border-start border-4 border-info">
+      <div class="card forensic-kpi-card border-0 rounded-4 p-3 bg-white shadow-sm h-100 border-start border-4 border-info">
         <div class="d-flex justify-content-between align-items-center">
           <div>
             <div class="text-secondary small fw-semibold">Gavetas Abiertas sin Venta</div>
@@ -100,7 +100,7 @@
 
     <!-- Descuadre Acumulado -->
     <div class="col-sm-6 col-lg-3">
-      <div class="card border-0 rounded-4 p-3 bg-white shadow-sm h-100 border-start border-4 border-primary">
+      <div class="card forensic-kpi-card border-0 rounded-4 p-3 bg-white shadow-sm h-100 border-start border-4 border-primary">
         <div class="d-flex justify-content-between align-items-center">
           <div>
             <div class="text-secondary small fw-semibold">Faltante Neto Acumulado</div>
@@ -118,7 +118,7 @@
   <div class="row g-3">
     <!-- COL-LG-7: LISTA DE BANDERAS ACTIVAS -->
     <div class="col-lg-7">
-      <div class="card border rounded-4 shadow-sm bg-white p-3 h-100">
+      <div class="card forensic-panel border rounded-4 shadow-sm bg-white p-3 h-100">
         <div class="d-flex justify-content-between align-items-center mb-3">
           <div>
             <h5 class="fw-bold text-dark mb-0 d-flex align-items-center gap-2">
@@ -138,10 +138,10 @@
         } @else {
           <div class="d-flex flex-column gap-3">
             @for (flag of fraudService.activeFlags(); track flag.id) {
-              <div class="card border rounded-3 p-3 transition-all shadow-xs" [ngClass]="{
-                'border-danger bg-danger-subtle bg-opacity-10': flag.severity === 'CRITICAL',
-                'border-warning bg-warning-subtle bg-opacity-10': flag.severity === 'MEDIUM',
-                'border-info bg-light': flag.severity === 'LOW'
+              <div class="card forensic-flag-card border rounded-3 p-3 transition-all shadow-xs" [ngClass]="{
+                'flag-critical border-danger bg-danger-subtle bg-opacity-10': flag.severity === 'CRITICAL',
+                'flag-medium border-warning bg-warning-subtle bg-opacity-10': flag.severity === 'MEDIUM',
+                'flag-low border-info bg-light': flag.severity === 'LOW'
               }">
                 <div class="d-flex justify-content-between align-items-start mb-2">
                   <div class="d-flex align-items-center gap-2">
@@ -202,7 +202,7 @@
 
     <!-- COL-LG-5: TABLA DE INTEGRIDAD POR CAJERO -->
     <div class="col-lg-5">
-      <div class="card border rounded-4 shadow-sm bg-white p-3 h-100">
+      <div class="card forensic-panel border rounded-4 shadow-sm bg-white p-3 h-100">
         <div class="mb-3">
           <h5 class="fw-bold text-dark mb-0">Integridad por Cajero</h5>
           <small class="text-secondary">Historial de comportamiento, anulaciones y arqueo ciego</small>

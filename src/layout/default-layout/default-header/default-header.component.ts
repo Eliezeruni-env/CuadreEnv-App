@@ -5,6 +5,7 @@ import { Router, RouterLink, RouterLinkActive } from '@angular/router';
 import { AuthService } from '../../../features/cuadreEnv/services/auth.service';
 import { TranslationService } from '../../../features/cuadreEnv/services/translation.service';
 import { CashRegisterService } from '../../../features/cash-register/services/cash-register.service';
+import { PermissionService } from '../../../features/roles/services/permission.service';
 
 import {
   AvatarComponent,
@@ -26,6 +27,7 @@ import {
 } from '@coreui/angular';
 
 import { IconDirective } from '@coreui/icons-angular';
+import { HasModuleDirective } from '../../../app/shared/directives/has-module.directive';
 
 @Component({
   selector: 'app-default-header',
@@ -49,6 +51,7 @@ import { IconDirective } from '@coreui/icons-angular';
     DropdownMenuDirective,
     DropdownItemDirective,
     DropdownDividerDirective,
+    HasModuleDirective,
   ],
 })
 export class DefaultHeaderComponent extends HeaderComponent {
@@ -57,6 +60,7 @@ export class DefaultHeaderComponent extends HeaderComponent {
   public authService = inject(AuthService);
   public translationService = inject(TranslationService);
   public themeService = inject(ThemeService);
+  private readonly permissionService = inject(PermissionService);
   private cashRegisterService = inject(CashRegisterService);
   private router = inject(Router);
 
@@ -94,6 +98,12 @@ export class DefaultHeaderComponent extends HeaderComponent {
   sidebarId = input('sidebar1');
 
   async promptLogout() {
+    if (!this.permissionService.hasModuleAccess('CashRegister')) {
+      this.hasOpenCashRegister.set(false);
+      this.isLogoutModalVisible.set(true);
+      return;
+    }
+
     try {
       const sessionRes = await this.cashRegisterService.getActiveSession();
       if (sessionRes?.success && sessionRes.data && sessionRes.data.isOpen) {

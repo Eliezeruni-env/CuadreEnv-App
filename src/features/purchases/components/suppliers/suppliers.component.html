@@ -202,15 +202,16 @@
 <!-- Modal: Create / Edit Supplier -->
 @if (isModalOpen()) {
   <div class="custom-modal-backdrop" (click)="closeModal()">
-    <div class="custom-modal-content modal-lg" (click)="$event.stopPropagation()" style="max-width: 820px;">
-      <div class="custom-modal-header bg-light">
-        <h5 class="fw-bold mb-0 text-body">
-          {{ isEditMode() ? 'Editar Proveedor' : 'Nuevo Proveedor' }}
-        </h5>
+    <div class="custom-modal-content modal-lg supplier-modal-content" (click)="$event.stopPropagation()">
+      <div class="custom-modal-header supplier-modal-header">
+        <div>
+          <h5 class="mb-1">{{ isEditMode() ? 'Editar Proveedor' : 'Nuevo Proveedor' }}</h5>
+          <small>Datos comerciales y contactos del proveedor</small>
+        </div>
         <button type="button" class="btn-close" (click)="closeModal()" aria-label="Close"></button>
       </div>
 
-      <div class="custom-modal-body p-4" style="max-height: 75vh; overflow-y: auto;">
+      <div class="custom-modal-body supplier-modal-body p-4">
         <form cForm [formGroup]="supplierForm">
           <div class="row g-3 mb-3">
             <div class="col-md-8">
@@ -270,15 +271,18 @@
           </div>
 
           <!-- SECCIÓN: CONTACTOS ADICIONALES -->
-          <div class="border rounded-3 p-3 bg-light">
+          <section class="supplier-contact-section rounded-3 p-3">
             <div class="d-flex justify-content-between align-items-center mb-3">
               <div>
-                <h6 class="fw-bold mb-0 text-dark">Contactos Adicionales del Proveedor</h6>
-                <small class="text-secondary">Agrega representantes de ventas, cobranzas o despacho para este proveedor</small>
+                <div class="d-flex align-items-center gap-2">
+                  <h6 class="fw-bold mb-0">Contactos adicionales</h6>
+                  <span class="supplier-contact-count">{{ additionalContacts().length }}</span>
+                </div>
+                <small>Representantes de ventas, cobros o despacho</small>
               </div>
               <button
                 type="button"
-                class="btn btn-sm btn-outline-primary fw-semibold d-flex align-items-center gap-1 shadow-xs"
+                class="btn btn-sm btn-primary fw-semibold d-flex align-items-center gap-1"
                 (click)="addAdditionalContact()"
               >
                 + Agregar Contacto
@@ -290,12 +294,17 @@
                 No hay contactos adicionales. Presiona <strong>+ Agregar Contacto</strong> para registrar más representantes.
               </div>
             } @else {
-              <div class="d-flex flex-column gap-2">
+              <div
+                class="supplier-contact-list"
+                [class.is-scrollable]="additionalContacts().length > 5"
+                role="list"
+                aria-label="Contactos adicionales del proveedor"
+              >
                 @for (c of additionalContacts(); track $index; let idx = $index) {
-                  <div class="card border rounded-3 p-3 bg-white shadow-xs">
+                  <article class="supplier-contact-card">
                     <div class="row g-2 align-items-center">
                       <div class="col-md-3">
-                        <label class="form-label small text-secondary mb-1">Nombre Completo *</label>
+                        <label class="form-label small mb-1">Nombre Completo *</label>
                         <input
                           type="text"
                           class="form-control form-control-sm"
@@ -306,7 +315,7 @@
                         />
                       </div>
                       <div class="col-md-3">
-                        <label class="form-label small text-secondary mb-1">Puesto / Rol</label>
+                        <label class="form-label small mb-1">Puesto / Rol</label>
                         <input
                           type="text"
                           class="form-control form-control-sm"
@@ -317,7 +326,7 @@
                         />
                       </div>
                       <div class="col-md-3">
-                        <label class="form-label small text-secondary mb-1">Teléfono / WhatsApp</label>
+                        <label class="form-label small mb-1">Teléfono / WhatsApp</label>
                         <input
                           type="text"
                           class="form-control form-control-sm"
@@ -328,7 +337,7 @@
                         />
                       </div>
                       <div class="col-md-2">
-                        <label class="form-label small text-secondary mb-1">Correo</label>
+                        <label class="form-label small mb-1">Correo</label>
                         <input
                           type="email"
                           class="form-control form-control-sm"
@@ -341,19 +350,20 @@
                       <div class="col-md-1 text-center pt-3">
                         <button
                           type="button"
-                          class="btn btn-sm btn-light border text-danger"
+                          class="btn btn-sm btn-light border text-danger supplier-remove-contact"
                           title="Eliminar este contacto"
+                          [attr.aria-label]="'Eliminar contacto ' + (idx + 1)"
                           (click)="removeAdditionalContact(idx)"
                         >
                           ✕
                         </button>
                       </div>
                     </div>
-                  </div>
+                  </article>
                 }
               </div>
             }
-          </div>
+          </section>
         </form>
       </div>
 

@@ -1,6 +1,6 @@
 <div class="approval-container fade-in">
   <!-- Header -->
-  <div class="d-flex flex-wrap justify-content-between align-items-center gap-3 mb-4">
+  <div class="approval-page-header d-flex flex-wrap justify-content-between align-items-center gap-3 mb-4">
     <div>
       <div class="d-flex align-items-center gap-2 mb-1">
         <span class="badge bg-warning-subtle text-warning-emphasis border border-warning-subtle px-2.5 py-1 rounded-pill fw-semibold text-uppercase" style="font-size: 0.7rem; letter-spacing: 0.5px;">
@@ -19,7 +19,7 @@
     </div>
 
     <!-- Tab Toggle Buttons -->
-    <div class="d-flex bg-light p-1 rounded-3 border">
+    <div class="approval-tabs d-flex bg-light p-1 rounded-3 border">
       <button
         type="button"
         class="btn btn-sm rounded-2 px-3 fw-medium d-flex align-items-center gap-2"
@@ -105,7 +105,7 @@
                 </div>
 
                 <!-- Action Buttons -->
-                <div class="d-flex align-items-center gap-2 align-self-center mt-2 mt-md-0">
+                <div class="approval-actions d-flex align-items-center gap-2 align-self-center mt-2 mt-md-0">
                   <button
                     type="button"
                     class="btn btn-outline-danger btn-sm px-3 rounded-3 d-flex align-items-center gap-1.5 fw-medium"
@@ -138,7 +138,7 @@
       </div>
     } @else {
       <!-- Empty State Pending -->
-      <div class="card border-0 shadow-sm rounded-4 p-5 text-center bg-white">
+      <div class="card approval-empty-state border-0 shadow-sm rounded-4 p-5 text-center bg-white">
         <div class="mx-auto p-3 bg-success-subtle text-success rounded-circle mb-3 d-flex align-items-center justify-content-center" style="width: 56px; height: 56px;">
           <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
@@ -155,7 +155,7 @@
 
   <!-- Content: History Tab -->
   @if (activeTab() === 'history') {
-    <div class="card border-0 shadow-sm rounded-4 overflow-hidden bg-white">
+    <div class="card approval-history-card border-0 shadow-sm rounded-4 overflow-hidden bg-white">
       <div class="table-responsive">
         <table class="table table-hover align-middle mb-0">
           <thead class="table-light text-secondary small text-uppercase fw-semibold" style="font-size: 0.74rem;">

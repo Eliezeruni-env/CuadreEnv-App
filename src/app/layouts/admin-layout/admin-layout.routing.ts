@@ -1,8 +1,10 @@
 import { Routes } from '@angular/router';
+import { moduleChildAccessGuard } from '../../guards/auth.guard';
 
 export const AdminLayoutRoutes: Routes = [
   {
     path: '',
+    canActivateChild: [moduleChildAccessGuard],
     children: [
       {
         path: 'dashboard',

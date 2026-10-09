@@ -118,12 +118,7 @@ export class RoleService {
   async loadRoles(): Promise<RoleDto[]> {
     this.isLoading.set(true);
     try {
-      let res: any;
-      try {
-        res = await this.api.get<any, any>('/roles');
-      } catch {
-        res = await this.api.get<any, any>('/Role');
-      }
+      const res = await this.api.get<any, any>('/roles');
       const items: RoleDto[] = Array.isArray(res)
         ? res
         : Array.isArray(res?.data)
@@ -171,27 +166,13 @@ export class RoleService {
     const existing = list.find((r) => r.id === id);
     if (existing) return existing;
 
-    try {
-      let res: any;
-      try {
-        res = await this.api.get<any, any>(`/roles/${id}`);
-      } catch {
-        res = await this.api.get<any, any>(`/Role/${id}`);
-      }
-      return res?.data || res;
-    } catch {
-      return list.find((r) => r.id === id);
-    }
+    const roles = await this.loadRoles();
+    return roles.find((role) => role.id === id);
   }
 
   async createRole(req: CreateRoleRequest): Promise<RoleDto> {
     try {
-      let res: any;
-      try {
-        res = await this.api.post<any, any>('/roles', req);
-      } catch {
-        res = await this.api.post<any, any>('/Role', req);
-      }
+      const res = await this.api.post<any, any>('/roles', req);
       const created: RoleDto = res?.data || res;
       if (created && created.id) {
         await this.loadRoles();
@@ -226,12 +207,7 @@ export class RoleService {
 
   async updateRole(id: number, req: UpdateRoleRequest): Promise<RoleDto> {
     try {
-      let res: any;
-      try {
-        res = await this.api.put<any, any>(`/roles/${id}`, req);
-      } catch {
-        res = await this.api.put<any, any>(`/Role/${id}`, req);
-      }
+      const res = await this.api.put<any, any>(`/roles/${id}`, req);
       const updated: RoleDto = res?.data || res;
       if (updated) {
         await this.loadRoles();
@@ -272,11 +248,7 @@ export class RoleService {
     }
 
     try {
-      try {
-        await this.api.delete(`/roles/${id}`);
-      } catch {
-        await this.api.delete(`/Role/${id}`);
-      }
+      await this.api.delete(`/roles/${id}`);
       await this.loadRoles();
       return true;
     } catch {
@@ -292,11 +264,13 @@ export class RoleService {
 
   async updateRolePermissions(roleId: number, permissionIds: number[]): Promise<boolean> {
     try {
-      try {
-        await this.api.put(`/roles/${roleId}/permissions`, { permissionIds });
-      } catch {
-        await this.api.put(`/Role/${roleId}/permissions`, { permissionIds });
-      }
+      const role = await this.getRoleById(roleId);
+      if (!role) throw new Error(`Rol con ID ${roleId} no encontrado`);
+      await this.api.put(`/roles/${roleId}`, {
+        name: role.name,
+        description: role.description,
+        permissionIds,
+      });
       await this.loadRoles();
       return true;
     } catch {

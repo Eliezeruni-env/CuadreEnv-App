@@ -8,6 +8,8 @@ import type {
   ResetUserPasswordRequest,
 } from '../../cuadreEnv/types/api';
 
+import { parseUserModules } from '../utils/module-parser.util';
+
 export interface GetUsersParams {
   page?: number;
   pageSize?: number;
@@ -46,13 +48,14 @@ export class UserService {
     try {
       const res = await this.api.get<any, any>('/users', { params: queryParams });
 
-      const items: UserDto[] = Array.isArray(res?.items)
+      const rawItems: unknown[] = Array.isArray(res?.items)
         ? res.items
         : Array.isArray(res)
           ? res
           : Array.isArray(res?.data)
             ? res.data
             : [];
+      const items = rawItems.map((item) => this.normalizeUser(item));
 
       const total: number = typeof res?.total === 'number' ? res.total : items.length;
       const page: number = typeof res?.page === 'number' ? res.page : (params?.page ?? 1);
@@ -91,8 +94,7 @@ export class UserService {
   async getUser(id: number): Promise<UserDto> {
     try {
       const res = await this.api.get<any, any>(`/users/${id}`);
-      if (res && res.data) return res.data as UserDto;
-      return res as UserDto;
+      return this.normalizeUser(res?.data ?? res?.Data ?? res);
     } catch (error: any) {
       if (this.isNotFound(error)) {
         throw new Error('El usuario no existe o no pertenece a su empresa.');
@@ -114,6 +116,7 @@ export class UserService {
         (payload as any).password ||
         null,
       sendByEmail: (payload as any).sendByEmail ?? true,
+      allowedModules: payload.allowedModules ?? [],
     };
     if ((payload as any).identification) body.identification = (payload as any).identification;
     if ((payload as any).phoneNumber) body.phoneNumber = (payload as any).phoneNumber;
@@ -128,6 +131,7 @@ export class UserService {
   ): Promise<void> {
     // Note: companyId / tenantId is omitted. Cross-tenant assignment is strictly forbidden.
     const body: any = {
+      email: payload.email,
       firstName: payload.firstName,
       lastName: payload.lastName,
       userName: payload.userName,
@@ -137,6 +141,7 @@ export class UserService {
     if ((payload as any).identification !== undefined) body.identification = (payload as any).identification;
     if ((payload as any).emergencyContact !== undefined) body.emergencyContact = (payload as any).emergencyContact;
     if ((payload as any).roles !== undefined) body.roles = (payload as any).roles;
+    if (payload.allowedModules !== undefined) body.allowedModules = payload.allowedModules;
 
     try {
       await this.api.put(`/users/${id}`, body);
@@ -196,7 +201,15 @@ export class UserService {
   }
 
   async changeRole(id: number, role: string): Promise<void> {
-    await this.updateUser(id, { role });
+    const user = await this.getUser(id);
+    await this.updateUser(id, {
+      email: user.email,
+      firstName: user.firstName,
+      lastName: user.lastName,
+      userName: user.userName ?? user.email,
+      role,
+      allowedModules: user.allowedModules,
+    });
   }
 
   private isNotFound(error: any): boolean {
@@ -206,5 +219,11 @@ export class UserService {
       error?.mappedError?.statusCode === 404 ||
       error?.message?.includes?.('404')
     );
+  }
+
+  private normalizeUser(value: unknown): UserDto {
+    const user = value && typeof value === 'object' ? value as Record<string, unknown> : {};
+    const allowedModules = parseUserModules(user);
+    return { ...user, allowedModules } as UserDto;
   }
 }

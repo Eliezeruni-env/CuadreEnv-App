@@ -24,6 +24,8 @@ describe('HasPermissionDirective', () => {
   beforeEach(async () => {
     mockAuthService = {
       isSuperUser: vi.fn().mockReturnValue(false),
+      isPlatformSuperUser: vi.fn().mockReturnValue(false),
+      hasExplicitModuleClaims: vi.fn().mockReturnValue(false),
       currentRole: vi.fn().mockReturnValue('Cajero'),
       currentRoles: vi.fn().mockReturnValue(['Cajero']),
       allowedModules: vi.fn().mockReturnValue([]),

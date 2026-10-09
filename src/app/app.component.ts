@@ -13,6 +13,8 @@ import { ColorModeService } from '@coreui/angular';
 import { IconSetService } from '@coreui/icons-angular';
 import { iconSubset } from './icons/icon-subset';
 
+import { ModuleAccessService } from '../features/cuadreEnv/services/module-access.service';
+
 @Component({
   selector: 'app-root',
   standalone: true,
@@ -27,6 +29,7 @@ export class AppComponent implements OnInit {
   readonly #activatedRoute: ActivatedRoute = inject(ActivatedRoute);
   readonly #router = inject(Router);
   readonly #titleService = inject(Title);
+  readonly #moduleAccessService = inject(ModuleAccessService);
 
   readonly #colorModeService = inject(ColorModeService);
   readonly #iconSetService = inject(IconSetService);
@@ -42,6 +45,18 @@ export class AppComponent implements OnInit {
   }
 
   ngOnInit(): void {
+    // Inicialización de módulos al cargar la aplicación
+    if (typeof window !== 'undefined' && window.sessionStorage) {
+      const storedModules = sessionStorage.getItem('allowedModules');
+      if (storedModules) {
+        try {
+          this.#moduleAccessService.init(JSON.parse(storedModules));
+        } catch {
+          // ignore
+        }
+      }
+    }
+
     this.#router.events
       .pipe(takeUntilDestroyed(this.#destroyRef))
       .subscribe((evt) => {

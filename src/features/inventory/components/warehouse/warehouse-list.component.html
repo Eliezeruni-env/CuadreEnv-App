@@ -1,4 +1,10 @@
 <div class="container-fluid py-3 list-warehouses-container">
+  @if (errorMessage()) {
+    <div class="alert alert-warning border shadow-sm" role="alert">
+      {{ errorMessage() }}
+    </div>
+  }
+
   <!-- Top Bar -->
   <div class="d-flex align-items-center justify-content-between flex-wrap gap-2 mb-3 bg-white p-3 rounded-4 shadow-sm border">
     <div>
@@ -7,7 +13,7 @@
     </div>
 
     <div class="d-flex align-items-center gap-2">
-      <button class="btn btn-outline-secondary d-flex align-items-center gap-1 shadow-xs px-3" (click)="loadWarehouses()">
+      <button class="btn btn-outline-secondary d-flex align-items-center gap-1 shadow-xs px-3" (click)="loadWarehouses()" [disabled]="isLoading()">
         Recargar
       </button>
       <button class="btn btn-cuadre-primary fw-bold shadow-sm d-flex align-items-center gap-2 px-3" (click)="openCreateModal()">
@@ -70,7 +76,7 @@
             } @else if (filteredWarehouses().length === 0) {
               <tr>
                 <td colspan="7" class="text-center py-5 text-secondary">
-                  No se encontraron almacenes registrados.
+                  {{ errorMessage() ? 'No se pudieron cargar los almacenes.' : 'No se encontraron almacenes registrados.' }}
                 </td>
               </tr>
             } @else {

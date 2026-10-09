@@ -75,11 +75,15 @@ export interface LoginRequestDto {
 export interface TokenResponseDto {
   accessToken: string;
   refreshToken: string;
+  user?: {
+    allowedModules?: string[];
+  };
 }
 
 export interface UserResponseDto {
   id: number;
   email: string;
+  allowedModules?: string[];
 }
 
 export interface SessionDto {
@@ -158,6 +162,7 @@ export interface UserDto {
   roleIds?: number[];
   active?: boolean;
   isSuperUser?: boolean;
+  allowedModules?: string[];
   temporaryPassword?: string | null;
   tempPasswordSent?: boolean;
 }
@@ -171,14 +176,17 @@ export interface CreateUserPayload {
   companyId?: number | null;
   temporaryPassword?: string | null;
   sendByEmail?: boolean;
+  allowedModules?: string[];
 }
 
 export interface UpdateUserPayload {
+  email?: string;
   firstName?: string | null;
   lastName?: string | null;
   userName?: string | null;
   role?: string;
   companyId?: number | null;
+  allowedModules?: string[];
 }
 
 export interface ResetUserPasswordRequest {
@@ -470,5 +478,3 @@ export interface DeletionApprovalDto {
   reviewNotes?: string;
   rejectionReason?: string;
 }
-
-

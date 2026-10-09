@@ -46,12 +46,7 @@ export class WarehouseService {
 
   async getWarehouses(): Promise<ApiResponse<Warehouse[]>> {
     try {
-      let res: any;
-      try {
-        res = await this.api.get<any, any>('/warehouse');
-      } catch {
-        res = await this.api.get<any, any>('/Warehouse');
-      }
+      const res = await this.api.get<any, any>('/warehouse');
 
       const list = extractArray<any>(res);
       if (list && list.length > 0) {
@@ -72,8 +67,18 @@ export class WarehouseService {
         return { success: true, data: normalized };
       }
       return { success: true, data: [] };
-    } catch {
-      return { success: false, data: [], message: 'No se pudo conectar con el servidor.' };
+    } catch (error: any) {
+      const code = error?.error?.code ?? error?.mappedError?.errorCode;
+      const message =
+        code === 'MODULE_NOT_LICENSED'
+          ? 'El plan de la empresa no incluye el acceso a almacenes.'
+          : code === 'MODULE_NOT_ASSIGNED'
+            ? 'Tu usuario no tiene asignado un módulo que permita consultar almacenes.'
+            : error?.mappedError?.message ??
+              error?.error?.message ??
+              error?.message ??
+              'No se pudo cargar la lista de almacenes.';
+      return { success: false, data: [], message };
     }
   }
 

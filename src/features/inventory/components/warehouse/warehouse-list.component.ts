@@ -19,6 +19,7 @@ export class WarehouseListComponent implements OnInit {
 
   warehouses = signal<Warehouse[]>([]);
   isLoading = signal<boolean>(false);
+  errorMessage = signal<string | null>(null);
   searchTerm = '';
 
   currentPage = signal<number>(1);
@@ -59,13 +60,20 @@ export class WarehouseListComponent implements OnInit {
 
   async loadWarehouses() {
     this.isLoading.set(true);
+    this.errorMessage.set(null);
     try {
       const res = await this.warehouseService.getWarehouses();
       if (res?.success && res.data) {
         this.warehouses.set(res.data);
+      } else {
+        this.warehouses.set([]);
+        this.errorMessage.set(res.message || 'No se pudieron cargar los almacenes.');
       }
-    } catch {
-      // ignore
+    } catch (error: any) {
+      this.warehouses.set([]);
+      this.errorMessage.set(
+        error?.mappedError?.message || error?.message || 'No se pudieron cargar los almacenes.',
+      );
     } finally {
       this.isLoading.set(false);
     }

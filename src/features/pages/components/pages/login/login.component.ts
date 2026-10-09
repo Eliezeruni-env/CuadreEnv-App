@@ -45,6 +45,7 @@ export class LoginComponent {
   isLoading = signal<boolean>(false);
   errorMessage = signal<string | null>(null);
   showPassword = signal<boolean>(false);
+  showNoModulesDialog = signal<boolean>(false);
 
   constructor() {
     this.loginForm = this.fb.group({
@@ -81,6 +82,11 @@ export class LoginComponent {
         password,
         deviceId,
       });
+
+      if (this.authService.allowedModules().length === 0) {
+        this.showNoModulesDialog.set(true);
+        return;
+      }
 
       const returnUrl = this.route.snapshot.queryParamMap.get('returnUrl');
       const targetUrl = returnUrl && !returnUrl.includes('/login') ? returnUrl : '/dashboard';
@@ -155,5 +161,10 @@ export class LoginComponent {
     } finally {
       this.isLoading.set(false);
     }
+  }
+
+  continueWithoutModules() {
+    this.showNoModulesDialog.set(false);
+    void this.router.navigateByUrl('/403');
   }
 }

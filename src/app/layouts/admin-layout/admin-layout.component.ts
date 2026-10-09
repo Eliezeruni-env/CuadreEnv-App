@@ -25,6 +25,7 @@ import { TranslationService } from '../../features/erp/services/translation.serv
 import { NotificationService } from '../../../features/cuadreEnv/services/notification.service';
 import { BreadcrumbComponent } from '../../shared/components/breadcrumb/breadcrumb.component';
 import { ConfirmDialogComponent } from '../../shared/components/confirm-dialog/confirm-dialog.component';
+import { PermissionService } from '../../../features/roles/services/permission.service';
 
 @Component({
   selector: 'app-admin-layout',
@@ -58,9 +59,11 @@ import { ConfirmDialogComponent } from '../../shared/components/confirm-dialog/c
 })
 export class AdminLayoutComponent {
   private readonly translationService = inject(TranslationService);
+  private readonly permissionService = inject(PermissionService);
   public readonly notificationService = inject(NotificationService);
 
-  public readonly navItems = computed(() =>
-    this.translationService.getTranslatedNavItems(ADMIN_NAV_ITEMS)
-  );
+  public readonly navItems = computed(() => {
+    const translated = this.translationService.getTranslatedNavItems(ADMIN_NAV_ITEMS);
+    return this.permissionService.filterNavigationItems(translated);
+  });
 }

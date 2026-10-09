@@ -1,6 +1,8 @@
 import {
   HttpClient,
+  HttpBackend,
   HttpErrorResponse,
+  HttpHeaders,
   HttpParams,
 } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
@@ -300,8 +302,14 @@ export function unwrap<T = any>(body: any): T {
 @Injectable({ providedIn: 'root' })
 export class ApiClientService {
   private notificationService = inject(NotificationService, { optional: true });
+  private readonly interceptorFreeHttp: HttpClient;
 
-  constructor(private readonly http: HttpClient) {}
+  constructor(
+    private readonly http: HttpClient,
+    backend: HttpBackend,
+  ) {
+    this.interceptorFreeHttp = new HttpClient(backend);
+  }
 
   get<T = any, R = T>(
     url: string,
@@ -339,6 +347,19 @@ export class ApiClientService {
     options?: { params?: Record<string, any>; headers?: Record<string, string> },
   ): Promise<R> {
     return this.request<T, R>('DELETE', url, options);
+  }
+
+  postWithoutInterceptors<T = any, R = T>(url: string, body?: T): Promise<R> {
+    return firstValueFrom(
+      this.interceptorFreeHttp.post<R>(resolveApiUrl(url), body, {
+        headers: new HttpHeaders({
+          'Content-Type': 'application/json',
+          Accept: 'application/json',
+          'X-Correlation-ID': generateCorrelationId(),
+        }),
+        withCredentials: true,
+      }),
+    ).then((response) => unwrap<R>(response));
   }
 
   private async request<T, R>(
@@ -548,57 +569,43 @@ export async function doRefresh(
   ongoingRefreshPromise = (async () => {
     const currentRefresh = getRefreshToken();
     const currentAccess = getAccessToken();
-    if (currentRefresh) {
-      try {
-        let res: any;
-        try {
-          res = await client.post<any, any>('/auth/refresh', {
-            refreshToken: currentRefresh,
-            accessToken: currentAccess,
-          });
-        } catch (e: any) {
-          if (e?.status === 404) {
-            res = await client.post<any, any>('/Auth/refresh', {
-              refreshToken: currentRefresh,
-              accessToken: currentAccess,
-            });
-          } else {
-            throw e;
-          }
-        }
-
-        const token =
-          res?.accessToken ||
-          res?.AccessToken ||
-          res?.token ||
-          res?.Token ||
-          res?.data?.accessToken ||
-          res?.data?.token;
-
-        const refresh =
-          res?.refreshToken ||
-          res?.RefreshToken ||
-          res?.data?.refreshToken;
-
-        if (token) {
-          setAccessToken(token);
-          if (refresh) setRefreshToken(refresh);
-          return { accessToken: token, refreshToken: refresh || currentRefresh };
-        }
-      } catch (err: any) {
-        // If server rejected with 400/401/403, refresh token is invalid/expired
-        const status = err?.status || err?.statusCode || 0;
-        if (status === 400 || status === 401 || status === 403) {
-          setAccessToken(null);
-          setRefreshToken(null);
-          throw err;
-        }
-      }
+    if (!currentRefresh) {
+      throw new Error('No hay un token de renovación disponible.');
     }
-    return {
-      accessToken: currentAccess || '',
-      refreshToken: currentRefresh || '',
-    };
+
+    try {
+      const res: any = await client.postWithoutInterceptors<any, any>('/auth/refresh', {
+        refreshToken: currentRefresh,
+        accessToken: currentAccess,
+      });
+
+      const token =
+        res?.accessToken ||
+        res?.AccessToken ||
+        res?.token ||
+        res?.Token ||
+        res?.data?.accessToken ||
+        res?.data?.token;
+
+      const refresh =
+        res?.refreshToken ||
+        res?.RefreshToken ||
+        res?.data?.refreshToken;
+
+      if (!token) {
+        throw new Error('La API no devolvió un token de acceso renovado.');
+      }
+
+      setAccessToken(token);
+      if (refresh) setRefreshToken(refresh);
+      return { accessToken: token, refreshToken: refresh || currentRefresh };
+    } catch (err: any) {
+      const status = err?.status || err?.statusCode || 0;
+      if (status === 400 || status === 401 || status === 403) {
+        setRefreshToken(null);
+      }
+      throw err;
+    }
   })().finally(() => {
     ongoingRefreshPromise = null;
   });

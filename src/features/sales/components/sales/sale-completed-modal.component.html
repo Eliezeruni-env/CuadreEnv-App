@@ -292,8 +292,10 @@
                 <div><strong>CÓD. SEG:</strong> {{ securityCode }}</div>
                 <div><strong>FECHA:</strong> {{ formattedDate }}</div>
                 <div><strong>CLIENTE:</strong> {{ saleData?.customerName || 'Consumidor Final' }}</div>
-                @if (saleData?.customerRnc && saleData?.customerRnc !== '000-0000000-0') {
-                  <div><strong>RNC/CÉD:</strong> {{ saleData?.customerRnc }}</div>
+                @if (saleData; as sale) {
+                  @if (sale.customerRnc && sale.customerRnc !== '000-0000000-0') {
+                    <div><strong>RNC/CÉD:</strong> {{ sale.customerRnc }}</div>
+                  }
                 }
                 <div><strong>CAJA:</strong> {{ saleData?.cashRegisterName || 'Caja Principal' }}</div>
                 <div><strong>CAJERO:</strong> {{ saleData?.cashierName || 'Admin' }}</div>

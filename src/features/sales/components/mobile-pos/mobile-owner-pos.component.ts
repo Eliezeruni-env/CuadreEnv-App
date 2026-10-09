@@ -7,10 +7,13 @@ import { CategoryService } from '../../../products/services/category.service';
 import { CashRegisterService, type CashRegisterSessionDto } from '../../../cash-register/services/cash-register.service';
 import { BillingService } from '../../../billing/services/billing.service';
 import { NcfSequenceService } from '../../../billing/services/ncf-sequence.service';
+import { SaleService } from '../../services/sale.service';
+import { CustomerService } from '../../../customers/services/customer.service';
 import { FraudGuardianService } from '../../../cash-register/services/fraud-guardian.service';
 import { PosOfflineSyncService } from '../../services/pos-offline-sync.service';
 import { NotificationService } from '../../../cuadreEnv/services/notification.service';
 import { AuthService } from '../../../cuadreEnv/services/auth.service';
+import { CompanyService } from '../../../companies/services/company.service';
 import { CloseRegisterModalComponent } from '../../../cash-register/components/cash-register/close-register-modal.component';
 import type { ProductDto } from '../../../cuadreEnv/types/api';
 import type { HeaderDto, ProductDetails } from '../../../../app/models/billing';
@@ -22,6 +25,13 @@ export interface MobileCartItem {
   subtotal: number;
   itbis: number;
   total: number;
+}
+
+export interface MobileClientOption {
+  id: number;
+  name: string;
+  rnc: string;
+  type: string;
 }
 
 @Component({
@@ -38,10 +48,13 @@ export class MobileOwnerPosComponent implements OnInit {
   private readonly cashRegisterService = inject(CashRegisterService);
   private readonly billingService = inject(BillingService);
   private readonly ncfService = inject(NcfSequenceService);
+  private readonly saleService = inject(SaleService);
+  private readonly customerService = inject(CustomerService);
   readonly fraudService = inject(FraudGuardianService);
   private readonly offlineSyncService = inject(PosOfflineSyncService);
   readonly notificationService = inject(NotificationService);
   readonly authService = inject(AuthService);
+  private readonly companyService = inject(CompanyService);
   private readonly router = inject(Router);
 
   @ViewChild('closeRegisterModal') closeRegisterModal?: CloseRegisterModalComponent;
@@ -59,7 +72,7 @@ export class MobileOwnerPosComponent implements OnInit {
   // Network status
   isOnline = signal<boolean>(typeof navigator !== 'undefined' ? navigator.onLine : true);
 
-  // User Greeting & Context
+  // User Greeting & Context (Data Real del Tenant)
   readonly greeting = computed(() => {
     const hour = new Date().getHours();
     if (hour < 12) return 'Buenos días';
@@ -69,14 +82,16 @@ export class MobileOwnerPosComponent implements OnInit {
 
   readonly userName = computed(() => {
     const user = this.authService.currentUser();
-    if (user?.fullName) {
-      return user.fullName.split(' ')[0];
-    }
-    return 'Juan';
+    if (user?.fullName?.trim()) return user.fullName.trim().split(' ')[0];
+    if (user?.email?.trim()) return user.email.trim().split('@')[0];
+    return 'Usuario';
   });
 
   readonly tenantName = computed(() => {
-    return 'Mi Negocio';
+    const settingsName = this.companyService.currentSettings().companyName?.trim();
+    if (settingsName) return settingsName;
+    const cid = this.authService.companyId();
+    return cid ? `Empresa #${cid}` : 'Mi Negocio';
   });
 
   // Active Cash Register Sessions
@@ -88,33 +103,25 @@ export class MobileOwnerPosComponent implements OnInit {
 
   readonly totalCashInDrawers = computed(() => {
     const session = this.activeSession();
-    return session ? (session.currentBalance || session.initialAmount || 24850.00) : 24850.00;
+    return session ? (session.currentBalance ?? session.initialAmount ?? 0) : 0;
   });
 
-  // Sales KPIs of the day
-  todaySalesTotal = signal<number>(48320.00);
-  todayInvoicesCount = signal<number>(24);
+  // Sales KPIs of the day (Cálculo real sobre las ventas de la sesión y el tenant)
+  todaySalesTotal = signal<number>(0);
+  todayInvoicesCount = signal<number>(0);
   averageTicketDop = computed(() => {
     const count = this.todayInvoicesCount();
     return count > 0 ? this.todaySalesTotal() / count : 0;
   });
 
-  // Recent cash movements in "Mi Caja"
-  recentMovements = signal([
-    { type: 'VENTA', description: 'Venta #24 · Consumo Final', amount: 850.00, time: 'Hace 12 min' },
-    { type: 'VENTA', description: 'Venta #23 · Consumo Final', amount: 320.00, time: 'Hace 28 min' },
-    { type: 'RETIRO', description: 'Pago de flete / mensajería', amount: -500.00, time: 'Hace 1 hora' },
-    { type: 'VENTA', description: 'Venta #22 · Crédito Fiscal', amount: 1450.00, time: '08:45 AM' },
-    { type: 'APERTURA', description: 'Apertura de turno', amount: 5000.00, time: '08:03 AM' }
-  ]);
+  // Recent cash movements in "Mi Caja" (Data real desde el backend /CashMovement)
+  recentMovements = signal<{ type: string; description: string; amount: number; time: string }[]>([]);
 
-  // Clients Directory for quick select
-  clientsList = signal([
-    { name: 'Consumidor Final', rnc: '000-0000000-0', type: 'Contado' },
-    { name: 'Ferretería El Progreso', rnc: '1-31-88992-1', type: 'Crédito' },
-    { name: 'Constructora del Caribe', rnc: '1-01-44552-3', type: 'Crédito Fiscal' },
-    { name: 'Colmado La Bendición', rnc: '1-22-33445-5', type: 'Contado' }
+  // Clients Directory for quick select (Data real de clientes del tenant)
+  clientsList = signal<MobileClientOption[]>([
+    { id: 1, name: 'Consumidor Final', rnc: '000-0000000-0', type: 'Contado' }
   ]);
+  selectedCustomerId = signal<number | null>(null);
 
   // Products Catalog & Search
   products = signal<ProductDto[]>([]);
@@ -190,14 +197,98 @@ export class MobileOwnerPosComponent implements OnInit {
 
   async loadExecutiveData(): Promise<void> {
     try {
-      const res = await this.cashRegisterService.getActiveSession();
-      if (res?.data) {
-        this.activeSessions.set([res.data]);
+      // 1. Cargar sesión activa real de caja
+      const sessionRes = await this.cashRegisterService.getActiveSession();
+      if (sessionRes?.data && sessionRes.data.isOpen) {
+        this.activeSessions.set([sessionRes.data]);
       } else {
         this.activeSessions.set([]);
       }
-    } catch {
-      this.activeSessions.set([]);
+
+      // 2. Cargar movimientos reales de caja desde la API
+      try {
+        const movRes = await this.cashRegisterService.getMovements();
+        if (movRes?.data && Array.isArray(movRes.data) && movRes.data.length > 0) {
+          const mapped = movRes.data
+            .slice(-10)
+            .reverse()
+            .map((m) => ({
+              type: m.type === 'Entrada' ? 'VENTA' : (m.category === 'Retiro' ? 'RETIRO' : 'SALIDA'),
+              description: m.description,
+              amount: m.type === 'Entrada' ? (m.inAmount || 0) : -(m.outAmount || 0),
+              time: m.date || 'Hoy'
+            }));
+          this.recentMovements.set(mapped);
+        } else {
+          this.recentMovements.set([]);
+        }
+      } catch {
+        this.recentMovements.set([]);
+      }
+
+      // 3. Cargar ventas reales para calcular KPIs del día de la empresa / tenant
+      try {
+        const salesRes = await this.saleService.getSales({ pageSize: 100 });
+        const allSales = salesRes.data || [];
+        const todayStr = new Date().toISOString().split('T')[0];
+
+        const todaySales = allSales.filter((s) => {
+          const saleDate = (s.creationDate || '').split('T')[0];
+          return saleDate === todayStr;
+        });
+
+        const totalSales = todaySales.reduce((acc, s) => acc + Number(s.total || 0), 0);
+        this.todaySalesTotal.set(totalSales);
+        this.todayInvoicesCount.set(todaySales.length);
+      } catch {
+        this.todaySalesTotal.set(0);
+        this.todayInvoicesCount.set(0);
+      }
+
+      // 4. Cargar clientes reales del tenant
+      try {
+        const custRes = await this.customerService.getCustomers({ pageSize: 50 });
+        const realCustomers = custRes.data || [];
+        const formattedClients: MobileClientOption[] = [
+          { id: 1, name: 'Consumidor Final', rnc: '000-0000000-0', type: 'Contado' },
+          ...realCustomers
+            .filter((c) => c.name && c.name.toLowerCase().trim() !== 'consumidor final')
+            .map((c) => ({
+              id: c.id || 1,
+              name: c.name,
+              rnc: c.identification || '000-0000000-0',
+              type: 'Contado'
+            }))
+        ];
+        this.clientsList.set(formattedClients);
+      } catch {
+        this.clientsList.set([
+          { id: 1, name: 'Consumidor Final', rnc: '000-0000000-0', type: 'Contado' }
+        ]);
+      }
+    } catch (err) {
+      console.warn('[Mobile POS] Error al cargar datos ejecutivos:', err);
+    }
+  }
+
+  async openQuickMobileSession(initialAmount: number = 0): Promise<void> {
+    try {
+      const cashierName = this.authService.currentUser()?.fullName || this.userName();
+      const res = await this.cashRegisterService.openSession({
+        name: 'Caja Principal POS',
+        initialAmount,
+        cashierName,
+        notes: 'Apertura desde vista Móvil PWA'
+      });
+      if (res.success && res.data) {
+        this.activeSessions.set([res.data]);
+        this.notificationService.success('Turno de caja aperturado correctamente.');
+        await this.loadExecutiveData();
+      } else {
+        this.notificationService.error(res.message || 'No se pudo abrir la caja.');
+      }
+    } catch (err: any) {
+      this.notificationService.showApiError(err);
     }
   }
 
@@ -239,6 +330,9 @@ export class MobileOwnerPosComponent implements OnInit {
     this.activeTab.set(tab);
     if (tab === 'ventas' && this.products().length === 0) {
       this.loadCatalog();
+    }
+    if (tab === 'caja' || tab === 'inicio') {
+      this.loadExecutiveData();
     }
   }
 
@@ -318,10 +412,11 @@ export class MobileOwnerPosComponent implements OnInit {
     this.amountReceived.set(this.cartTotal());
   }
 
-  selectCustomer(client: any): void {
+  selectCustomer(client: MobileClientOption): void {
+    this.selectedCustomerId.set(client.id);
     this.customerName.set(client.name);
     this.isClientsModalOpen.set(false);
-    this.notificationService.info(`Cliente: ${client.name}`);
+    this.notificationService.info(`Cliente seleccionado: ${client.name}`);
   }
 
   openCloseRegisterModal(): void {
@@ -339,136 +434,226 @@ export class MobileOwnerPosComponent implements OnInit {
   }
 
   /**
-   * Procesa la venta de forma transparente tanto en Online como en Offline (IndexedDB Outbox).
+   * Procesa la venta de forma transparente vinculada a la sesión de caja activa.
+   * La venta es inmediatamente visible en la PC en la tabla de Ventas y en los movimientos de Caja.
    */
   async processMobileSale(): Promise<void> {
     if (this.cart().length === 0) return;
+
+    // 1. Validar que exista una sesión de caja activa
+    let session = this.activeSession();
+    if (!session) {
+      try {
+        const openRes = await this.cashRegisterService.openSession({
+          name: 'Caja Principal POS',
+          initialAmount: 0,
+          cashierName: this.authService.currentUser()?.fullName || this.userName(),
+          notes: 'Apertura automática desde POS Móvil'
+        });
+        if (openRes.success && openRes.data) {
+          session = openRes.data;
+          this.activeSessions.set([session]);
+        } else {
+          this.notificationService.warning('Debes aperturar un turno de caja para registrar ventas.');
+          this.setTab('caja');
+          return;
+        }
+      } catch {
+        this.notificationService.warning('Debes aperturar un turno de caja para registrar ventas.');
+        this.setTab('caja');
+        return;
+      }
+    }
 
     this.isSubmitting.set(true);
     const companyId = this.authService.companyId() || 1;
     const isOnline = typeof navigator !== 'undefined' ? navigator.onLine : true;
 
     const total = this.cartTotal();
+    const subtotal = this.cartSubtotal();
+    const itbis = this.cartItbis();
     const customer = this.customerName().trim() || 'Consumidor Final';
+    const customerId = this.selectedCustomerId();
     const phone = this.customerPhone().trim();
+    const method = this.selectedMethod();
+    const amountRec = this.amountReceived() || total;
+    const change = this.changeDue();
+    const idempotencyKey =
+      typeof crypto !== 'undefined' && crypto.randomUUID
+        ? crypto.randomUUID()
+        : `mob-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`;
 
-    const header: HeaderDto = {
-      clientId: 1,
-      clientName: customer,
-      billingTypeId: 1,
-      voucherTypeId: this.ncfType() === 'B01' ? 1 : 2,
-      warehouseId: 1,
-      rncOrCedula: ''
-    };
-
-    const items: ProductDetails[] = this.cart().map((item) => ({
-      productId: item.product.id || 0,
-      productName: item.product.description || 'Producto',
-      price: item.unitPrice,
-      quantity: item.quantity,
-      discountPercentage: 0,
-      discountAmount: 0,
-      itbisPercentage: (item.product.taxRate ?? 0.18) * 100,
-      itbisAmount: item.itbis,
-      subTotal: item.subtotal,
-      totalAmount: item.total
-    }));
-
+    // A) MODO OFFLINE: Resguardo en IndexedDB Outbox vinculando el cashRegisterId
     if (!isOnline) {
       this.offlineSyncService.queueOfflineSale({
-        customerId: 1,
+        customerId: customerId || 1,
         customerName: customer,
-        items: this.cart().map(c => ({
+        items: this.cart().map((c) => ({
           productId: c.product.id || 0,
           productCode: c.product.reference || c.product.barcode || `PROD-${c.product.id}`,
           productName: c.product.description || 'Producto',
           unitPrice: c.unitPrice,
           quantity: c.quantity,
-          total: c.total
+          total: c.total,
         })),
-        subtotal: this.cartSubtotal(),
+        subtotal,
         discount: 0,
-        itbis: this.cartItbis(),
+        itbis,
         total,
-        paymentMethod: this.selectedMethod(),
-        amountReceived: this.amountReceived() || total,
-        change: this.changeDue(),
-        companyId
-      });
+        paymentMethod: method,
+        amountReceived: amountRec,
+        change,
+        companyId,
+        cashRegisterId: session.id,
+        cashRegisterSessionId: session.id,
+      } as any);
 
       const folio = `FAC-M-${Date.now().toString().slice(-4)}`;
+      const ncf = `${this.ncfType()}000000${Date.now().toString().slice(-2)}`;
+
       this.lastSaleSummary.set({
         folio,
-        ncf: `${this.ncfType()}000000${Date.now().toString().slice(-2)}`,
+        ncf,
         total,
         customerName: customer,
-        customerPhone: phone
+        customerPhone: phone,
       });
 
-      this.todaySalesTotal.update(prev => prev + total);
-      this.todayInvoicesCount.update(prev => prev + 1);
-      this.recentMovements.update(prev => [
-        { type: 'VENTA', description: `Venta #${folio} · ${customer}`, amount: total, time: 'Ahora' },
-        ...prev
-      ]);
+      // Guardar también en el caché local de ventas para que la PC lo vea de inmediato
+      this.saleService.saveLocalSale({
+        id: Date.now(),
+        customerId: customerId || 1,
+        total,
+        paidAmount: amountRec,
+        cashRegisterId: session.id,
+        isCancelled: false,
+        creationDate: new Date().toISOString(),
+        details: this.cart().map((c) => ({
+          productId: c.product.id || 0,
+          quantity: c.quantity,
+          unitPrice: c.unitPrice,
+        })),
+      });
 
       this.isSubmitting.set(false);
       this.isPaymentModalOpen.set(false);
       this.isSuccessModalOpen.set(true);
       this.clearCart();
-      this.notificationService.success('¡Venta facturada exitosamente!');
+      await this.loadExecutiveData();
+      this.notificationService.success('¡Venta guardada localmente! Se sincronizará al recuperar la conexión.');
       return;
     }
 
-    // Modo Online: Envía a .NET 10
+    // B) MODO ONLINE: Registrar venta mediante CashRegisterService
     try {
-      const res = await this.billingService.createBilling(header, items);
-      const created = res.data;
-      const folio = String(created?.id || created?.billingNumber || `FAC-M-${Date.now().toString().slice(-4)}`);
+      // 1. Registrar venta rápida asociada a la sesión de caja activa
+      const quickSaleRes = await this.cashRegisterService.registerQuickSale({
+        customerId: customerId || null,
+        customerName: customer,
+        items: this.cart().map((c) => ({
+          productId: c.product.id || 0,
+          productName: c.product.description || 'Producto',
+          unitPrice: c.unitPrice,
+          quantity: c.quantity,
+          total: c.total,
+        })),
+        subtotal,
+        discount: 0,
+        itbis,
+        total,
+        paymentMethod: method,
+        amountReceived: amountRec,
+        change,
+        idempotencyKey,
+      });
+
+      const assignedId = quickSaleRes?.data?.id || Date.now();
+      const folio = quickSaleRes?.data?.invoiceNumber || `FAC-M-${String(assignedId).padStart(4, '0')}`;
+
+      // 2. Registro fiscal opcional con DGII / NCF si se seleccionó comprobante formal
+      let ncfGenerated = `${this.ncfType()}000000${Date.now().toString().slice(-2)}`;
+      try {
+        const header: HeaderDto = {
+          clientId: customerId || 1,
+          clientName: customer,
+          billingTypeId: 1,
+          voucherTypeId: this.ncfType() === 'B01' ? 1 : 2,
+          warehouseId: 1,
+          rncOrCedula: '',
+        };
+        const items: ProductDetails[] = this.cart().map((item) => ({
+          productId: item.product.id || 0,
+          productName: item.product.description || 'Producto',
+          price: item.unitPrice,
+          quantity: item.quantity,
+          discountPercentage: 0,
+          discountAmount: 0,
+          itbisPercentage: (item.product.taxRate ?? 0.18) * 100,
+          itbisAmount: item.itbis,
+          subTotal: item.subtotal,
+          totalAmount: item.total,
+        }));
+        const billingRes = await this.billingService.createBilling(header, items);
+        if (billingRes?.data?.ncf) {
+          ncfGenerated = billingRes.data.ncf;
+        }
+      } catch {
+        // La venta ya quedó registrada en caja de forma segura
+      }
+
+      // 3. Guardar en el caché local de ventas para que SalesComponent (PC) lo vea al instante
+      this.saleService.saveLocalSale({
+        id: assignedId,
+        customerId: customerId || 1,
+        total,
+        paidAmount: amountRec,
+        cashRegisterId: session.id,
+        isCancelled: false,
+        creationDate: new Date().toISOString(),
+        details: this.cart().map((c) => ({
+          productId: c.product.id || 0,
+          quantity: c.quantity,
+          unitPrice: c.unitPrice,
+        })),
+      });
 
       this.lastSaleSummary.set({
         folio,
-        ncf: created?.ncf || `${this.ncfType()}000000${Date.now().toString().slice(-2)}`,
+        ncf: ncfGenerated,
         total,
         customerName: customer,
-        customerPhone: phone
+        customerPhone: phone,
       });
-
-      this.todaySalesTotal.update(prev => prev + total);
-      this.todayInvoicesCount.update(prev => prev + 1);
-
-      // Agregar a movimientos recientes
-      this.recentMovements.update(prev => [
-        { type: 'VENTA', description: `Venta #${folio} · ${customer}`, amount: total, time: 'Ahora' },
-        ...prev
-      ]);
 
       this.isPaymentModalOpen.set(false);
       this.isSuccessModalOpen.set(true);
       this.clearCart();
-      this.notificationService.success('¡Venta facturada exitosamente con NCF asignado!');
-    } catch {
-      // Fallback a IndexedDB si la red o el backend falla
+      await this.loadExecutiveData();
+      this.notificationService.success(`¡Venta cobrada con éxito! Vinculada a ${session.name}.`);
+    } catch (err: any) {
+      // Fallback a IndexedDB si hubo fallo de red repentino
       this.offlineSyncService.queueOfflineSale({
-        customerId: 1,
+        customerId: customerId || 1,
         customerName: customer,
-        items: this.cart().map(c => ({
+        items: this.cart().map((c) => ({
           productId: c.product.id || 0,
           productCode: c.product.reference || c.product.barcode || `PROD-${c.product.id}`,
           productName: c.product.description || 'Producto',
           unitPrice: c.unitPrice,
           quantity: c.quantity,
-          total: c.total
+          total: c.total,
         })),
-        subtotal: this.cartSubtotal(),
+        subtotal,
         discount: 0,
-        itbis: this.cartItbis(),
+        itbis,
         total,
-        paymentMethod: this.selectedMethod(),
-        amountReceived: this.amountReceived() || total,
-        change: this.changeDue(),
-        companyId
-      });
+        paymentMethod: method,
+        amountReceived: amountRec,
+        change,
+        companyId,
+        cashRegisterId: session.id,
+        cashRegisterSessionId: session.id,
+      } as any);
 
       const folio = `FAC-M-${Date.now().toString().slice(-4)}`;
       this.lastSaleSummary.set({
@@ -476,21 +661,14 @@ export class MobileOwnerPosComponent implements OnInit {
         ncf: `${this.ncfType()}000000${Date.now().toString().slice(-2)}`,
         total,
         customerName: customer,
-        customerPhone: phone
+        customerPhone: phone,
       });
-
-      this.todaySalesTotal.update(prev => prev + total);
-      this.todayInvoicesCount.update(prev => prev + 1);
-
-      this.recentMovements.update(prev => [
-        { type: 'VENTA', description: `Venta #${folio} · ${customer}`, amount: total, time: 'Ahora' },
-        ...prev
-      ]);
 
       this.isPaymentModalOpen.set(false);
       this.isSuccessModalOpen.set(true);
       this.clearCart();
-      this.notificationService.success('¡Venta facturada exitosamente!');
+      await this.loadExecutiveData();
+      this.notificationService.info('Venta resguardada en cola fuera de línea.');
     } finally {
       this.isSubmitting.set(false);
     }
@@ -505,7 +683,7 @@ export class MobileOwnerPosComponent implements OnInit {
     const amountStr = sale.total.toLocaleString('es-DO', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
     const message = `🧾 *COMPROBANTE FISCAL - CUADRE-ENV POS*
-🏢 *Empresa:* CuadreEnv Soluciones
+🏢 *Empresa:* ${this.tenantName()}
 👤 *Cliente:* ${sale.customerName}
 📄 *Folio Venta:* #${sale.folio}
 🏛 *NCF:* ${sale.ncf}

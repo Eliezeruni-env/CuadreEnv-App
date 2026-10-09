@@ -6,16 +6,16 @@
       <svg cIcon name="cilMenu" size="lg"></svg>
     </button>
     <c-header-nav class="d-none d-md-flex">
-      <c-nav-item>
+      <c-nav-item *hasModule="'Dashboard'">
         <a cNavLink routerLink="/dashboard" routerLinkActive="active">{{ translationService.t('header.dashboard') }}</a>
       </c-nav-item>
-      <c-nav-item>
+      <c-nav-item *hasModule="'Company'">
         <a cNavLink routerLink="/users" routerLinkActive="active">{{ translationService.t('header.users') }}</a>
       </c-nav-item>
-      <c-nav-item>
-        <a cNavLink routerLink="/settings" routerLinkActive="active">{{ translationService.t('header.settings') }}</a>
+      <c-nav-item *hasModule="'Company'">
+        <a cNavLink routerLink="/company/settings" routerLinkActive="active">{{ translationService.t('header.settings') }}</a>
       </c-nav-item>
-      <c-nav-item>
+      <c-nav-item *hasModule="'Sales'">
         <a cNavLink routerLink="/mobile" class="fw-bold text-success d-flex align-items-center gap-1">
           <span>📱 Vista Móvil</span>
         </a>
@@ -68,13 +68,13 @@
           Mi Perfil en la Empresa
         </a>
       </li>
-      <li>
+      <li *hasModule="'Inventory'">
         <a cDropdownItem routerLink="/products">
           <svg cIcon class="me-2 text-muted" name="cilStorage"></svg>
           {{ translationService.t('header.products') }}
         </a>
       </li>
-      <li>
+      <li *hasModule="'Inventory'">
         <a cDropdownItem routerLink="/inventory">
           <svg cIcon class="me-2 text-muted" name="cilSwapHorizontal"></svg>
           {{ translationService.t('header.inventory') }}

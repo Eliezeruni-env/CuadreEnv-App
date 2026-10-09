@@ -1,9 +1,14 @@
 import type { INavData } from '@coreui/angular';
 
-export const ADMIN_NAV_ITEMS: INavData[] = [
+export interface ModuleNavItem extends INavData {
+  moduleCode?: string;
+}
+
+export const ADMIN_NAV_ITEMS: ModuleNavItem[] = [
   {
     name: 'Dashboard',
     url: '/dashboard',
+    moduleCode: 'dashboard',
     iconComponent: { name: 'cil-speedometer' },
   },
   {
@@ -13,31 +18,37 @@ export const ADMIN_NAV_ITEMS: INavData[] = [
   {
     name: 'Ventas',
     url: '/sales',
+    moduleCode: 'sales',
     iconComponent: { name: 'cil-cart' },
   },
   {
     name: 'Facturación & NCF',
     url: '/billing',
+    moduleCode: 'billing',
     iconComponent: { name: 'cil-notes' },
   },
   {
     name: 'Caja',
     url: '/cash-register',
+    moduleCode: 'cashregister',
     iconComponent: { name: 'cil-calculator' },
   },
   {
     name: 'Cobros',
     url: '/receivables',
+    moduleCode: 'receivables',
     iconComponent: { name: 'cil-dollar' },
   },
   {
     name: 'Notas de Crédito',
     url: '/credit-notes',
+    moduleCode: 'credit-notes',
     iconComponent: { name: 'cil-description' },
   },
   {
     name: 'Clientes',
     url: '/customers',
+    moduleCode: 'customers',
     iconComponent: { name: 'cil-user' },
   },
   {
@@ -47,16 +58,19 @@ export const ADMIN_NAV_ITEMS: INavData[] = [
   {
     name: 'Inventario y Almacenes',
     url: '/inventory',
+    moduleCode: 'inventory',
     iconComponent: { name: 'cil-swap-horizontal' },
   },
   {
     name: 'Productos',
     url: '/products',
+    moduleCode: 'products',
     iconComponent: { name: 'cil-storage' },
   },
   {
     name: 'Categorías y Tipos',
     url: '/products/settings',
+    moduleCode: 'products-settings',
     iconComponent: { name: 'cil-settings' },
   },
   {
@@ -66,11 +80,13 @@ export const ADMIN_NAV_ITEMS: INavData[] = [
   {
     name: 'Compras',
     url: '/purchases',
+    moduleCode: 'purchases-orders',
     iconComponent: { name: 'cil-truck' },
   },
   {
     name: 'Pagos a Proveedores',
     url: '/payments',
+    moduleCode: 'payments',
     iconComponent: { name: 'cil-credit-card' },
   },
   {
@@ -80,6 +96,7 @@ export const ADMIN_NAV_ITEMS: INavData[] = [
   {
     name: 'Usuarios y Equipo',
     url: '/users',
+    moduleCode: 'users',
     iconComponent: { name: 'cil-people' },
   },
 ];

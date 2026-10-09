@@ -1,14 +1,17 @@
 import { Component, Input, Output, EventEmitter, inject, signal, computed, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormBuilder, FormGroup, Validators, ReactiveFormsModule } from '@angular/forms';
+import { Router } from '@angular/router';
 import { UserService } from '../../services/user.service';
 import { AuthService } from '../../../cuadreEnv/services/auth.service';
 import { CompanyService } from '../../../companies/services/company.service';
+import { PermissionService, SYSTEM_MODULES } from '../../../roles/services/permission.service';
 import { RoleService } from '../../../roles/services/role.service';
 import { NotificationService } from '../../../cuadreEnv/services/notification.service';
 import { TranslationService } from '../../../cuadreEnv/services/translation.service';
 import { PhoneMaskDirective, CedulaMaskDirective } from '../../../../app/shared/directives';
 import type { UserDto, RoleDto } from '../../../cuadreEnv/types/api';
+import { parseUserModules, MENU_TO_CANONICAL } from '../../utils/module-parser.util';
 
 @Component({
   selector: 'app-employee-modal',
@@ -19,8 +22,10 @@ import type { UserDto, RoleDto } from '../../../cuadreEnv/types/api';
 })
 export class EmployeeModalComponent implements OnInit {
   private fb = inject(FormBuilder);
+  private router = inject(Router);
   private userService = inject(UserService);
   private authService = inject(AuthService);
+  private permissionService = inject(PermissionService);
   private companyService = inject(CompanyService);
   private roleService = inject(RoleService);
   private notificationService = inject(NotificationService);
@@ -42,6 +47,12 @@ export class EmployeeModalComponent implements OnInit {
   });
 
   selectedRoles = signal<string[]>(['Cajero']);
+  readonly availableModules = SYSTEM_MODULES.map((module) => ({
+    code: String(module.key).toLowerCase(),
+    label: module.label,
+    description: module.description,
+  }));
+  selectedModules = signal<string[]>([]);
 
   cvFileName = signal<string | null>(null);
   cvBase64 = signal<string | null>(null);
@@ -81,6 +92,37 @@ export class EmployeeModalComponent implements OnInit {
     return this.selectedRoles().includes(roleName);
   }
 
+  toggleModule(moduleCode: string): void {
+    const code = moduleCode.toLowerCase();
+    const current = this.selectedModules();
+    const isWildcard = current.includes('*') || current.includes('ALL') || current.includes('all');
+    let updated: string[];
+
+    if (isWildcard) {
+      const allCodes = this.availableModules.map(m => m.code);
+      updated = allCodes.filter(c => c !== code && c !== moduleCode);
+    } else {
+      const canonicalCode = MENU_TO_CANONICAL[code] || code;
+      const isCurrentlySelected = current.includes(moduleCode) || current.includes(code) || current.includes(canonicalCode);
+      if (isCurrentlySelected) {
+        updated = current.filter(m => m !== moduleCode && m !== code && m !== canonicalCode);
+      } else {
+        updated = [...current, code];
+      }
+    }
+    this.selectedModules.set(updated);
+  }
+
+  isModuleSelected(moduleCode: string): boolean {
+    const selected = this.selectedModules();
+    if (selected.includes('*') || selected.includes('ALL') || selected.includes('all')) {
+      return true;
+    }
+    const code = moduleCode.toLowerCase();
+    const canonicalCode = MENU_TO_CANONICAL[code] || code;
+    return selected.includes(moduleCode) || selected.includes(code) || selected.includes(canonicalCode);
+  }
+
   open(user?: UserDto) {
     if (user && user.id) {
       this.editingUserId.set(user.id);
@@ -100,6 +142,8 @@ export class EmployeeModalComponent implements OnInit {
       } else {
         this.selectedRoles.set(['Cajero']);
       }
+      const parsedModules = parseUserModules(user);
+      this.selectedModules.set(parsedModules);
       this.form.get('password')?.clearValidators();
       this.form.get('password')?.updateValueAndValidity();
     } else {
@@ -114,6 +158,7 @@ export class EmployeeModalComponent implements OnInit {
         password: '',
       });
       this.selectedRoles.set(['Cajero']);
+      this.selectedModules.set([]);
       this.form.get('password')?.setValidators([Validators.required, Validators.minLength(6)]);
       this.form.get('password')?.updateValueAndValidity();
     }
@@ -187,12 +232,31 @@ export class EmployeeModalComponent implements OnInit {
       const editId = this.editingUserId();
       if (editId) {
         await this.userService.updateUser(editId, {
+          email,
           firstName: (this.form.value.firstName || '').trim(),
           lastName: (this.form.value.lastName || '').trim(),
           userName: email,
           role: primaryRole,
           roles: allRoles,
+          allowedModules: this.selectedModules(),
         } as any);
+
+        if (await this.authService.refreshPermissionsForUser(editId)) {
+          if (!this.authService.isAuthenticated()) {
+            this.notificationService.error(
+              'Los cambios se guardaron, pero no se pudieron actualizar los permisos de la sesión. Inicia sesión nuevamente.',
+            );
+            this.saved.emit();
+            this.close();
+            await this.router.navigate(['/login']);
+            return;
+          }
+
+          if (!this.permissionService.hasModuleAccess(this.router.url)) {
+            const defaultRoute = this.permissionService.getDefaultModuleRoute();
+            await this.router.navigate([defaultRoute ?? '/forbidden']);
+          }
+        }
         this.notificationService.success('Empleado actualizado correctamente.');
       } else {
         const userPayload: UserDto = {
@@ -205,6 +269,7 @@ export class EmployeeModalComponent implements OnInit {
           gender: 'M',
           role: primaryRole,
           roles: allRoles,
+          allowedModules: this.selectedModules(),
           active: true,
           password: this.form.value.password,
           emergencyContact: (this.form.value.emergencyContact || '').trim() || undefined,

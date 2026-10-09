@@ -1,16 +1,20 @@
 import '@angular/compiler';
-import { describe, it, expect, afterEach } from 'vitest';
+import { describe, it, expect, afterEach, vi } from 'vitest';
 import {
   API_BASE_URL,
   unwrap,
   setAccessToken,
   getAccessToken,
+  setRefreshToken,
+  doRefresh,
   extractArray,
+  type ApiClientService,
 } from './apiClient';
 
 describe('ApiClient Central HTTP & /v1 configuration', () => {
   afterEach(() => {
     setAccessToken(null);
+    setRefreshToken(null);
   });
 
   it('should use the Angular API base URL', () => {
@@ -20,6 +24,35 @@ describe('ApiClient Central HTTP & /v1 configuration', () => {
   it('should store and retrieve access token for Authorization header', () => {
     setAccessToken('test-token-123');
     expect(getAccessToken()).toEqual('test-token-123');
+  });
+
+  it('does not reuse an expired access token when refresh fails', async () => {
+    setAccessToken('expired-access-token');
+    setRefreshToken('refresh-token');
+    const refreshError = { status: 0, message: 'API unavailable' };
+    const client = {
+      postWithoutInterceptors: vi.fn().mockRejectedValue(refreshError),
+    } as unknown as ApiClientService;
+
+    await expect(doRefresh(client)).rejects.toBe(refreshError);
+    expect(client.postWithoutInterceptors).toHaveBeenCalledWith('/auth/refresh', {
+      refreshToken: 'refresh-token',
+      accessToken: 'expired-access-token',
+    });
+  });
+
+  it('keeps the current access token when an invalid refresh token is rejected', async () => {
+    setAccessToken('still-valid-access-token');
+    setRefreshToken('expired-refresh-token');
+    const refreshError = { status: 401, message: 'Refresh token expired' };
+    const client = {
+      postWithoutInterceptors: vi.fn().mockRejectedValue(refreshError),
+    } as unknown as ApiClientService;
+
+    await expect(doRefresh(client)).rejects.toBe(refreshError);
+
+    expect(getAccessToken()).toBe('still-valid-access-token');
+    expect(localStorage.getItem('refreshToken')).toBeNull();
   });
 
   describe('unwrap function', () => {

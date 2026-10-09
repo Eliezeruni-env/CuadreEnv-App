@@ -22,6 +22,7 @@ import {
   SpinnerComponent,
   AlertComponent,
 } from '@coreui/angular';
+import { HasModuleDirective } from '../../../../app/shared/directives/has-module.directive';
 
 @Component({
   templateUrl: 'dashboard.component.html',
@@ -35,6 +36,7 @@ import {
     SpinnerComponent,
     AlertComponent,
     RouterLink,
+    HasModuleDirective,
   ],
 })
 export class DashboardComponent implements OnInit {
@@ -115,9 +117,35 @@ export class DashboardComponent implements OnInit {
     const to = this.endDate();
 
     try {
-      // 1. Fetch Sales & apply Date Range and User filter
-      const salesRes = await this.saleService.getSales();
-      if (salesRes.success && salesRes.data) {
+      const canViewSales = this.permissionService.hasModuleAccess('Sales');
+      const canViewCash = this.permissionService.hasModuleAccess('CashRegister');
+      const canViewInventory = this.permissionService.hasModuleAccess('Inventory');
+      const canViewReceivables = this.permissionService.hasModuleAccess('Receivables');
+      const canViewCompany = this.permissionService.hasModuleAccess('Company');
+      const canViewAudit = this.permissionService.hasModuleAccess('Audit');
+
+      if (!canViewSales) {
+        this.todaySalesCount.set(0);
+        this.todaySalesTotal.set(0);
+      }
+      if (!canViewCash) this.activeCashRegistersCount.set(0);
+      if (!canViewReceivables) this.overdueAccountsCount.set(0);
+      if (!canViewCompany) this.usersCount.set(0);
+      if (!canViewAudit) this.auditMovements.set([]);
+      if (!canViewInventory) {
+        this.productsCount.set(0);
+        this.warehousesCount.set(0);
+        this.lowStockCount.set(0);
+        this.lowStockProducts.set([]);
+        this.warehousesList.set([]);
+        this.productsList.set([]);
+        this.recentMovements.set([]);
+      }
+
+      // 1. Fetch only data belonging to modules assigned to this user.
+      if (canViewSales) {
+        const salesRes = await this.saleService.getSales();
+        if (salesRes.success && salesRes.data) {
         let filteredSales = salesRes.data.filter((s: any) => !s.isCancelled);
 
         const isPrivileged =
@@ -160,108 +188,114 @@ export class DashboardComponent implements OnInit {
         );
         this.todaySalesTotal.set(totalAmount);
         this.todaySalesCount.set(filteredSales.length);
-      }
-
-      // 2. Fetch Active Cash Registers KPI (safely handled to avoid 403)
-      try {
-        const cashRes = await this.cashRegisterService.getCashRegisters();
-        if (cashRes.success && cashRes.data) {
-          const activeCount = cashRes.data.filter(
-            (c: any) => c.isOpen === true || c.status === 'Open' || c.status === 'Opened',
-          ).length;
-          this.activeCashRegistersCount.set(activeCount);
         }
-      } catch {
-        // Ignore 403 or network failure gracefully
       }
 
-      // 3. Fetch Low Stock Alerts KPI
-      const lowStockRes = await this.inventoryService.getLowStock();
-      if (lowStockRes.success && lowStockRes.data) {
-        this.lowStockCount.set(lowStockRes.data.length);
-        this.lowStockProducts.set(lowStockRes.data);
-      }
-
-      // 4. Fetch Overdue Accounts Receivable KPI
-      const overdueRes = await this.accountReceivableService.getOverdue();
-      if (overdueRes.success && overdueRes.data) {
-        this.overdueAccountsCount.set(overdueRes.data.length);
-      }
-
-      // 5. Fetch general counts (Products, Warehouses, Users)
-      try {
-        const productsRes = await this.productService.getPagedProducts(1, 1);
-        if (productsRes.success && productsRes.data) {
-          this.productsCount.set(productsRes.data.total || 0);
+      if (canViewCash) {
+        try {
+          const cashRes = await this.cashRegisterService.getCashRegisters();
+          if (cashRes.success && cashRes.data) {
+            const activeCount = cashRes.data.filter(
+              (c: any) => c.isOpen === true || c.status === 'Open' || c.status === 'Opened',
+            ).length;
+            this.activeCashRegistersCount.set(activeCount);
+          }
+        } catch {
+          this.activeCashRegistersCount.set(0);
         }
-      } catch {
-        this.productsCount.set(0);
       }
 
-      const warehousesRes = await this.inventoryService.getWarehouses();
-      if (warehousesRes.success && warehousesRes.data) {
-        this.warehousesCount.set(warehousesRes.data.length);
-        this.warehousesList.set(warehousesRes.data);
+      if (canViewInventory) {
+        const lowStockRes = await this.inventoryService.getLowStock();
+        if (lowStockRes.success && lowStockRes.data) {
+          this.lowStockCount.set(lowStockRes.data.length);
+          this.lowStockProducts.set(lowStockRes.data);
+        }
+
+        try {
+          const productsRes = await this.productService.getPagedProducts(1, 1);
+          if (productsRes.success && productsRes.data) {
+            this.productsCount.set(productsRes.data.total || 0);
+          }
+          const pRes = await this.productService.getPagedProducts(1, 100);
+          if (pRes.success && pRes.data) {
+            this.productsList.set(pRes.data.items || []);
+          }
+        } catch {
+          this.productsCount.set(0);
+          this.productsList.set([]);
+        }
+
+        const warehousesRes = await this.inventoryService.getWarehouses();
+        if (warehousesRes.success && warehousesRes.data) {
+          this.warehousesCount.set(warehousesRes.data.length);
+          this.warehousesList.set(warehousesRes.data);
+        }
+
+        const movementsRes = await this.inventoryService.getMovements({
+          from: from || undefined,
+          to: to || undefined,
+        });
+        if (movementsRes.success && movementsRes.data) {
+          this.recentMovements.set(movementsRes.data.slice(0, 8));
+        }
       }
 
-      // 5.1 Load Users Count ONLY if user has permissions (avoids 403 Forbidden error)
-      const canViewUsers =
-        this.authService.isSuperUser() ||
-        this.authService.hasRole(['Admin', 'SuperUser', 'Auditor', 'Audit']) ||
-        this.permissionService.hasPermission('Company', 'View');
-
-      if (canViewUsers) {
+      if (canViewCompany) {
         try {
           const usersRes = await this.userService.getUsers();
           if (usersRes.success && usersRes.data) {
             this.usersCount.set(usersRes.data.length);
           }
         } catch {
-          // Gracefully ignore 403 or network failure
+          this.usersCount.set(0);
         }
       }
 
-      // 6. Fetch audit movements feed (Historial de Auditoría)
-      const auditRes = await this.inventoryService.getAuditMovements();
-      if (auditRes.success && auditRes.data) {
-        let filteredAudit = auditRes.data;
-        if (from) {
-          filteredAudit = filteredAudit.filter((m: any) => {
-            const mDate = m.timestamp || m.createdAt || m.occurredAt || m.creationDate || m.date;
-            if (!mDate) return false;
-            return mDate.split('T')[0] >= from;
-          });
+      if (canViewReceivables) {
+        const overdueRes = await this.accountReceivableService.getOverdue();
+        if (overdueRes.success && overdueRes.data) {
+          this.overdueAccountsCount.set(overdueRes.data.length);
         }
-        if (to) {
-          filteredAudit = filteredAudit.filter((m: any) => {
-            const mDate = m.timestamp || m.createdAt || m.occurredAt || m.creationDate || m.date;
-            if (!mDate) return false;
-            return mDate.split('T')[0] <= to;
-          });
-        }
-        this.auditMovements.set(filteredAudit.slice(0, 10));
       }
 
-      // 7. Fetch inventory movements with date filter
-      const movementsRes = await this.inventoryService.getMovements({
-        from: from || undefined,
-        to: to || undefined,
-      });
-      if (movementsRes.success && movementsRes.data) {
-        this.recentMovements.set(movementsRes.data.slice(0, 8));
-      }
+      if (canViewAudit) {
+        const auditRes = await this.inventoryService.getAuditMovements();
+        if (auditRes.success && auditRes.data) {
+          let filteredAudit = auditRes.data;
+          if (from) {
+            filteredAudit = filteredAudit.filter((m: any) => {
+              const mDate = m.timestamp || m.createdAt || m.occurredAt || m.creationDate || m.date;
+              if (!mDate) return false;
+              return mDate.split('T')[0] >= from;
+            });
+          }
+          if (to) {
+            filteredAudit = filteredAudit.filter((m: any) => {
+              const mDate = m.timestamp || m.createdAt || m.occurredAt || m.creationDate || m.date;
+              if (!mDate) return false;
+              return mDate.split('T')[0] <= to;
+            });
+          }
+          this.auditMovements.set(filteredAudit.slice(0, 10));
+        }
 
-      // 8. Fetch products catalog for name resolutions
-      const pRes = await this.productService.getPagedProducts(1, 100);
-      if (pRes.success && pRes.data) {
-        this.productsList.set(pRes.data.items || []);
       }
     } catch (e: any) {
-      this.errorMessage.set(
-        e?.response?.data?.message ||
-          e?.message ||
-          'Error loading dashboard metrics.',
-      );
+      const status = e?.status ?? e?.statusCode ?? e?.response?.status;
+      if (status === 403) {
+        console.warn('[Dashboard] API withheld one or more module metrics; keeping dashboard available.', {
+          url: e?.url,
+          code: e?.error?.errorCode ?? e?.error?.code,
+        });
+        this.errorMessage.set(null);
+      } else {
+        this.errorMessage.set(
+          e?.response?.data?.message ||
+            e?.message ||
+            'Error loading dashboard metrics.',
+        );
+      }
     } finally {
       this.isLoading.set(false);
     }

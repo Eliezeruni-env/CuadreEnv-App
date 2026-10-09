@@ -683,6 +683,43 @@ export class CashRegisterService {
 
     const assignedId = saleRes?.id || saleRes?.data?.id || Math.floor(1000 + Math.random() * 9000);
 
+    // Save to local sales cache so SalesComponent (PC) also sees it immediately
+    try {
+      const localSale: any = {
+        id: assignedId,
+        customerId: saleData.customerId || null,
+        total: saleData.total,
+        paidAmount: saleData.amountReceived || saleData.total,
+        cashRegisterId: session.id,
+        isCancelled: false,
+        creationDate: new Date().toISOString(),
+        details: saleData.items.map((it) => ({
+          productId: it.productId,
+          quantity: it.quantity,
+          unitPrice: it.unitPrice,
+        })),
+      };
+      const raw = localStorage.getItem('cuadreenv_local_sales_cache');
+      const list = raw ? JSON.parse(raw) : [];
+      if (!list.some((s: any) => s.id === localSale.id)) {
+        list.unshift(localSale);
+        localStorage.setItem('cuadreenv_local_sales_cache', JSON.stringify(list));
+      }
+      // Update session current balance in cache if cash sale
+      if (
+        saleData.paymentMethod.toUpperCase() === 'EFECTIVO' ||
+        saleData.paymentMethod.toUpperCase() === 'CASH'
+      ) {
+        const storedSess = localStorage.getItem('cuadreenv_active_cash_register_session');
+        if (storedSess) {
+          const sessObj = JSON.parse(storedSess);
+          sessObj.currentBalance = (sessObj.currentBalance || sessObj.initialAmount || 0) + saleData.total;
+          sessObj.totalIn = (sessObj.totalIn || 0) + saleData.total;
+          localStorage.setItem('cuadreenv_active_cash_register_session', JSON.stringify(sessObj));
+        }
+      }
+    } catch (_) {}
+
     return {
       success: true,
       data: {
