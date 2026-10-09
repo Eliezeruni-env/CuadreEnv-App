@@ -1,0 +1,1149 @@
+<div class="container-fluid py-3 quick-sale-page-container">
+  <!-- Top Navigation & Header Toolbar -->
+  <div class="d-flex align-items-center justify-content-between flex-wrap gap-2 mb-3 bg-white p-3 rounded-4 shadow-sm border">
+    <div class="d-flex align-items-center gap-3">
+      <a [routerLink]="['/sales']" class="btn btn-outline-secondary d-flex align-items-center gap-1 px-3 shadow-xs">
+        <svg cIcon name="cilArrowLeft" style="width: 16px; height: 16px;"></svg>
+        <span>Volver a Ventas</span>
+      </a>
+      <div>
+        <h4 class="fw-bold mb-0 text-dark">Punto de Venta Rápido (POS)</h4>
+        <small class="text-secondary">Jornada continua · Alta velocidad · Protección offline e idempotencia</small>
+      </div>
+    </div>
+
+    <!-- Right Controls: Network status, held sales, last receipt, reset -->
+    <div class="d-flex align-items-center flex-wrap gap-2">
+      <!-- Network Indicator -->
+      @if (!offlineService.isOnline()) {
+        <span class="badge bg-danger text-white px-3 py-2 rounded-pill d-flex align-items-center gap-2">
+          <span class="pulse-dot bg-white"></span>
+          <span>Modo Offline</span>
+        </span>
+      } @else {
+        <span class="badge bg-success-subtle text-success border px-3 py-2 rounded-pill d-flex align-items-center gap-2">
+          <span class="pulse-dot"></span>
+          <span>Online · {{ activeSessionName() }}</span>
+        </span>
+      }
+
+      <!-- Offline Sync Pending Queue Button -->
+      @if (offlineService.pendingCount() > 0) {
+        <button
+          type="button"
+          class="btn btn-warning btn-sm fw-bold px-3 d-flex align-items-center gap-1"
+          (click)="offlineService.syncPendingSales()"
+          [disabled]="offlineService.isSyncing()"
+          title="Sincronizar ventas guardadas localmente"
+        >
+          @if (offlineService.isSyncing()) {
+            <c-spinner size="sm" class="me-1"></c-spinner>
+            <span>Sincronizando...</span>
+          } @else {
+            <span>⚠️ {{ offlineService.pendingCount() }} pendiente(s)</span>
+          }
+        </button>
+      }
+
+      <!-- Offline Conflicts Button -->
+      @if (offlineService.conflictsCount() > 0) {
+        <button
+          type="button"
+          class="btn btn-danger btn-sm fw-bold px-3 d-flex align-items-center gap-1"
+          (click)="openConflictsModal()"
+          title="Ver y resolver conflictos de sincronización offline"
+        >
+          <span>🚨 {{ offlineService.conflictsCount() }} conflicto(s)</span>
+        </button>
+      }
+
+      <!-- Held Sales Button [F9] -->
+      <button
+        type="button"
+        class="btn btn-outline-primary btn-sm px-3 d-flex align-items-center gap-1"
+        (click)="openHeldSalesModal()"
+        title="Ver ventas en espera (F9)"
+      >
+        <span>📦 En Espera</span>
+        @if (draftStorageService.heldCount() > 0) {
+          <span class="badge bg-primary rounded-pill ms-1">{{ draftStorageService.heldCount() }}</span>
+        }
+      </button>
+
+      <!-- Hold Current Sale Button [F8] -->
+      <button
+        type="button"
+        class="btn btn-outline-secondary btn-sm px-2"
+        (click)="holdCurrentSale()"
+        [disabled]="cartItems().length === 0"
+        title="Poner venta actual en espera (F8)"
+      >
+        <span>⏸️ Pausar (F8)</span>
+      </button>
+
+      <!-- Reprint Last Ticket Button -->
+      <button
+        type="button"
+        class="btn btn-outline-dark btn-sm px-2"
+        (click)="reprintLastSale()"
+        [disabled]="!lastCompletedSale()"
+        title="Reimprimir el ticket de la última venta efectuada"
+      >
+        <span>🖨️ Reimprimir</span>
+      </button>
+
+      <!-- Drawer Kick Button -->
+      <button
+        type="button"
+        class="btn btn-outline-dark btn-sm px-2 shadow-xs"
+        (click)="openDrawerManual()"
+        title="Abrir gaveta manual sin venta (Registrado en auditoría)"
+      >
+        <span>🔓 Abrir Gaveta</span>
+      </button>
+
+      <!-- Clear Form -->
+      <button
+        type="button"
+        class="btn btn-light border text-secondary px-2"
+        (click)="resetForm()"
+        title="Limpiar carrito"
+      >
+        <span>Limpiar</span>
+      </button>
+    </div>
+  </div>
+
+  <!-- ALERTA DE AGOTAMIENTO DE SECUENCIAS DGII (NCF / e-CF) -->
+  <app-ncf-alert-banner></app-ncf-alert-banner>
+
+  <!-- PERSISTENT CRITICAL ALERT PANEL (Network Drop / Payment Failure) -->
+  @if (criticalAlert(); as alert) {
+    <div class="alert alert-danger shadow-sm border border-danger p-3 rounded-3 mb-3 d-flex align-items-center justify-content-between flex-wrap gap-3">
+      <div class="d-flex align-items-start gap-3">
+        <div class="text-danger fs-3">
+          <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="10"></circle>
+            <line x1="12" y1="8" x2="12" y2="12"></line>
+            <line x1="12" y1="16" x2="12.01" y2="16"></line>
+          </svg>
+        </div>
+        <div>
+          <h6 class="fw-bold mb-1 text-danger">{{ alert.title }}</h6>
+          <p class="mb-0 small text-body">{{ alert.message }}</p>
+        </div>
+      </div>
+      <div class="d-flex align-items-center gap-2">
+        <button
+          type="button"
+          class="btn btn-danger btn-sm fw-bold px-3"
+          (click)="retryCriticalPayment()"
+        >
+          Reintentar Cobro
+        </button>
+        @if (alert.canQueueOffline) {
+          <button
+            type="button"
+            class="btn btn-warning btn-sm fw-bold px-3"
+            (click)="forceQueueOfflineSale()"
+          >
+            Guardar en Modo Offline (Efectivo)
+          </button>
+        }
+        <button
+          type="button"
+          class="btn btn-outline-secondary btn-sm px-3"
+          (click)="dismissCriticalAlert()"
+        >
+          Descartar
+        </button>
+      </div>
+    </div>
+  }
+
+  <!-- Main 2-Column POS Layout -->
+  <div class="row g-3">
+    <!-- LEFT SIDE: Sale Form & Cart (Col-lg-7) -->
+    <div class="col-lg-7 col-xl-7 d-flex flex-column gap-3">
+      <!-- 1. Información del Cliente y Almacén de Despacho -->
+      <div class="card border rounded-4 shadow-sm bg-white p-3">
+        <div class="row g-2">
+          <div class="col-md-6">
+            <label class="form-label fw-bold text-dark small mb-1 d-flex align-items-center gap-1">
+              <span class="badge bg-primary rounded-circle px-2">1</span>
+              <span>Cliente</span>
+            </label>
+            <select class="form-select border" [(ngModel)]="selectedCustomerId">
+              <option [ngValue]="null">Consumidor final (Sin RNC)</option>
+              @for (c of customers(); track c.id) {
+                <option [ngValue]="c.id">
+                  {{ c.name }} {{ c.identification ? '(' + c.identification + ')' : '' }}
+                </option>
+              }
+            </select>
+          </div>
+          <div class="col-md-6">
+            <label class="form-label fw-bold text-dark small mb-1 d-flex justify-content-between align-items-center">
+              <span>Almacén de Despacho *</span>
+              <span class="badge bg-light text-primary border font-monospace">Aislado</span>
+            </label>
+            <select class="form-select border fw-semibold" [ngModel]="selectedWarehouseId()" (ngModelChange)="onWarehouseChange($event)">
+              @for (wh of warehouses(); track wh.id) {
+                <option [ngValue]="wh.id">
+                  🏢 {{ wh.name }} {{ wh.isMain ? '(Principal)' : '' }}
+                </option>
+              }
+            </select>
+          </div>
+        </div>
+      </div>
+
+      <!-- 2. Productos en Venta (Cart Table) -->
+      <div class="card border rounded-4 shadow-sm bg-white p-3 flex-grow-1">
+        <div class="d-flex justify-content-between align-items-center mb-2">
+          <label class="form-label fw-bold text-dark mb-0 d-flex align-items-center gap-2">
+            <span class="badge bg-primary rounded-circle px-2">2</span>
+            <span>Productos en venta ({{ cartItems().length }})</span>
+          </label>
+          @if (cartItems().length > 0) {
+            <button type="button" class="btn btn-sm text-danger border-0 p-0" (click)="clearCart()">
+              Vaciar carrito
+            </button>
+          }
+        </div>
+
+        <div class="table-responsive cart-table-box border rounded-3 mb-2" style="min-height: 180px; max-height: 280px; overflow-y: auto;">
+          <table class="table table-hover align-middle mb-0">
+            <thead class="table-light font-size-xs text-uppercase text-secondary sticky-top">
+              <tr>
+                <th class="ps-3">Producto</th>
+                <th class="text-end" style="width: 110px;">Precio Unit.</th>
+                <th class="text-center" style="width: 145px;">Cantidad (+ / -)</th>
+                <th class="text-end" style="width: 120px;">Total</th>
+                <th style="width: 48px;"></th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (item of cartItems(); track item.productId; let i = $index) {
+                <tr
+                  [class.table-primary]="selectedCartIndex() === i"
+                  [class.pos-selected-row]="selectedCartIndex() === i"
+                  (click)="selectCartItem(i)"
+                  class="cursor-pointer"
+                >
+                  <td class="ps-3">
+                    <div class="d-flex align-items-center gap-2">
+                      @if (selectedCartIndex() === i) {
+                        <span class="badge bg-primary text-white rounded-pill px-2 py-1 font-monospace" style="font-size: 0.68rem;">▶ ACTIVO</span>
+                      }
+                      <div class="overflow-hidden">
+                        <div class="fw-bold text-dark text-truncate" style="max-width: 200px;" [title]="item.productName">
+                          {{ item.productName }}
+                        </div>
+                        <div class="text-secondary small font-monospace" style="font-size: 0.72rem;">
+                          Código: {{ item.productCode }}
+                        </div>
+                      </div>
+                    </div>
+                  </td>
+                  <td class="text-end font-monospace">
+                    RD$ {{ item.unitPrice | number:'1.2-2' }}
+                  </td>
+                  <td class="text-center">
+                    <div class="d-inline-flex align-items-center border rounded-3 bg-light shadow-xs p-1">
+                      <button
+                        type="button"
+                        class="btn btn-outline-secondary btn-sm px-2 py-1 touch-btn fw-bold"
+                        style="min-width: 38px; min-height: 38px; font-size: 1.15rem;"
+                        (click)="decrementQuantity(i); $event.stopPropagation()"
+                        title="Disminuir (-)"
+                      >
+                        -
+                      </button>
+                      <input
+                        type="number"
+                        min="1"
+                        class="form-control form-control-sm text-center border-0 bg-transparent p-0 font-monospace fw-bold"
+                        style="width: 48px; font-size: 1rem;"
+                        [value]="item.quantity"
+                        (change)="updateItemQuantity(i, $any($event.target).value)"
+                        (click)="$event.stopPropagation()"
+                      />
+                      <button
+                        type="button"
+                        class="btn btn-outline-secondary btn-sm px-2 py-1 touch-btn fw-bold"
+                        style="min-width: 38px; min-height: 38px; font-size: 1.15rem;"
+                        (click)="incrementQuantity(i); $event.stopPropagation()"
+                        title="Aumentar (+)"
+                      >
+                        +
+                      </button>
+                    </div>
+                  </td>
+                  <td class="text-end font-monospace fw-bold text-dark">
+                    RD$ {{ item.total | number:'1.2-2' }}
+                  </td>
+                  <td class="text-center pe-2">
+                    <button
+                      type="button"
+                      class="btn btn-sm btn-outline-danger p-1 rounded-circle touch-btn"
+                      style="width: 36px; height: 36px;"
+                      (click)="removeCartItem(i); $event.stopPropagation()"
+                      title="Eliminar producto"
+                    >
+                      <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <polyline points="3 6 5 6 21 6"></polyline>
+                        <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+                      </svg>
+                    </button>
+                  </td>
+                </tr>
+              } @empty {
+                <tr>
+                  <td colspan="5" class="text-center py-4 text-muted">
+                    <div class="py-2">
+                      <svg xmlns="http://www.w3.org/2000/svg" width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" class="text-secondary opacity-50 mb-2">
+                        <circle cx="9" cy="21" r="1"></circle>
+                        <circle cx="20" cy="21" r="1"></circle>
+                        <path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"></path>
+                      </svg>
+                      <p class="mb-0 small">El carrito está vacío. Escanee con lector o busque productos (F2).</p>
+                    </div>
+                  </td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+
+        <!-- Totals & Summary Card -->
+        <div class="bg-light p-3 rounded-3 border">
+          <div class="d-flex justify-content-between align-items-center mb-1 small text-secondary">
+            <span>Subtotal:</span>
+            <span class="font-monospace">RD$ {{ subtotal() | number:'1.2-2' }}</span>
+          </div>
+          <div class="d-flex justify-content-between align-items-center mb-1 small text-secondary">
+            <span>Descuento aplicado:</span>
+            <span class="font-monospace text-danger">- RD$ {{ discountAmount() | number:'1.2-2' }}</span>
+          </div>
+          <div class="d-flex justify-content-between align-items-center mb-1 small text-secondary">
+            <span>ITBIS (Diferenciado 18% / 16% / Exento):</span>
+            <span class="font-monospace">RD$ {{ itbis() | number:'1.2-2' }}</span>
+          </div>
+
+          <!-- Opciones Fiscales Avanzadas: Propina Legal y Retenciones -->
+          <div class="my-2 p-2 bg-white rounded border small">
+            <div class="d-flex justify-content-between align-items-center mb-1">
+              <label class="form-check-label d-flex align-items-center gap-1 cursor-pointer mb-0">
+                <input
+                  type="checkbox"
+                  class="form-check-input"
+                  [checked]="applyLegalTip()"
+                  (change)="applyLegalTip.set($any($event.target).checked)"
+                />
+                <span class="fw-semibold">10% Propina Legal (Ley 16-92)</span>
+              </label>
+              @if (applyLegalTip()) {
+                <span class="font-monospace text-primary fw-bold">+ RD$ {{ legalTipAmount() | number:'1.2-2' }}</span>
+              }
+            </div>
+
+            <!-- Retenciones ITBIS / ISR para B2B / Gobierno -->
+            <div class="row g-2 mt-1 pt-1 border-top">
+              <div class="col-6">
+                <label class="font-size-xs text-muted mb-0 d-block">Ret. ITBIS</label>
+                <select
+                  class="form-select form-select-sm font-size-xs py-0"
+                  [value]="retentionItbisRate()"
+                  (change)="retentionItbisRate.set(+$any($event.target).value)"
+                >
+                  <option [value]="0">Sin retención</option>
+                  <option [value]="30">30% (Físicas)</option>
+                  <option [value]="100">100% (Gob/Ent)</option>
+                </select>
+              </div>
+              <div class="col-6">
+                <label class="font-size-xs text-muted mb-0 d-block">Ret. ISR</label>
+                <select
+                  class="form-select form-select-sm font-size-xs py-0"
+                  [value]="retentionIsrRate()"
+                  (change)="retentionIsrRate.set(+$any($event.target).value)"
+                >
+                  <option [value]="0">Sin retención</option>
+                  <option [value]="2">2% (Serv. Técnicos)</option>
+                  <option [value]="10">10% (Profesionales)</option>
+                </select>
+              </div>
+            </div>
+
+            @if (retentionItbisAmount() > 0 || retentionIsrAmount() > 0) {
+              <div class="d-flex justify-content-between align-items-center mt-1 text-danger font-size-xs">
+                <span>Retenciones deducibles:</span>
+                <span class="font-monospace fw-bold">- RD$ {{ (retentionItbisAmount() + retentionIsrAmount()) | number:'1.2-2' }}</span>
+              </div>
+            }
+          </div>
+
+          <hr class="my-2 border-secondary-subtle" />
+          <div class="d-flex justify-content-between align-items-center">
+            <span class="fw-bold fs-5 text-dark">TOTAL NETO A PAGAR:</span>
+            <span class="fw-bold fs-4 text-primary font-monospace">RD$ {{ netPayable() | number:'1.2-2' }}</span>
+          </div>
+          @if (totalInUsd() > 0) {
+            <div class="text-end small text-muted">
+              <span>Equivalente: <strong>US$ {{ totalInUsd() | number:'1.2-2' }}</strong> (Tasa: RD$ {{ usdExchangeRate() }})</span>
+            </div>
+          }
+        </div>
+      </div>
+
+      <!-- 3. Forma de Pago & Cobro -->
+      <div class="card border rounded-4 shadow-sm bg-white p-3">
+        <label class="form-label fw-bold text-dark mb-2 d-flex align-items-center gap-2">
+          <span class="badge bg-primary rounded-circle px-2">3</span>
+          <span>Método de Pago y Confirmación</span>
+        </label>
+
+        <!-- Method Selector Tabs -->
+        <div class="btn-group w-100 mb-3" role="group">
+          <button
+            type="button"
+            class="btn py-2 touch-btn fw-bold"
+            [class.btn-primary]="selectedMethod() === 'Efectivo'"
+            [class.btn-outline-secondary]="selectedMethod() !== 'Efectivo'"
+            (click)="setMethod('Efectivo')"
+          >
+            💵 Efectivo
+          </button>
+          <button
+            type="button"
+            class="btn py-2 touch-btn fw-bold"
+            [class.btn-primary]="selectedMethod() === 'Tarjeta'"
+            [class.btn-outline-secondary]="selectedMethod() !== 'Tarjeta'"
+            (click)="setMethod('Tarjeta')"
+          >
+            💳 Tarjeta
+          </button>
+          <button
+            type="button"
+            class="btn py-2 touch-btn fw-bold"
+            [class.btn-primary]="selectedMethod() === 'Transferencia'"
+            [class.btn-outline-secondary]="selectedMethod() !== 'Transferencia'"
+            (click)="setMethod('Transferencia')"
+          >
+            🏦 Transferencia
+          </button>
+        </div>
+
+        <!-- Dynamic Inputs based on Method -->
+        @if (selectedMethod() === 'Efectivo') {
+          <!-- Currency Selector (RD$ / USD) & Central Bank Rate -->
+          <div class="d-flex justify-content-between align-items-center mb-2 pb-1 border-bottom">
+            <div class="btn-group btn-group-sm" role="group">
+              <button
+                type="button"
+                class="btn py-1 px-3 fw-bold"
+                [class.btn-dark]="cashCurrency() === 'DOP'"
+                [class.btn-outline-secondary]="cashCurrency() !== 'DOP'"
+                (click)="setCashCurrency('DOP')"
+              >
+                🇩🇴 RD$ Pesos
+              </button>
+              <button
+                type="button"
+                class="btn py-1 px-3 fw-bold"
+                [class.btn-dark]="cashCurrency() === 'USD'"
+                [class.btn-outline-secondary]="cashCurrency() !== 'USD'"
+                (click)="setCashCurrency('USD')"
+              >
+                🇺🇸 USD Dólares
+              </button>
+            </div>
+
+            @if (cashCurrency() === 'USD') {
+              <div class="d-flex align-items-center gap-1 small text-secondary">
+                <span class="font-size-xs fw-semibold">Tasa USD: RD$</span>
+                <input
+                  type="number"
+                  step="0.05"
+                  class="form-control form-control-sm font-monospace fw-bold text-center p-0 border"
+                  style="width: 60px;"
+                  [value]="usdExchangeRate()"
+                  (change)="setUsdExchangeRate($any($event.target).value)"
+                  title="Ajustar tasa de cambio para este turno"
+                />
+              </div>
+            }
+          </div>
+
+          @if (cashCurrency() === 'DOP') {
+            <!-- DOP Inputs -->
+            <div class="row g-2 align-items-center mb-2">
+              <div class="col-sm-6">
+                <label class="form-label small text-secondary mb-1 fw-bold">Monto Recibido</label>
+                <div class="input-group">
+                  <span class="input-group-text fw-semibold">RD$</span>
+                  <input
+                    #amountReceivedInput
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    class="form-control form-control-lg font-monospace fw-bold"
+                    [(ngModel)]="amountReceived"
+                    (keydown.enter)="processQuickSale()"
+                    placeholder="0.00"
+                  />
+                </div>
+              </div>
+              <div class="col-sm-6">
+                <label class="form-label small text-secondary mb-1 fw-bold">Cambio / Vuelto</label>
+                <div class="form-control form-control-lg bg-light font-monospace fw-bold text-success border fs-5">
+                  RD$ {{ change() | number:'1.2-2' }}
+                </div>
+              </div>
+            </div>
+
+            <!-- Billetes Rápidos Dominicanos (Optimizado para Touch 15") -->
+            <div class="mb-3 p-2 bg-light rounded-3 border">
+              <div class="d-flex justify-content-between align-items-center mb-2">
+                <span class="small fw-bold text-dark font-size-xs text-uppercase d-flex align-items-center gap-1">
+                  <span>💵 Billetes Rápidos (Táctil):</span>
+                </span>
+                <span class="badge bg-success-subtle text-success border font-size-xs">⚡ Enter = Exacto</span>
+              </div>
+              <div class="d-flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  class="btn btn-sm btn-success fw-bold px-3 py-2 flex-grow-1 touch-btn shadow-xs"
+                  (click)="applyQuickCash('exact')"
+                  title="Cobro en Efectivo Exacto (Enter)"
+                >
+                  <span>RD$ Exacto (Enter)</span>
+                </button>
+                <button
+                  type="button"
+                  class="btn btn-sm btn-white border fw-bold px-3 py-2 touch-btn shadow-xs"
+                  (click)="applyQuickCash(100)"
+                >
+                  RD$ 100
+                </button>
+                <button
+                  type="button"
+                  class="btn btn-sm btn-white border fw-bold px-3 py-2 touch-btn shadow-xs"
+                  (click)="applyQuickCash(200)"
+                >
+                  RD$ 200
+                </button>
+                <button
+                  type="button"
+                  class="btn btn-sm btn-white border fw-bold px-3 py-2 touch-btn shadow-xs"
+                  (click)="applyQuickCash(500)"
+                >
+                  RD$ 500
+                </button>
+                <button
+                  type="button"
+                  class="btn btn-sm btn-white border fw-bold px-3 py-2 touch-btn shadow-xs"
+                  (click)="applyQuickCash(1000)"
+                >
+                  RD$ 1,000
+                </button>
+                <button
+                  type="button"
+                  class="btn btn-sm btn-white border fw-bold px-3 py-2 touch-btn shadow-xs"
+                  (click)="applyQuickCash(2000)"
+                >
+                  RD$ 2,000
+                </button>
+              </div>
+            </div>
+          } @else {
+            <!-- USD Inputs -->
+            <div class="row g-2 align-items-center mb-2">
+              <div class="col-sm-6">
+                <label class="form-label small text-secondary mb-1 fw-bold">Dólares Recibidos (USD)</label>
+                <div class="input-group">
+                  <span class="input-group-text fw-semibold bg-success-subtle text-success">US$</span>
+                  <input
+                    type="number"
+                    step="1"
+                    min="0"
+                    class="form-control form-control-lg font-monospace fw-bold"
+                    [(ngModel)]="amountReceivedUsd"
+                    (keydown.enter)="processQuickSale()"
+                    placeholder="0.00"
+                  />
+                </div>
+                <div class="small text-secondary mt-1 font-monospace" style="font-size: 0.72rem;">
+                  Equiv: RD$ {{ effectiveAmountReceivedDop() | number:'1.2-2' }} · Total: US$ {{ totalInUsd() | number:'1.2-2' }}
+                </div>
+              </div>
+              <div class="col-sm-6">
+                <label class="form-label small text-secondary mb-1 fw-bold">Vuelto en Pesos (RD$)</label>
+                <div class="form-control form-control-lg bg-light font-monospace fw-bold text-success border fs-5">
+                  RD$ {{ change() | number:'1.2-2' }}
+                </div>
+                <div class="small text-success mt-1" style="font-size: 0.72rem;">
+                  ✓ Entregar cambio exacto en RD$
+                </div>
+              </div>
+            </div>
+
+            <!-- Billetes Rápidos en USD -->
+            <div class="mb-3 p-2 bg-light rounded-3 border">
+              <div class="d-flex justify-content-between align-items-center mb-2">
+                <span class="small fw-bold text-dark font-size-xs text-uppercase">Billetes USD Táctiles:</span>
+                <span class="badge bg-primary-subtle text-primary border font-size-xs">Tasa Banco Central: RD$ {{ usdExchangeRate() }}</span>
+              </div>
+              <div class="d-flex flex-wrap gap-2">
+                <button type="button" class="btn btn-sm btn-white border fw-bold px-3 py-2 touch-btn shadow-xs" (click)="applyQuickUsd(10)">US$ 10</button>
+                <button type="button" class="btn btn-sm btn-white border fw-bold px-3 py-2 touch-btn shadow-xs" (click)="applyQuickUsd(20)">US$ 20</button>
+                <button type="button" class="btn btn-sm btn-white border fw-bold px-3 py-2 touch-btn shadow-xs" (click)="applyQuickUsd(50)">US$ 50</button>
+                <button type="button" class="btn btn-sm btn-white border fw-bold px-3 py-2 touch-btn shadow-xs" (click)="applyQuickUsd(100)">US$ 100</button>
+              </div>
+            </div>
+          }
+        } @else if (selectedMethod() === 'Tarjeta') {
+          <div class="row g-2 mb-3">
+            <div class="col-sm-4">
+              <label class="form-label small text-secondary mb-1">Tipo Tarjeta</label>
+              <select class="form-select" [(ngModel)]="cardType">
+                <option value="DEBIT">Débito</option>
+                <option value="CREDIT">Crédito</option>
+              </select>
+            </div>
+            <div class="col-sm-4">
+              <label class="form-label small text-secondary mb-1">Últimos 4 Dígitos</label>
+              <input
+                type="text"
+                maxlength="4"
+                placeholder="4242"
+                class="form-control font-monospace"
+                [(ngModel)]="cardLastFour"
+              />
+            </div>
+            <div class="col-sm-4">
+              <label class="form-label small text-secondary mb-1">Nº Autorización / Voucher</label>
+              <input
+                type="text"
+                placeholder="AUT-9821"
+                class="form-control font-monospace"
+                [(ngModel)]="cardAuthVoucher"
+              />
+            </div>
+          </div>
+        } @else {
+          <!-- PAGO CON TRANSFERENCIA BANCARIA LOCAL & CÓDIGO QR DINÁMICO -->
+          <div class="card border rounded-3 p-3 bg-light mb-3">
+            <div class="d-flex justify-content-between align-items-center mb-2">
+              <span class="small fw-bold text-dark text-uppercase d-flex align-items-center gap-1 font-size-xs">
+                <span>⚡ Seleccionar Canal Bancario:</span>
+              </span>
+              <span class="badge bg-primary-subtle text-primary border font-size-xs">RD$ Inmediato</span>
+            </div>
+
+            <!-- Bank Selector Badges -->
+            <div class="d-flex flex-wrap gap-1 mb-3">
+              @for (b of bankChannels; track b.id) {
+                <button
+                  type="button"
+                  class="btn btn-sm py-1 px-2 d-flex align-items-center gap-1 touch-btn"
+                  [ngClass]="selectedBankChannel() === b.id ? 'btn-' + b.color + ' text-white fw-bold shadow-xs' : 'btn-white border text-dark'"
+                  (click)="selectBankChannel(b.id)"
+                >
+                  <span>{{ b.icon }}</span>
+                  <span>{{ b.name }}</span>
+                </button>
+              }
+            </div>
+
+            <!-- QR & Account Information Card -->
+            <div class="row g-2 align-items-center bg-white p-2 rounded-3 border mb-2">
+              <div class="col-auto text-center">
+                <img
+                  [src]="transferQrUrl()"
+                  alt="QR Transferencia Instantánea"
+                  style="width: 100px; height: 100px;"
+                  class="border p-1 rounded-2 bg-white shadow-xs"
+                />
+                <div class="small text-muted font-size-xs mt-1">Escanear para pagar</div>
+              </div>
+              <div class="col">
+                <div class="d-flex justify-content-between align-items-start mb-1">
+                  <div>
+                    <h6 class="fw-bold mb-0 text-dark">{{ currentBankProfile().name }}</h6>
+                    <small class="text-secondary">{{ currentBankProfile().type }}</small>
+                  </div>
+                  <span class="badge bg-light text-secondary border font-size-xs">Titular: CuadreEnv Soluciones</span>
+                </div>
+
+                <!-- Account & Amount Quick Copy -->
+                <div class="d-flex flex-column gap-1 small">
+                  <div class="d-flex align-items-center justify-content-between bg-light px-2 py-1 rounded border">
+                    <span class="font-monospace fw-bold text-dark">{{ currentBankProfile().account }}</span>
+                    <button
+                      type="button"
+                      class="btn btn-link btn-sm p-0 text-primary text-decoration-none fw-semibold"
+                      (click)="copyPaymentDetails(currentBankProfile().account, 'No. de Cuenta')"
+                    >
+                      Copiar
+                    </button>
+                  </div>
+                  <div class="d-flex align-items-center justify-content-between bg-light px-2 py-1 rounded border">
+                    <span class="font-monospace fw-bold text-success">Monto: RD$ {{ total() | number:'1.2-2' }}</span>
+                    <button
+                      type="button"
+                      class="btn btn-link btn-sm p-0 text-success text-decoration-none fw-semibold"
+                      (click)="copyPaymentDetails(total().toFixed(2), 'Monto exacto')"
+                    >
+                      Copiar
+                    </button>
+                  </div>
+                </div>
+
+                <!-- WhatsApp Share Button -->
+                <button
+                  type="button"
+                  class="btn btn-outline-success btn-sm w-100 mt-2 d-flex align-items-center justify-content-center gap-1 fw-bold shadow-xs py-1"
+                  (click)="sendPaymentViaWhatsApp()"
+                  title="Enviar cuenta y monto exacto al WhatsApp del cliente"
+                >
+                  <span>📲 Enviar Datos de Pago por WhatsApp</span>
+                </button>
+              </div>
+            </div>
+
+            <!-- Transaction Reference Input -->
+            <div class="row g-2">
+              <div class="col-12">
+                <label class="form-label small text-secondary mb-1 fw-bold">
+                  Nº Confirmación / Voucher / Aprobación Transferencia
+                </label>
+                <input
+                  type="text"
+                  placeholder="Ej. AUT-894120 o No. Referencia Bancaria"
+                  class="form-control font-monospace"
+                  [(ngModel)]="transferReference"
+                />
+              </div>
+            </div>
+          </div>
+        }
+
+        <!-- Final Submit Checkout Button -->
+        <button
+          type="button"
+          class="btn btn-success btn-lg w-100 py-3 fw-bold text-uppercase d-flex align-items-center justify-content-center gap-2 shadow-sm touch-btn"
+          [disabled]="isSubmitting() || isLoading() || cartItems().length === 0"
+          (click)="processQuickSale()"
+        >
+          @if (isSubmitting() || isLoading()) {
+            <c-spinner size="sm"></c-spinner>
+            <span>Procesando Cobro...</span>
+          } @else {
+            <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <rect x="2" y="4" width="20" height="16" rx="2"></rect>
+              <line x1="2" y1="10" x2="22" y2="10"></line>
+            </svg>
+            <span>Cobrar y Facturar (F4) · RD$ {{ total() | number:'1.2-2' }}</span>
+          }
+        </button>
+      </div>
+    </div>
+
+    <!-- RIGHT SIDE: Product Catalog & Fast Search (Col-lg-5) -->
+    <div class="col-lg-5 col-xl-5 d-flex flex-column gap-3">
+      <div class="card border rounded-4 shadow-sm bg-white p-3 h-100 d-flex flex-column">
+        <div class="d-flex justify-content-between align-items-center mb-2">
+          <label class="form-label fw-bold text-dark mb-0">Catálogo de Productos</label>
+          <span class="badge bg-light text-secondary border">{{ filteredCatalogProducts().length }} ítems</span>
+        </div>
+
+        <!-- Fast Search Input (F2) & Barcode Scanner -->
+        <div class="input-group mb-2">
+          <span class="input-group-text bg-light border-end-0">
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-secondary">
+              <circle cx="11" cy="11" r="8"></circle>
+              <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+            </svg>
+          </span>
+          <input
+            #catalogSearchInput
+            type="text"
+            class="form-control border-start-0"
+            placeholder="Buscar por nombre o escanear código de barras (F2)..."
+            [ngModel]="catalogSearchTerm()"
+            (ngModelChange)="catalogSearchTerm.set($event)"
+            (keydown)="onSearchKeydown($event)"
+          />
+          <button
+            type="button"
+            class="btn btn-outline-secondary d-flex align-items-center gap-1 font-monospace"
+            (click)="focusCatalogSearch()"
+            title="Enfocar buscador o lector de código de barras (F2)"
+          >
+            <kbd class="bg-secondary text-white px-2 py-0 rounded">F2</kbd>
+          </button>
+        </div>
+
+        <!-- Category Pills -->
+        <div class="d-flex gap-1 overflow-x-auto pb-2 mb-2 category-scroll">
+          @for (cat of categories(); track cat.id) {
+            <button
+              type="button"
+              class="btn btn-sm text-nowrap rounded-pill px-3 touch-btn"
+              [class.btn-primary]="selectedCategory() === cat.id"
+              [class.btn-light]="selectedCategory() !== cat.id"
+              [class.border]="selectedCategory() !== cat.id"
+              (click)="setCategory(cat.id)"
+            >
+              {{ cat.label }}
+            </button>
+          }
+        </div>
+
+        <!-- Catalog Grid (Optimized for 15" POS Touch Display) -->
+        <div class="catalog-grid flex-grow-1 overflow-y-auto mb-2" style="max-height: 480px;">
+          @if (isLoadingProducts()) {
+            <div class="text-center py-5">
+              <c-spinner color="primary"></c-spinner>
+              <div class="text-secondary small mt-2">Cargando catálogo...</div>
+            </div>
+          } @else {
+            <div class="row g-2">
+              @for (prod of pagedCatalogProducts(); track prod.id) {
+                <div class="col-6 col-md-6 col-lg-6">
+                  <div
+                    class="product-touch-card card h-100 border rounded-4 p-2 text-start d-flex flex-column justify-content-between touch-card cursor-pointer shadow-xs"
+                    (click)="addProductToCart(prod)"
+                    tabindex="0"
+                  >
+                    <div class="d-flex align-items-start gap-2">
+                      <div class="product-category-avatar rounded-3 bg-primary-subtle text-primary d-flex align-items-center justify-content-center flex-shrink-0" style="width: 40px; height: 40px; font-size: 1.35rem;">
+                        {{ getProductCategoryIcon(prod.categoryId, prod.description) }}
+                      </div>
+                      <div class="flex-grow-1 overflow-hidden">
+                        <div class="fw-bold text-dark text-truncate small" style="font-size: 0.9rem;" [title]="prod.description">
+                          {{ prod.description }}
+                        </div>
+                        <div class="d-flex justify-content-between align-items-center mt-1">
+                          <span class="text-secondary font-monospace" style="font-size: 0.72rem;">
+                            {{ prod.barcode || prod.reference || 'PROD-' + prod.id }}
+                          </span>
+                          <span class="badge font-size-xs" [ngClass]="getProductAvailableStock(prod.id!) > 0 ? 'bg-light text-secondary border' : 'bg-danger-subtle text-danger border border-danger-subtle'">
+                            Stock: {{ getProductAvailableStock(prod.id!) }}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                    <div class="d-flex justify-content-between align-items-center mt-2 pt-2 border-top">
+                      <span class="fw-bold text-primary small font-monospace fs-6">
+                        RD$ {{ (prod.cost || 100) | number:'1.2-2' }}
+                      </span>
+                      <span class="badge bg-primary text-white rounded-pill px-3 py-1 fw-bold shadow-xs">
+                        + Agregar
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              } @empty {
+                <div class="col-12 text-center py-4 text-muted small">
+                  No se encontraron productos coincidentes.
+                </div>
+              }
+            </div>
+          }
+        </div>
+
+        <!-- Catalog Pagination -->
+        @if (totalCatalogPages() > 1) {
+          <div class="d-flex justify-content-between align-items-center pt-2 border-top">
+            <button
+              type="button"
+              class="btn btn-sm btn-outline-secondary px-3 touch-btn"
+              [disabled]="catalogPage() <= 1"
+              (click)="prevCatalogPage()"
+            >
+              &laquo; Anterior
+            </button>
+            <span class="small text-secondary">
+              Pág. {{ catalogPage() }} de {{ totalCatalogPages() }}
+            </span>
+            <button
+              type="button"
+              class="btn btn-sm btn-outline-secondary px-3 touch-btn"
+              [disabled]="catalogPage() >= totalCatalogPages()"
+              (click)="nextCatalogPage()"
+            >
+              Siguiente &raquo;
+            </button>
+          </div>
+        }
+      </div>
+    </div>
+  </div>
+
+  <!-- PERSISTENT BOTTOM SHORTCUTS BAR (Touch & Keyboard Ergonomic POS Guide) -->
+  <div class="pos-shortcut-bar d-flex justify-content-center align-items-center flex-wrap gap-2 py-2 mt-3 border rounded-4 bg-white shadow-xs text-secondary small">
+    <button
+      type="button"
+      class="btn btn-light border btn-sm d-flex align-items-center gap-2 px-3 py-2 touch-btn rounded-3"
+      (click)="focusCatalogSearch()"
+      title="Buscar producto o enfocar lector de código de barras (F2)"
+    >
+      <kbd class="bg-dark text-white px-2 py-1 rounded">F2</kbd>
+      <span class="fw-semibold">Buscar / Escáner</span>
+    </button>
+
+    <button
+      type="button"
+      class="btn btn-light border btn-sm d-flex align-items-center gap-2 px-3 py-2 touch-btn rounded-3"
+      (click)="openPaymentSection()"
+      title="Abrir pantalla / sección de cobro (F4)"
+    >
+      <kbd class="bg-dark text-white px-2 py-1 rounded">F4</kbd>
+      <span class="fw-semibold">Pantalla de Cobro</span>
+    </button>
+
+    <button
+      type="button"
+      class="btn btn-light border btn-sm d-flex align-items-center gap-2 px-3 py-2 touch-btn rounded-3"
+      (click)="confirmExactCashFromShortcut()"
+      [disabled]="cartItems().length === 0"
+      title="Confirmar cobro en efectivo exacto (Enter)"
+    >
+      <kbd class="bg-success text-white px-2 py-1 rounded">Enter</kbd>
+      <span class="fw-semibold text-success">Cobro Exacto</span>
+    </button>
+
+    <button
+      type="button"
+      class="btn btn-light border btn-sm d-flex align-items-center gap-1 px-3 py-2 touch-btn rounded-3"
+      (click)="incrementSelectedCartItem()"
+      [disabled]="cartItems().length === 0"
+      title="Incrementar cantidad del ítem seleccionado (+)"
+    >
+      <kbd class="bg-dark text-white px-2 py-1 rounded">+</kbd>
+      <kbd class="bg-dark text-white px-2 py-1 rounded">-</kbd>
+      <span class="fw-semibold">Cantidad Ítem</span>
+    </button>
+
+    <button
+      type="button"
+      class="btn btn-light border btn-sm d-flex align-items-center gap-2 px-3 py-2 touch-btn rounded-3"
+      (click)="holdCurrentSale()"
+      [disabled]="cartItems().length === 0"
+      title="Poner venta actual en espera (F8)"
+    >
+      <kbd class="bg-dark text-white px-2 py-1 rounded">F8</kbd>
+      <span class="fw-semibold">En Espera</span>
+    </button>
+
+    <button
+      type="button"
+      class="btn btn-light border btn-sm d-flex align-items-center gap-2 px-3 py-2 touch-btn rounded-3"
+      (click)="openHeldSalesModal()"
+      title="Recuperar ventas en espera (F9)"
+    >
+      <kbd class="bg-dark text-white px-2 py-1 rounded">F9</kbd>
+      <span class="fw-semibold">Recuperar ({{ draftStorageService.heldCount() }})</span>
+    </button>
+
+    <div class="d-none d-md-flex align-items-center gap-1 ms-2 text-muted">
+      <kbd class="bg-light border text-dark px-2 py-1 rounded">Esc</kbd>
+      <span class="font-size-xs">Cerrar</span>
+    </div>
+  </div>
+</div>
+
+<!-- COMPLETED SALE RECEIPT MODAL (Thermal / A4 Printing) -->
+@if (isSaleCompletedModalOpen && lastCompletedSale()) {
+  <app-sale-completed-modal
+    [visible]="isSaleCompletedModalOpen"
+    [saleData]="lastCompletedSale()"
+    (visibleChange)="isSaleCompletedModalOpen = $event"
+    (closed)="onSaleModalClosed()"
+  ></app-sale-completed-modal>
+}
+
+<!-- HELD SALES (VENTAS EN ESPERA) MODAL -->
+@if (isHeldSalesModalOpen()) {
+  <div class="custom-modal-backdrop" (click)="closeHeldSalesModal()">
+    <div class="custom-modal-content p-4 rounded-4 shadow-lg bg-white" style="max-width: 580px;" (click)="$event.stopPropagation()">
+      <div class="d-flex justify-content-between align-items-center mb-3 border-bottom pb-2">
+        <h5 class="fw-bold mb-0 text-dark d-flex align-items-center gap-2">
+          <span>📦 Ventas Puestas en Espera</span>
+          <span class="badge bg-primary rounded-pill">{{ draftStorageService.heldCount() }}</span>
+        </h5>
+        <button type="button" class="btn-close" (click)="closeHeldSalesModal()"></button>
+      </div>
+
+      <div class="held-sales-list mb-3" style="max-height: 360px; overflow-y: auto;">
+        @for (held of draftStorageService.heldSales(); track held.id) {
+          <div class="card border rounded-3 p-3 mb-2 bg-light d-flex flex-row justify-content-between align-items-center gap-2">
+            <div>
+              <div class="fw-bold text-dark">{{ held.label }}</div>
+              <div class="text-secondary small">
+                {{ held.itemCount }} producto(s) &bull; Guardado: {{ held.heldAt | date:'shortTime' }}
+              </div>
+              <div class="fw-bold text-primary font-monospace mt-1">
+                RD$ {{ held.totalAmount | number:'1.2-2' }}
+              </div>
+            </div>
+            <div class="d-flex gap-2">
+              <button
+                type="button"
+                class="btn btn-sm btn-primary fw-bold px-3 touch-btn"
+                (click)="resumeHeldSale(held)"
+              >
+                Cargar Venta
+              </button>
+              <button
+                type="button"
+                class="btn btn-sm btn-outline-danger touch-btn"
+                (click)="dismissHeldSale(held.id)"
+                title="Descartar"
+              >
+                ✕
+              </button>
+            </div>
+          </div>
+        } @empty {
+          <div class="text-center py-4 text-muted">
+            <p class="mb-0">No hay ventas puestas en espera actualmente.</p>
+          </div>
+        }
+      </div>
+
+      <div class="text-end">
+        <button type="button" class="btn btn-secondary px-4" (click)="closeHeldSalesModal()">
+          Cerrar
+        </button>
+      </div>
+    </div>
+  </div>
+}
+
+<!-- OPEN CASH REGISTER GUARD MODAL -->
+@if (isOpenSessionModalVisible()) {
+  <div class="custom-modal-backdrop">
+    <div class="custom-modal-content p-4 rounded-4 shadow-lg bg-white text-center" style="max-width: 440px;">
+      <div class="text-warning mb-3">
+        <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="12" r="10"></circle>
+          <line x1="12" y1="8" x2="12" y2="12"></line>
+          <line x1="12" y1="16" x2="12.01" y2="16"></line>
+        </svg>
+      </div>
+      <h5 class="fw-bold text-dark mb-2">Caja Cerrada / Sin Turno</h5>
+      <p class="text-secondary small mb-4">
+        Para operar el punto de venta y registrar ingresos en efectivo, es obligatorio realizar una apertura de turno en caja.
+      </p>
+      <div class="d-flex flex-column gap-2 justify-content-center">
+        <button type="button" class="btn btn-success fw-bold py-2 shadow-sm d-flex align-items-center justify-content-center gap-2" (click)="quickOpenCashRegister()" [disabled]="isLoading()">
+          @if (isLoading()) {
+            <c-spinner size="sm"></c-spinner>
+            <span>Abriendo Caja...</span>
+          } @else {
+            <span>⚡ Aperturar Turno Rápido (RD$ 0.00)</span>
+          }
+        </button>
+        <div class="d-flex gap-2 justify-content-center mt-1">
+          <button type="button" class="btn btn-outline-secondary px-3 w-50" (click)="goToSales()">
+            Volver a Ventas
+          </button>
+          <button type="button" class="btn btn-outline-primary fw-bold px-3 w-50" (click)="goToOpenCashRegister()">
+            Abrir con Fondo Específico
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+}
+
+<!-- OFFLINE CONFLICT RESOLUTION MODAL -->
+@if (isConflictsModalOpen()) {
+  <div class="custom-modal-backdrop" (click)="closeConflictsModal()">
+    <div class="custom-modal-content p-4 rounded-4 shadow-lg bg-white" style="max-width: 680px;" (click)="$event.stopPropagation()">
+      <div class="d-flex justify-content-between align-items-center mb-3 border-bottom pb-2">
+        <h5 class="fw-bold mb-0 text-danger d-flex align-items-center gap-2">
+          <span>🚨 Conflictos de Sincronización Offline</span>
+          <span class="badge bg-danger rounded-pill">{{ offlineService.conflictsCount() }}</span>
+        </h5>
+        <button type="button" class="btn-close" (click)="closeConflictsModal()"></button>
+      </div>
+
+      <p class="text-secondary small mb-3">
+        Estas ventas fueron cobradas en efectivo en esta terminal mientras estaba offline, pero el servidor las rechazó al reconectar debido a reglas de negocio (ej. falta de stock o cliente bloqueado). Seleccione una acción correctiva:
+      </p>
+
+      <div class="conflicts-list mb-3" style="max-height: 400px; overflow-y: auto;">
+        @for (conf of offlineService.conflicts(); track conf.id) {
+          <div class="card border border-danger-subtle rounded-3 p-3 mb-3 bg-light">
+            <div class="d-flex justify-content-between align-items-start mb-2">
+              <div>
+                <span class="badge bg-danger text-white me-2">{{ conf.conflictType }}</span>
+                <span class="fw-bold text-dark">{{ conf.localReceipt.invoiceNumber }}</span>
+              </div>
+              <span class="fw-bold text-primary font-monospace">RD$ {{ conf.payload.total | number:'1.2-2' }}</span>
+            </div>
+
+            <div class="alert alert-danger py-1 px-2 font-size-xs mb-2">
+              <strong>Motivo de rechazo del servidor:</strong> {{ conf.errorMessage }}
+            </div>
+
+            <div class="text-secondary font-size-xs mb-3">
+              <strong>Cliente:</strong> {{ conf.payload.customerName }} &bull;
+              <strong>Items:</strong>
+              @for (item of conf.payload.items; track item.productId) {
+                <span>{{ item.quantity }}x {{ item.productName }}; </span>
+              }
+            </div>
+
+            <!-- Resolution Buttons -->
+            <div class="d-flex flex-wrap gap-2 pt-2 border-top">
+              @if (conf.conflictType === 'INSUFFICIENT_STOCK' || conf.conflictType === 'RULE_REJECT') {
+                <button
+                  type="button"
+                  class="btn btn-sm btn-warning fw-bold px-3 touch-btn"
+                  (click)="resolveConflictWithOverride(conf.id)"
+                  title="Autorizar la venta ajustando el inventario para no descontar el dinero ya cobrado"
+                >
+                  ⚡ Forzar Venta (Ajuste de Stock)
+                </button>
+              }
+              @if (conf.conflictType === 'CUSTOMER_BLOCKED' || conf.payload.customerId) {
+                <button
+                  type="button"
+                  class="btn btn-sm btn-primary fw-bold px-3 touch-btn"
+                  (click)="resolveConflictWithCustomerReassign(conf.id)"
+                  title="Reasignar la venta a Consumidor Final para eludir el bloqueo de crédito"
+                >
+                  👤 Reasignar a Consumidor Final
+                </button>
+              }
+              <button
+                type="button"
+                class="btn btn-sm btn-outline-danger fw-bold px-3 touch-btn"
+                (click)="resolveConflictWithRefund(conf.id)"
+                title="Anular la venta y registrar una salida de dinero en caja por devolución"
+              >
+                💵 Anular y Devolver Efectivo
+              </button>
+            </div>
+          </div>
+        } @empty {
+          <div class="text-center py-4 text-muted">
+            <p class="mb-0">No hay conflictos pendientes.</p>
+          </div>
+        }
+      </div>
+
+      <div class="text-end">
+        <button type="button" class="btn btn-secondary px-4" (click)="closeConflictsModal()">
+          Cerrar
+        </button>
+      </div>
+    </div>
+  </div>
+}

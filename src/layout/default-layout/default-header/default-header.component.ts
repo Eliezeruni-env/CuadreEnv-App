@@ -1,9 +1,11 @@
 import { NgTemplateOutlet } from '@angular/common';
 import { ThemeService } from '../../../features/cuadreEnv/services/theme.service';
-import { Component, computed, inject, input } from '@angular/core';
-import { RouterLink, RouterLinkActive } from '@angular/router';
+import { Component, computed, inject, input, signal } from '@angular/core';
+import { Router, RouterLink, RouterLinkActive } from '@angular/router';
 import { AuthService } from '../../../features/cuadreEnv/services/auth.service';
 import { TranslationService } from '../../../features/cuadreEnv/services/translation.service';
+import { CashRegisterService } from '../../../features/cash-register/services/cash-register.service';
+import { PermissionService } from '../../../features/roles/services/permission.service';
 
 import {
   AvatarComponent,
@@ -25,10 +27,12 @@ import {
 } from '@coreui/angular';
 
 import { IconDirective } from '@coreui/icons-angular';
+import { HasModuleDirective } from '../../../app/shared/directives/has-module.directive';
 
 @Component({
   selector: 'app-default-header',
   templateUrl: './default-header.component.html',
+  styleUrls: ['./default-header.component.scss'],
   imports: [
     ContainerComponent,
     HeaderTogglerDirective,
@@ -47,6 +51,7 @@ import { IconDirective } from '@coreui/icons-angular';
     DropdownMenuDirective,
     DropdownItemDirective,
     DropdownDividerDirective,
+    HasModuleDirective,
   ],
 })
 export class DefaultHeaderComponent extends HeaderComponent {
@@ -55,6 +60,13 @@ export class DefaultHeaderComponent extends HeaderComponent {
   public authService = inject(AuthService);
   public translationService = inject(TranslationService);
   public themeService = inject(ThemeService);
+  private readonly permissionService = inject(PermissionService);
+  private cashRegisterService = inject(CashRegisterService);
+  private router = inject(Router);
+
+  isLogoutModalVisible = signal<boolean>(false);
+  hasOpenCashRegister = signal<boolean>(false);
+  openCashRegisterName = signal<string>('');
 
   readonly colorModes: { name: 'light' | 'dark' | 'auto'; text: string; icon: string }[] = [
     { name: 'light', text: 'Light', icon: 'cilSun' },
@@ -85,8 +97,43 @@ export class DefaultHeaderComponent extends HeaderComponent {
 
   sidebarId = input('sidebar1');
 
-  logout() {
+  async promptLogout() {
+    if (!this.permissionService.hasModuleAccess('CashRegister')) {
+      this.hasOpenCashRegister.set(false);
+      this.isLogoutModalVisible.set(true);
+      return;
+    }
+
+    try {
+      const sessionRes = await this.cashRegisterService.getActiveSession();
+      if (sessionRes?.success && sessionRes.data && sessionRes.data.isOpen) {
+        this.hasOpenCashRegister.set(true);
+        this.openCashRegisterName.set(sessionRes.data.name || 'Caja Principal');
+      } else {
+        this.hasOpenCashRegister.set(false);
+      }
+    } catch {
+      this.hasOpenCashRegister.set(false);
+    }
+    this.isLogoutModalVisible.set(true);
+  }
+
+  cancelLogout() {
+    this.isLogoutModalVisible.set(false);
+  }
+
+  confirmLogout() {
+    this.isLogoutModalVisible.set(false);
     this.authService.logout();
+  }
+
+  goToCashRegisterClose() {
+    this.isLogoutModalVisible.set(false);
+    this.router.navigate(['/cash-register']);
+  }
+
+  logout() {
+    this.promptLogout();
   }
 
   setLanguage(language: 'es' | 'en') {

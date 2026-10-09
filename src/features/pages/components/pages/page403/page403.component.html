@@ -1,0 +1,22 @@
+<main class="min-vh-100 d-flex align-items-center justify-content-center px-3 py-5">
+  <section class="card border-0 shadow-sm text-center p-4 p-md-5" style="max-width: 32rem;">
+    <div class="text-warning mb-3">
+      <svg cIcon name="cilLockLocked" size="xl" style="width: 3rem; height: 3rem;" aria-hidden="true"></svg>
+    </div>
+    @if (hasAssignedModules()) {
+      <h1 class="h3 fw-bold mb-2">Sin acceso a este módulo</h1>
+      <p class="text-body-secondary mb-4">No tienes acceso a este módulo. Contacta al administrador.</p>
+      <a class="btn btn-primary align-self-center" [routerLink]="['/dashboard']">
+        Volver al Dashboard
+      </a>
+    } @else {
+      <h1 class="h3 fw-bold mb-2">Bienvenido a CuadreEnv</h1>
+      <p class="text-body-secondary mb-0">
+        Tu cuenta todavía no tiene módulos asignados. Contacta al administrador para configurar tu acceso.
+      </p>
+    }
+    <button type="button" class="btn btn-outline-secondary mt-3" (click)="switchAccount()">
+      Salir e iniciar sesión con otra cuenta
+    </button>
+  </section>
+</main>
